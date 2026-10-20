@@ -1,0 +1,11 @@
+node_modules/
+# 配對 token 與影片清單
+data/
+.playwright-mcp/
+# Android 建置產物
+android/.gradle/
+android/.kotlin/
+android/build/
+android/app/build/
+android/local.properties
+.DS_Store

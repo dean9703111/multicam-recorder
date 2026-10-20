@@ -1,0 +1,28 @@
+{
+  "name": "android-multicam-recorder",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node mac/server.ts",
+    "fake-phone": "node tools/fake-phone.ts",
+    "typecheck": "tsc --noEmit",
+    "android:build": "cd android && JAVA_HOME=${JAVA_HOME:-$(brew --prefix openjdk@21)/libexec/openjdk.jdk/Contents/Home} ./gradlew :app:assembleDebug",
+    "android:install": "sh tools/install-android.sh"
+  },
+  "dependencies": {
+    "@fontsource/barlow": "^5.3.0",
+    "@fontsource/barlow-condensed": "^5.3.0",
+    "@fontsource/martian-mono": "^5.3.0",
+    "htm": "^3.1.1",
+    "qrcode": "^1.5.4",
+    "ws": "^8.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "@types/qrcode": "^1.5.6",
+    "@types/ws": "^8.18.2",
+    "typescript": "^7.0.2"
+  },
+  "description": "Control multiple Android phones as synchronized 4K cameras from a Mac web dashboard over Wi-Fi.",
+  "license": "MIT"
+}

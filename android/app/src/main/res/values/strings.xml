@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">多機錄影</string>
+    <string name="scan">掃描 QR Code</string>
+    <string name="dim">調暗螢幕</string>
+    <string name="undim">恢復亮度</string>
+    <string name="clean">清除已傳完的影片</string>
+    <string name="need_permission">需要相機和麥克風權限才能錄影</string>
+</resources>

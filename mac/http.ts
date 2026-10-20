@@ -1,0 +1,66 @@
+import fs from 'node:fs';
+import type { IncomingMessage, ServerResponse } from 'node:http';
+
+export class HttpError extends Error {
+  status: number;
+  body?: Record<string, unknown>;
+
+  constructor(status: number, message: string, body?: Record<string, unknown>) {
+    super(message);
+    this.status = status;
+    this.body = body;
+  }
+}
+
+export function isLoopback(req: IncomingMessage): boolean {
+  const a = req.socket.remoteAddress;
+  return a === '127.0.0.1' || a === '::1' || a === '::ffff:127.0.0.1';
+}
+
+export function sendJson(res: ServerResponse, status: number, body: unknown): void {
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+  res.end(JSON.stringify(body));
+}
+
+export async function readJson<T>(req: IncomingMessage): Promise<T> {
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const chunk of req as AsyncIterable<Buffer>) {
+    size += chunk.length;
+    if (size > 1024 * 1024) throw new HttpError(413, 'JSON 太大');
+    chunks.push(chunk);
+  }
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}') as T;
+  } catch {
+    throw new HttpError(400, 'JSON 格式錯誤');
+  }
+}
+
+// 支援 Range，<video> 才能拖曳進度、不用整個檔案讀完才播放
+export function sendFile(req: IncomingMessage, res: ServerResponse, file: string, type: string): void {
+  let size: number;
+  try {
+    size = fs.statSync(file).size;
+  } catch {
+    throw new HttpError(404, '找不到檔案');
+  }
+  const headers = { 'Content-Type': type, 'Accept-Ranges': 'bytes', 'Cache-Control': 'no-cache' };
+  const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range ?? '');
+  if (!range || (!range[1] && !range[2])) {
+    res.writeHead(200, { ...headers, 'Content-Length': size });
+    fs.createReadStream(file).pipe(res);
+    return;
+  }
+  let start = range[1] ? Number(range[1]) : size - Number(range[2]);
+  let end = range[1] && range[2] ? Number(range[2]) : size - 1;
+  start = Math.max(0, start);
+  end = Math.min(end, size - 1);
+  if (start > end) {
+    res.writeHead(416, { 'Content-Range': `bytes */${size}` });
+    res.end();
+    return;
+  }
+  res.writeHead(206, { ...headers, 'Content-Length': end - start + 1, 'Content-Range': `bytes ${start}-${end}/${size}` });
+  fs.createReadStream(file, { start, end }).pipe(res);
+}
