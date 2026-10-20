@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8" />
+<title>README 示意圖</title>
+<!-- README 示意圖的原稿（how-it-works、pairing、phone-app）。
+     在專案根目錄執行 python3 -m http.server，打開 http://localhost:8000/docs/mockups.html，
+     把每個 section 各自截圖存到 docs/images/。console.png 和 spec-guide.png 是用模擬手機實際操作控制台截的圖。 -->
+<style>
+@font-face { font-family: 'Barlow Condensed'; font-weight: 600; src: url(../node_modules/@fontsource/barlow-condensed/files/barlow-condensed-latin-600-normal.woff2); }
+@font-face { font-family: 'Barlow Condensed'; font-weight: 700; src: url(../node_modules/@fontsource/barlow-condensed/files/barlow-condensed-latin-700-normal.woff2); }
+@font-face { font-family: 'Barlow'; font-weight: 400; src: url(../node_modules/@fontsource/barlow/files/barlow-latin-400-normal.woff2); }
+@font-face { font-family: 'Barlow'; font-weight: 500; src: url(../node_modules/@fontsource/barlow/files/barlow-latin-500-normal.woff2); }
+@font-face { font-family: 'Martian Mono'; font-weight: 400; src: url(../node_modules/@fontsource/martian-mono/files/martian-mono-latin-400-normal.woff2); }
+@font-face { font-family: 'Martian Mono'; font-weight: 500; src: url(../node_modules/@fontsource/martian-mono/files/martian-mono-latin-500-normal.woff2); }
+
+:root {
+  --bg: #0a0b0d; --panel: #121519; --panel-hi: #191d22; --line: #252a30; --line-hi: #353c45;
+  --text: #ece8e1; --muted: #8b919a; --faint: #596069;
+  --red: #ff3b3b; --red-glow: rgba(255, 59, 59, 0.42); --amber: #ffb000; --green: #3ddc84; --cyan: #59c2ff;
+  --label: 'Barlow Condensed', 'PingFang TC', sans-serif;
+  --body: 'Barlow', 'PingFang TC', sans-serif;
+  --mono: 'Martian Mono', 'SF Mono', Menlo, monospace;
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 30px; background: #333; font-family: var(--body); color: var(--text); display: grid; gap: 30px; justify-content: start; }
+
+.canvas {
+  position: relative;
+  overflow: hidden;
+  border-radius: 14px;
+  background:
+    radial-gradient(900px 420px at 10% -10%, rgba(89, 194, 255, 0.08), transparent 60%),
+    radial-gradient(800px 420px at 110% 110%, rgba(255, 59, 59, 0.07), transparent 60%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.016) 0 1px, transparent 1px 3px),
+    var(--bg);
+}
+.kicker { font-family: var(--label); font-weight: 700; letter-spacing: 0.28em; font-size: 13px; color: var(--muted); }
+.title { font-family: var(--label); font-weight: 700; font-size: 30px; letter-spacing: 0.02em; margin: 4px 0 0; }
+
+/* ---------- 通用：手機外框 ---------- */
+.phone { position: relative; background: #050505; border: 3px solid #2c3037; box-shadow: 0 0 0 7px #15181c, 0 30px 60px -20px rgba(0,0,0,.9); overflow: hidden; }
+.phone.portrait { width: 230px; height: 480px; border-radius: 34px; }
+.phone.landscape { border-radius: 34px; }
+.phone.portrait::before { content: ''; position: absolute; top: 12px; left: 50%; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: #000; box-shadow: 0 0 0 2px #1d2025; z-index: 5; }
+.phone.landscape::before { content: ''; position: absolute; left: 12px; top: 50%; width: 12px; height: 12px; margin-top: -6px; border-radius: 50%; background: #000; box-shadow: 0 0 0 2px #1d2025; z-index: 5; }
+
+.pill { position: absolute; background: rgba(10, 11, 13, 0.72); border-radius: 6px; padding: 7px 11px; color: var(--text); font-size: 13px; line-height: 1.3; }
+.pill b { display: block; font-size: 16px; font-weight: 700; }
+.ok { color: var(--green); }
+.btn { display: inline-block; padding: 8px 12px; border-radius: 6px; background: rgba(60, 64, 72, 0.92); color: var(--text); font-size: 13px; font-weight: 500; letter-spacing: 0.02em; }
+.btn.off { opacity: 0.45; }
+.badge { position: absolute; z-index: 9; width: 30px; height: 30px; border-radius: 50%; background: var(--cyan); color: #06121b; font: 700 17px var(--label); display: grid; place-items: center; box-shadow: 0 0 0 4px rgba(89, 194, 255, 0.25); }
+
+/* 相機畫面：訪談場景 */
+.scene { position: absolute; inset: 0; overflow: hidden;
+  background: linear-gradient(180deg, #3b4a5c 0%, #55657a 55%, #2a2622 55%, #3a322b 100%); }
+.scene .window { position: absolute; left: 8%; top: 10%; width: 22%; height: 34%; background: linear-gradient(160deg, #cfe3f5, #8fb3d6); border: 6px solid #2a3542; }
+.scene .lamp { position: absolute; right: 12%; top: 8%; width: 60px; height: 60px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 226, 160, 0.9), rgba(255, 210, 120, 0) 70%); }
+.scene .plant { position: absolute; right: 10%; bottom: 42%; width: 46px; height: 70px; border-radius: 50% 50% 8px 8px; background: radial-gradient(circle at 50% 30%, #4f8a55, #2f5a36); }
+.scene .person { position: absolute; left: 50%; bottom: 0; width: 34%; height: 78%; transform: translateX(-50%); }
+.scene .person .head { position: absolute; left: 50%; top: 0; width: 34%; aspect-ratio: 1; transform: translateX(-50%); border-radius: 50%; background: #e3b590; box-shadow: inset 0 -6px 0 rgba(0,0,0,.08); }
+.scene .person .hair { position: absolute; left: 50%; top: -2%; width: 36%; height: 16%; transform: translateX(-50%); border-radius: 50% 50% 30% 30%; background: #2b211b; }
+.scene .person .body { position: absolute; left: 0; right: 0; bottom: 0; height: 62%; border-radius: 48% 48% 0 0; background: linear-gradient(180deg, #2f6f9e, #255a82); }
+.scene .desk { position: absolute; left: 0; right: 0; bottom: 0; height: 18%; background: #6b4f3a; border-top: 4px solid #84634a; }
+.scene .mic { position: absolute; left: 58%; bottom: 14%; width: 10px; height: 46px; background: #1b1b1b; border-radius: 5px; }
+.scene .mic::before { content: ''; position: absolute; left: -6px; top: -16px; width: 22px; height: 22px; border-radius: 50%; background: #111; }
+
+/* ---------- 架構圖 ---------- */
+#architecture { width: 1240px; padding: 36px 44px 34px; }
+.arch { display: grid; grid-template-columns: 380px 1fr 300px; align-items: center; margin-top: 26px; }
+.laptop { width: 360px; }
+.laptop .lap-screen { height: 226px; border: 10px solid #1c1f24; border-bottom-width: 14px; border-radius: 12px 12px 0 0; background: var(--bg); padding: 10px; }
+.laptop .base { height: 14px; margin: 0 -22px; border-radius: 0 0 14px 14px; background: linear-gradient(180deg, #2a2e34, #16191d); }
+.mini-top { display: flex; align-items: center; gap: 8px; height: 22px; padding: 0 6px; border-bottom: 1px solid var(--line); }
+.mini-top .dot { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--text); position: relative; }
+.mini-top .dot::after { content: ''; position: absolute; inset: 1px; border-radius: 50%; background: var(--red); }
+.mini-top .rec { margin-left: auto; width: 46px; height: 12px; border-radius: 2px; background: var(--red); }
+.mini-top .stop { width: 30px; height: 12px; border-radius: 2px; background: #2a2f36; }
+.mini-bays { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.mini-bay { height: 156px; border: 1px solid rgba(255, 59, 59, 0.7); border-radius: 4px; padding: 6px; background: var(--panel); }
+.mini-bay .tc { font: 500 20px var(--mono); }
+.mini-bay .tc span { font-size: 9px; color: var(--faint); }
+/* 監看畫面：和模擬手機的測試動畫同一種樣子（漸層＋刻度圈） */
+.mini-bay .mon { position: relative; margin-top: 6px; height: 64px; overflow: hidden;
+  background: radial-gradient(circle at 55% 42%, rgba(255, 77, 141, 0.85), transparent 58%), linear-gradient(105deg, #1c0a0a 34%, #d11f3a 46%, #ffb000 53%, #1c0a0a 64%); }
+.mini-bay.b .mon { background: radial-gradient(circle at 55% 42%, rgba(139, 92, 246, 0.85), transparent 58%), linear-gradient(105deg, #0a1030 34%, #1d4ed8 46%, #22d3ee 53%, #0a1030 64%); }
+.mini-bay .mon::before { content: ''; position: absolute; left: 50%; top: 50%; width: 34px; height: 34px; margin: -17px 0 0 -17px; border: 1px solid rgba(255, 255, 255, 0.6); border-radius: 50%; }
+.mini-bay .mon::after { content: ''; position: absolute; left: calc(50% + 10px); top: calc(50% - 16px); width: 5px; height: 5px; border-radius: 50%; background: #fff; box-shadow: 0 0 6px #fff; }
+.mini-bay .row { margin-top: 7px; height: 8px; border-radius: 2px; background: var(--line-hi); }
+.mini-bay .row.short { width: 60%; }
+.device-label { margin-top: 18px; text-align: center; }
+.device-label b { display: block; font: 700 21px var(--label); letter-spacing: 0.04em; }
+.device-label span { color: var(--muted); font-size: 14px; }
+
+.links { position: relative; height: 300px; }
+.links > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.wifi { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 120px; text-align: center; }
+.wifi .icon { width: 74px; height: 74px; margin: 0 auto; border-radius: 50%; background: var(--panel-hi); border: 1px solid var(--line-hi); display: grid; place-items: center; }
+.wifi span { display: block; margin-top: 8px; font: 700 15px var(--label); letter-spacing: 0.08em; color: var(--muted); }
+.flow-label { position: absolute; left: 50%; transform: translateX(-50%); width: 300px; text-align: center; font-size: 14px; line-height: 1.45; }
+.flow-label small { display: block; color: var(--faint); font-family: var(--mono); font-size: 11px; letter-spacing: 0.02em; }
+.flow-label.top { top: 6px; color: var(--cyan); }
+.flow-label.bottom { bottom: 0; color: #ffb4b4; }
+
+.phones { display: grid; gap: 22px; justify-items: center; }
+.phones .phone.landscape { width: 250px; height: 116px; border-radius: 20px; }
+.phones .phone.landscape::before { width: 8px; height: 8px; margin-top: -4px; left: 9px; }
+.phones .rec-dot { position: absolute; top: 9px; left: 50%; transform: translateX(-50%); z-index: 6; font: 500 10px var(--mono); color: var(--red); background: rgba(10,11,13,.75); padding: 2px 6px; border-radius: 3px; }
+.phone-cap { margin-top: 10px; text-align: center; font-size: 14px; }
+.phone-cap b { font: 700 17px var(--label); letter-spacing: 0.06em; margin-right: 6px; }
+.tag { display: inline-block; margin-left: 6px; padding: 0 6px; border: 1px solid rgba(89, 194, 255, 0.55); border-radius: 2px; color: var(--cyan); font-size: 12px; }
+.more { padding: 6px 14px; border: 1px dashed var(--line-hi); border-radius: 16px; color: var(--muted); font-size: 13px; }
+
+.steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 30px; }
+.step { position: relative; padding: 14px 16px 15px; border: 1px solid var(--line-hi); border-radius: 6px; background: rgba(18, 21, 25, 0.86); }
+.step .n { font: 700 13px var(--label); letter-spacing: 0.2em; color: var(--cyan); }
+.step b { display: block; margin-top: 3px; font: 700 21px var(--label); letter-spacing: 0.03em; }
+.step p { margin: 4px 0 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+.step.hot { border-color: rgba(255, 59, 59, 0.6); }
+.step.hot .n { color: var(--red); }
+
+/* ---------- 配對流程 ---------- */
+#pairing { width: 1420px; padding: 36px 44px 40px; }
+.pair-row { display: grid; grid-template-columns: 330px 250px 250px 1fr; gap: 34px; align-items: start; margin-top: 28px; }
+.pair-col { display: grid; grid-template-rows: 500px auto; justify-items: center; gap: 22px; }
+.pair-col > :first-child { align-self: end; }
+.pair-col .cap { align-self: start; }
+.cap { text-align: center; max-width: 300px; }
+.cap .n { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--cyan); color: #06121b; font: 700 17px var(--label); margin-bottom: 8px; }
+.cap b { display: block; font: 700 20px var(--label); letter-spacing: 0.03em; }
+.cap span { display: block; margin-top: 3px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+
+.mac-modal { width: 330px; border: 1px solid var(--line-hi); border-radius: 8px; background: var(--panel); box-shadow: 0 30px 60px -20px rgba(0,0,0,.9); overflow: hidden; }
+.mac-modal .bar { display: flex; gap: 6px; padding: 9px 12px; background: #1b1e23; border-bottom: 1px solid var(--line); }
+.mac-modal .bar i { width: 10px; height: 10px; border-radius: 50%; background: #3a3f46; }
+.mac-modal .bar span { margin-left: 8px; font: 500 11px var(--mono); color: var(--muted); line-height: 10px; }
+.mac-modal .head { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line); font: 700 20px var(--label); letter-spacing: 0.04em; }
+.mac-modal .head span { font: 600 12px var(--label); padding: 3px 8px; border: 1px solid var(--line-hi); border-radius: 3px; }
+.mac-modal .body { display: grid; grid-template-columns: 150px 1fr; gap: 14px; padding: 16px; }
+.qr { background: #fff; padding: 7px; border-radius: 4px; }
+.qr img { display: block; width: 100%; image-rendering: pixelated; }
+.mac-modal ol { margin: 0; padding-left: 16px; font-size: 12px; line-height: 1.55; color: var(--text); }
+.mac-modal ol li + li { margin-top: 4px; }
+.mac-modal .addr { padding: 0 16px 14px; font-size: 11px; color: var(--muted); }
+.mac-modal .addr code { font-family: var(--mono); color: var(--text); }
+
+.cam-view { position: absolute; inset: 0; background: radial-gradient(circle at 50% 45%, #3a3f46, #15171a 75%); }
+.cam-view .monitor { position: absolute; left: 22px; right: 22px; top: 120px; height: 190px; border-radius: 6px; background: #20242a; border: 2px solid #0b0c0e; transform: perspective(500px) rotateX(8deg); display: grid; place-items: center; }
+.cam-view .monitor .qr { width: 118px; padding: 5px; }
+.cam-view .frame { position: absolute; left: 50%; top: 168px; width: 150px; height: 150px; transform: translateX(-50%); }
+.cam-view .frame::before, .cam-view .frame::after { content: ''; position: absolute; width: 30px; height: 30px; border: 3px solid #fff; }
+.cam-view .frame::before { left: 0; top: 0; border-right: 0; border-bottom: 0; border-radius: 8px 0 0 0; }
+.cam-view .frame::after { right: 0; bottom: 0; border-left: 0; border-top: 0; border-radius: 0 0 8px 0; }
+.link-chip { position: absolute; left: 14px; right: 14px; bottom: 74px; display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 22px; background: #f1f3f4; color: #1f1f1f; font-size: 12px; box-shadow: 0 6px 18px rgba(0,0,0,.4); }
+.link-chip .ic { flex: none; width: 22px; height: 22px; border-radius: 50%; background: #1a73e8; display: grid; place-items: center; }
+.link-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); font-size: 10.5px; }
+.shutter { position: absolute; left: 50%; bottom: 18px; width: 46px; height: 46px; margin-left: -23px; border-radius: 50%; border: 4px solid #fff; }
+
+.browser { position: absolute; inset: 0; background: #0a0b0d; }
+.browser .urlbar { margin: 34px 12px 0; display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 18px; background: #2a2d31; font-size: 11px; color: #c9ccd1; }
+.browser .urlbar em { font-style: normal; color: #f28b82; font-size: 10px; white-space: nowrap; }
+.browser .urlbar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); font-size: 10px; }
+.browser .page { padding: 34px 18px; }
+.browser h4 { margin: 0 0 10px; font-size: 22px; }
+.browser p { margin: 0; color: #b9bdc4; font-size: 13px; line-height: 1.6; }
+.browser .page { padding-top: 26px; }
+.browser .go { display: block; margin: 20px 0 22px; padding: 14px; border-radius: 6px; background: var(--red); color: #fff; font-size: 15px; font-weight: 700; text-align: center; box-shadow: 0 0 0 4px rgba(255, 59, 59, 0.25); }
+.browser h5 { margin: 0 0 6px; font-size: 14px; }
+.browser .note { font-size: 11px; color: #8b919a; }
+.browser .note u { color: var(--cyan); }
+.tap { position: absolute; width: 44px; height: 44px; border-radius: 50%; background: rgba(255, 255, 255, 0.28); border: 2px solid rgba(255,255,255,.7); z-index: 7; }
+
+#pairing .phone.landscape { width: 392px; height: 184px; }
+.toast { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); padding: 9px 16px; border-radius: 18px; background: rgba(40, 43, 48, 0.95); color: #fff; font-size: 13px; white-space: nowrap; z-index: 6; }
+
+/* ---------- App 畫面說明 ---------- */
+#app { width: 1240px; padding: 36px 44px 40px; }
+#app .stage { position: relative; margin: 34px auto 0; width: 1020px; }
+#app .phone.landscape { width: 1020px; height: 470px; }
+.phone-screen { position: absolute; inset: 0; background: #000; }
+.preview { position: absolute; top: 0; height: 100%; left: 50%; aspect-ratio: 16 / 9; transform: translateX(-50%); }
+#app .pill { font-size: 15px; padding: 9px 14px; }
+#app .pill b { font-size: 21px; }
+.timer { left: 50%; top: 16px; transform: translateX(-50%); font: 500 25px var(--mono); color: var(--red); padding: 7px 16px; white-space: nowrap; }
+.legend-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px 24px; margin-top: 30px; }
+/* 構圖輔助框：框外調暗，錄影照樣是 16:9 */
+.guide { position: absolute; top: 0; bottom: 0; left: 50%; width: 31.64%; transform: translateX(-50%); border-left: 2px solid rgba(255, 255, 255, 0.85); border-right: 2px solid rgba(255, 255, 255, 0.85); box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4); }
+.guide span { position: absolute; left: 10px; bottom: 12px; font: 500 13px var(--mono); text-shadow: 0 0 4px #000; }
+.legend-row div { display: grid; grid-template-columns: 30px 1fr; gap: 10px; align-items: start; font-size: 14px; line-height: 1.5; color: var(--muted); }
+.legend-row div b { display: block; color: var(--text); font-size: 15px; }
+.legend-row .badge { position: static; }
+.warn-strip { display: flex; align-items: center; gap: 14px; margin-top: 24px; padding: 12px 16px; border: 1px solid rgba(255, 176, 0, 0.45); border-radius: 6px; background: rgba(255, 176, 0, 0.08); font-size: 14px; color: #ffd27a; }
+.warn-strip .sample { font: 500 17px var(--mono); color: var(--amber); background: rgba(10, 11, 13, 0.8); padding: 5px 12px; border-radius: 6px; white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<!-- ============ 架構圖 ============ -->
+<section id="architecture" class="canvas">
+  <div class="kicker">HOW IT WORKS</div>
+  <div class="title">電腦當控制台，手機當攝影機，全部走同一個 Wi-Fi</div>
+  <div class="arch">
+    <div>
+      <div class="laptop">
+        <div class="lap-screen">
+          <div class="mini-top"><span class="dot"></span><span class="rec"></span><span class="stop"></span></div>
+          <div class="mini-bays">
+            <div class="mini-bay"><div class="tc">12:34 <span>/ 30:00</span></div><div class="mon"></div><div class="row"></div><div class="row short"></div></div>
+            <div class="mini-bay b"><div class="tc">12:34 <span>/ 30:00</span></div><div class="mon"></div><div class="row"></div><div class="row short"></div></div>
+          </div>
+        </div>
+        <div class="base"></div>
+      </div>
+      <div class="device-label"><b>電腦（macOS／Windows）</b><span>網頁控制台＋本機伺服器・收檔、驗證、播放</span></div>
+    </div>
+
+    <div class="links">
+      <svg viewBox="0 0 500 300" preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          <marker id="ah-cyan" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#59c2ff"/></marker>
+          <marker id="ah-red" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#ff7b7b"/></marker>
+        </defs>
+        <path d="M10 118 C 170 70, 330 70, 490 118" fill="none" stroke="#59c2ff" stroke-width="3" stroke-dasharray="2 7" stroke-linecap="round" marker-end="url(#ah-cyan)"/>
+        <path d="M490 182 C 330 230, 170 230, 10 182" fill="none" stroke="#ff7b7b" stroke-width="5" stroke-linecap="round" marker-end="url(#ah-red)"/>
+      </svg>
+      <div class="flow-label top">開始／停止指令、對時<small>WebSocket</small></div>
+      <div class="wifi">
+        <div class="icon">
+          <svg width="40" height="32" viewBox="0 0 40 32" aria-hidden="true"><path d="M2 10a26 26 0 0 1 36 0M8 16a17 17 0 0 1 24 0M14 22a8 8 0 0 1 12 0" fill="none" stroke="#ece8e1" stroke-width="3.2" stroke-linecap="round"/><circle cx="20" cy="28" r="3" fill="#ece8e1"/></svg>
+        </div>
+        <span>同一個 WI-FI</span>
+      </div>
+      <div class="flow-label bottom">影片邊錄邊傳、停止後分段驗證<small>HTTP</small></div>
+    </div>
+
+    <div class="phones">
+      <div>
+        <div class="phone landscape"><div class="scene"><div class="window"></div><div class="lamp"></div><div class="person"><div class="body"></div><div class="head"></div><div class="hair"></div></div><div class="desk"></div></div><div class="rec-dot">● REC 12:34</div></div>
+        <div class="phone-cap"><b>CAM A</b>ROG Phone 6D<span class="tag">外接麥克風</span></div>
+      </div>
+      <div>
+        <div class="phone landscape"><div class="scene" style="background: linear-gradient(180deg, #4a3f5c 0%, #66597a 55%, #2a2622 55%, #3a322b 100%);"><div class="plant"></div><div class="person" style="left: 42%;"><div class="body" style="background: linear-gradient(180deg, #2f6f9e, #255a82);"></div><div class="head"></div><div class="hair"></div></div><div class="desk"></div></div><div class="rec-dot">● REC 12:34</div></div>
+        <div class="phone-cap"><b>CAM B</b>Pixel 11 Pro</div>
+      </div>
+      <div class="more">＋ 最多 10 台 Android 手機</div>
+    </div>
+  </div>
+
+  <div class="steps">
+    <div class="step hot"><div class="n">STEP 1</div><b>按 R 開始</b><p>電腦先跟每台手機對時，約好同一刻一起開始錄影</p></div>
+    <div class="step"><div class="n">STEP 2</div><b>邊錄邊傳</b><p>錄影中手機就把已經寫好的部分持續傳到電腦</p></div>
+    <div class="step hot"><div class="n">STEP 3</div><b>按 S 停止</b><p>只剩最後一小段要補，再用分段雜湊確認檔案一模一樣</p></div>
+    <div class="step"><div class="n">STEP 4</div><b>馬上播放</b><p>幾秒內就能在網頁上看原檔，畫面和聲音都有</p></div>
+  </div>
+</section>
+
+<!-- ============ 配對流程 ============ -->
+<section id="pairing" class="canvas">
+  <div class="kicker">PAIRING</div>
+  <div class="title">配對只要掃一次 QR Code，用手機相機掃就可以</div>
+  <div class="pair-row">
+    <div class="pair-col">
+      <div class="mac-modal">
+        <div class="bar"><i></i><i></i><i></i><span>localhost:8787</span></div>
+        <div class="head">配對手機 <span>關閉</span></div>
+        <div class="body">
+          <div class="qr"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAAEsCAYAAAB5fY51AAAAAklEQVR4AewaftIAAAj3SURBVO3BQZIcybIkQVGjvP+VdbD7O3c8iqyYsoYwp38gSQsMkrTEIElLDJK0xCBJSwyStMQgSUsMkrTEIElLfPgLSfiXtOUNSXiqLfo/SbhpyxZJ+Je05WSQpCUGSVpikKQlBklaYpCkJQZJWmKQpCUGSVriw5e0ZYMkvCEJN215KgknbfmGJDzVlpMkPNWWNyThqbY81ZYtkvDUIElLDJK0xCBJSwyStMQgSUsMkrTEIElLfHhJEt7Qljck4aQtN0k4acsbknDTlp/Wljck4Q1t+Q2S8Ia2/LRBkpYYJGmJQZKWGCRpiUGSlhgkaYlBkpYYJGmJD/oRSbhpy2/Qlt8gCTdteUNbTpJwk4STtuh/M0jSEoMkLTFI0hKDJC0xSNISgyQtMUjSEh/0ayXhpi1PJeE3aMtTSfiGJDzVFn3XIElLDJK0xCBJSwyStMQgSUsMkrTEIElLDJK0xIeXtOVf0pabJPy0JNy05Q1JOEnCU235hiSctGWLtvxXDJK0xCBJSwyStMQgSUsMkrTEIElLDJK0xIcvSYK+qy03SThpy00SbtpykoSbtpwk4aYtJ0m4acsbknDSlqeS8C8ZJGmJQZKWGCRpiUGSlhgkaYlBkpYYJGmJQZKW+PAX2qL/TRKeSsJNW7ZIwklbbpLwL2mL/s8gSUsMkrTEIElLDJK0xCBJSwyStMQgSUsMkrTEh7+QhJu2nCRhi7bctOUkCTdt+WlJuGnLG9pykoSn2nKThKeS8IYkbNGWnzZI0hKDJC0xSNISgyQtMUjSEoMkLTFI0hIfXtKWp5LwVFve0JabJJy05SYJWyThN2jLTRKeastJEp5qy00SfoMk3LTlZJCkJQZJWmKQpCUGSVpikKQlBklaYpCkJQZJWiL9g4sk3LTlJAlPteUmCU+15akkvKEtJ0nYoi03SXiqLVsk4aQtN0m4actJEm7a8tMGSVpikKQlBklaYpCkJQZJWmKQpCUGSVoi/YMvSMJTbXkqCSdt+YYknLTlJgknbXkqCTdteUMSnmrLSRLe0JabJPy0tnxDEn6DtpwMkrTEIElLDJK0xCBJSwyStMQgSUsMkrTEIElLfPgLSbhpy0kS3tCWkyTctOWmLU+15ae15SYJN205ScJNW36Dttwk4am2nCThpi0nSbhpy1Nt+Q0GSVpikKQlBklaYpCkJQZJWmKQpCUGSVriw19oy00SfloSnmrLNyThv6ItN0k4actTSbhpy0lb3pCEp9ryW7TlqSQ81ZaTQZKWGCRpiUGSlhgkaYlBkpYYJGmJQZKWGCRpiQ9/IQk3bXkqCSdtuUnCSRLe0JabJPy0trwhCb9BEr6hLRu05SYJT7XlqbY8NUjSEoMkLTFI0hKDJC0xSNISgyQtMUjSEoMkLZH+wRck4aQtTyXhpi1bJOGkLTdJOGnLNyThpC1bJOE3aMtNEp5qy00SnmrLTxskaYlBkpYYJGmJQZKWGCRpiUGSlhgkaYn0D16QhJu2nCThDW15Kgk3bTlJwk1bTpLwW7TlJAk3bTlJwje0ZYMkfENbfloSbtpyMkjSEoMkLTFI0hKDJC0xSNISgyQtMUjSEoMkLfFhkbbcJOGkLTdJeKotT7XlDW25ScJJW96QhKfa8oYknLTlqbbcJOEmCU+15acNkrTEIElLDJK0xCBJSwyStMQgSUsMkrTEhy9JwklbbpJw0panknDTlqeS8FRbnmrLG5Jw05b/iiTctOWpJJy05RvacpKEp9ry1CBJSwyStMQgSUsMkrTEIElLDJK0xCBJSwyStET6By9Iwm/Qljck4Tdoy00SbtqyQRLe0JabJPy0ttwkYYu2nAyStMQgSUsMkrTEIElLDJK0xCBJSwyStMSHl7TlJglPteUkCd/QlpO23CThpC3/kiQ81Zbfoi1PJeEkCTdtuUnCSVueSsJTgyQtMUjSEoMkLTFI0hKDJC0xSNISgyQtMUjSEh/+QhKeastNW06S8FRbbpLwVBLekISTtty05SYJP60tTyXhG9pykoSbtpwk4aYtJ0m4ScJNWzYYJGmJQZKWGCRpiUGSlhgkaYlBkpYYJGmJQZKW+PAlbTlJwk1bnkrCb9CWmyQ81ZY3tOWpJJwk4am23CThqbb8Bm25ScJNEk7acpOEk7Y8NUjSEoMkLTFI0hKDJC0xSNISgyQtMUjSEukfXCThpi3/kiSctOUNSThpyxuScNOWp5LwX9GWmyRs0ZafNkjSEoMkLTFI0hKDJC0xSNISgyQtMUjSEoMkLfHhF0nCSVtukvCGtvy0JDyVhG9oywZt+YYk/LQkbNGWmySctOWpQZKWGCRpiUGSlhgkaYlBkpYYJGmJQZKWSP9A/7MknLTlJgknbdkiCb9BW26ScNOWkyQ81ZY3JOGmLSdJuGnLSRJu2nIySNISgyQtMUjSEoMkLTFI0hKDJC0xSNISgyQt8eEvJOFf0pabtpwkYYsk3LTlp7XlqSTctGWLJJy05bdIwk8bJGmJQZKWGCRpiUGSlhgkaYlBkpYYJGmJD1/Slg2S8A1JOGnLU0l4Q1tuknDSlpsknCThDUl4qi03SXiqLf8VbXlqkKQlBklaYpCkJQZJWmKQpCUGSVpikKQlBkla4sNLkvCGtvwGSbhpy1NteSoJTyXhpi1PJeGkLW9IwlNJ2KItTyXhpi0ngyQtMUjSEoMkLTFI0hKDJC0xSNISgyQtMUjSEh/0/00STtryhrbcJOGkLTdJeKotTyXhpi1PteUkCTdtOUnCFm15apCkJQZJWmKQpCUGSVpikKQlBklaYpCkJT5IX5AE7ZWEp9ry0wZJWmKQpCUGSVpikKQlBklaYpCkJQZJWmKQpCU+vKQt/yVteSoJTyXhpC1vaMtNEk7a8lsk4aQtN0k4acsb2nKThA0GSVpikKQlBklaYpCkJQZJWmKQpCUGSVriw5ck4V+ShJO2/EuScNOWkyQ81Zabttwk4SQJTyXht2jLU0k4actTgyQtMUjSEoMkLTFI0hKDJC0xSNISgyQtMUjSEukfSNICgyQtMUjSEoMkLTFI0hKDJC0xSNISgyQt8f8AHU78WvuYhDAAAAAASUVORK5CYII=" alt="" /></div>
+          <ol>
+            <li>手機和電腦連同一個 Wi-Fi</li>
+            <li>用手機相機掃這個 QR Code，點開連結</li>
+            <li>按網頁上的「打開 App 並配對」</li>
+            <li>連上之後會出現手機名稱</li>
+          </ol>
+        </div>
+        <div class="addr">手機會連到 <code>http://192.168.1.20:8787</code></div>
+      </div>
+      <div class="cap"><span class="n">1</span><b>電腦網頁按「配對手機」</b><span>畫面上會出現 QR Code，10 分鐘內有效</span></div>
+    </div>
+
+    <div class="pair-col">
+      <div class="phone portrait">
+        <div class="cam-view">
+          <div class="monitor"><div class="qr"><img src="data:image/png;base64,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" alt="" /></div></div>
+          <div class="frame"></div>
+          <div class="link-chip"><span class="ic"><svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></svg></span><span>http://192.168.1.20:8787/pair?code=…</span></div>
+          <div class="shutter"></div>
+          <div class="tap" style="left: 92px; bottom: 70px;"></div>
+        </div>
+      </div>
+      <div class="cap"><span class="n">2</span><b>用手機相機掃描</b><span>點一下畫面上出現的連結</span></div>
+    </div>
+
+    <div class="pair-col">
+      <div class="phone portrait">
+        <div class="browser">
+          <div class="urlbar"><em>不安全</em><span>192.168.1.20:8787/pair?code=…</span></div>
+          <div class="page">
+            <h4>配對這支手機</h4>
+            <p>按下按鈕會打開「多機錄影」App，並自動完成配對。</p>
+            <span class="go">打開 App 並配對</span>
+            <h5>還沒安裝 App？</h5>
+            <p class="note">按上面的按鈕，或<u>直接下載 APK</u>。裝好後回到這一頁，再按一次「打開 App 並配對」。</p>
+          </div>
+          <div class="tap" style="left: 116px; top: 216px;"></div>
+        </div>
+      </div>
+      <div class="cap"><span class="n">3</span><b>按「打開 App 並配對」</b><span>App 會自動打開；還沒安裝的話會先下載 App。第一次會詢問相機和麥克風權限</span></div>
+    </div>
+
+    <div class="pair-col">
+      <div class="phone landscape">
+        <div class="phone-screen">
+          <div class="preview"><div class="scene"><div class="window"></div><div class="lamp"></div><div class="person"><div class="body"></div><div class="head"></div><div class="hair"></div></div><div class="desk"></div></div></div>
+          <div class="pill" style="left: 14px; top: 14px;"><b>Pixel11Pro</b><span class="ok">已連線到電腦</span></div>
+          <div class="toast">配對完成：Pixel11Pro</div>
+        </div>
+      </div>
+      <div class="cap"><span class="n">4</span><b>完成！</b><span>電腦網頁上會多一個這支手機的監看區，之後開始和停止都由電腦控制</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ App 畫面說明 ============ -->
+<section id="app" class="canvas">
+  <div class="kicker">PHONE APP</div>
+  <div class="title">手機 App：架好之後就不用再碰它</div>
+  <div class="stage">
+    <div class="phone landscape">
+      <div class="phone-screen">
+        <div class="preview"><div class="scene"><div class="window"></div><div class="lamp"></div><div class="plant"></div><div class="person"><div class="body"></div><div class="head"></div><div class="hair"></div></div><div class="desk"></div><div class="mic"></div></div><div class="guide"><span>9:16</span></div></div>
+        <div class="pill" style="left: 22px; top: 16px;"><b>ROG6D</b><span class="ok">已連線到電腦</span></div>
+        <div class="pill timer">● REC 12:34 / 30:00</div>
+        <div class="pill" style="right: 22px; top: 16px;">收音：外接 USB（USB Audio）</div>
+        <div class="pill" style="left: 22px; bottom: 16px;">邊錄邊傳中</div>
+        <div style="position: absolute; right: 22px; bottom: 16px; display: flex; gap: 8px;">
+          <span class="btn off">清除已傳完的影片（3）</span><span class="btn">調暗螢幕</span><span class="btn off">掃描 QR Code</span>
+        </div>
+      </div>
+    </div>
+    <span class="badge" style="left: 6px; top: -12px;">1</span>
+    <span class="badge" style="left: 366px; top: -12px;">2</span>
+    <span class="badge" style="right: 6px; top: -12px;">3</span>
+    <span class="badge" style="left: 6px; bottom: -12px;">4</span>
+    <span class="badge" style="right: 152px; bottom: -12px;">5</span>
+    <span class="badge" style="right: 6px; bottom: -12px;">6</span>
+    <span class="badge" style="left: 640px; top: 220px;">7</span>
+  </div>
+  <div class="legend-row">
+    <div><span class="badge">1</span><span><b>手機名稱、連線狀態</b>名稱可以在電腦上改，也會用在檔名</span></div>
+    <div><span class="badge">2</span><span><b>錄影計時</b>開始和停止都由電腦控制，30 分鐘自動停止</span></div>
+    <div><span class="badge">3</span><span><b>收音來源</b>接上 USB 或耳機孔麥克風會自動改用它</span></div>
+    <div><span class="badge">4</span><span><b>傳輸狀態</b>邊錄邊傳、收尾中，或「影片都已傳到電腦」</span></div>
+    <div><span class="badge">5</span><span><b>調暗螢幕</b>App 要一直開著，長時間錄影時省電降溫</span></div>
+    <div><span class="badge">6</span><span><b>掃描、清除檔案</b>錄影中會停用，避免誤觸中斷錄影</span></div>
+    <div><span class="badge">7</span><span><b>構圖輔助框</b>在電腦上選 9:16、4:5 或 1:1，錄影照樣是 16:9</span></div>
+  </div>
+  <div class="warn-strip"><span class="sample">● REC 27:12 / 30:00　剩 02:48</span>最後 3 分鐘計時會變成琥珀色並顯示剩餘時間，電腦網頁也會跳出提示並發出提示音</div>
+</section>
+
+</body>
+</html>

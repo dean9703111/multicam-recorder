@@ -264,6 +264,9 @@ android/app/src/main/kotlin/dev/multicam/recorder/
 tools/
   fake-phone.ts            模擬手機，也是通訊格式的參考實作
   install-android.sh       把 APK 裝到所有接上的手機
+docs/
+  images/                  README 的截圖和示意圖
+  mockups.html             示意圖的原稿，更新方式寫在檔案開頭
 ```
 
 ### 傳輸流程
