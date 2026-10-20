@@ -1,14 +1,14 @@
-// 手機 ↔ Mac 的通訊格式，Android App 依照這份實作。
+// 手機 ↔ 電腦的通訊格式，Android App 依照這份實作。
 //
-// 1. QR Code 的內容是網址 http://<Mac>:8787/pair?code=<配對碼>。
-//    App 內掃描：直接從網址取出 Mac 位址和配對碼。
-//    用手機相機掃描：打開的網頁有按鈕，會用 multicam://pair?server=<Mac 位址>&code=<配對碼> 打開 App。
-//    拿到之後 POST {Mac}/api/pair 換到 deviceToken（之後都用它）。
+// 1. QR Code 的內容是網址 http://<電腦>:8787/pair?code=<配對碼>。
+//    App 內掃描：直接從網址取出電腦位址和配對碼。
+//    用手機相機掃描：打開的網頁有按鈕，會用 multicam://pair?server=<電腦位址>&code=<配對碼> 打開 App。
+//    拿到之後 POST {電腦}/api/pair 換到 deviceToken（之後都用它）。
 // 2. 連 WebSocket {url}/ws/device?token=<deviceToken>，第一則訊息送 hello。
 //    定期送 sync 對時：offset = t1 - (t0 + t2) / 2，t2 是手機收到回覆的時間，取來回最短的那次。
-// 3. 收到 start 後，在 startAt（Mac 時間）開始錄影；錄影中就用
+// 3. 收到 start 後，在 startAt（電腦時間）開始錄影；錄影中就用
 //    PUT /api/upload/:fileId?offset=N 把檔案已寫入的部分邊錄邊傳（header 帶 X-Device-Token）。
-//    傳失敗時用 GET /api/upload/:fileId 查 Mac 已收到多少，從那裡續傳。
+//    傳失敗時用 GET /api/upload/:fileId 查電腦已收到多少，從那裡續傳。
 // 4. 停止後：傳完剩下的位元組 → POST finish → 把整個檔案以 CHUNK_SIZE 分段算 SHA-256
 //    → POST verify，依回覆補傳 resend 列出的分段，再 verify 一次，直到 ok。
 //    （MP4 在停止時會改寫檔頭，所以第 0 段幾乎一定要補傳。）
@@ -19,7 +19,10 @@
 // - WebSocket 斷線時照常錄影和上傳；recordingStarted、recordingStopped 等訊息先排隊，連回來再送。
 //   完整的參考實作在 tools/fake-phone.ts。
 
-export type Resolution = '2160p' | '1080p' | '720p';
+export type Resolution = '2160p' | '1440p' | '1080p' | '720p';
+
+// 構圖輔助框：只疊在預覽畫面上，錄影永遠是 16:9
+export type Guide = 'none' | '9:16' | '4:5' | '1:1';
 
 export interface RecordingSpec {
   resolution: Resolution;
@@ -27,6 +30,7 @@ export interface RecordingSpec {
   bitrate: number; // bps
   maxDurationSec: number;
   warnBeforeSec: number; // 剩這麼多秒時提醒
+  guide: Guide;
 }
 
 // /api/pairing 回傳的配對資訊（模擬手機用）
@@ -59,19 +63,20 @@ export interface DeviceStatus {
 
 export type StopReason = 'user' | 'maxDuration' | 'error';
 
-// 手機 → Mac
+// 手機 → 電腦
 export type DeviceMessage =
   | { type: 'hello'; model: string; appVersion: string }
   | { type: 'sync'; t0: number }
   | ({ type: 'status' } & DeviceStatus)
-  | { type: 'recordingStarted'; fileId: string; startedAt: number } // 換算成 Mac 時間
+  // startedAt 要換算成電腦時間；width、height 是實際錄的解析度（手機不支援要求的解析度時會降級）
+  | { type: 'recordingStarted'; fileId: string; startedAt: number; width?: number; height?: number }
   | { type: 'recordingStopped'; fileId: string; reason: StopReason; durationMs: number; size: number }
   | { type: 'recordingFailed'; fileId: string; error: string };
 
-// Mac → 手機
+// 電腦 → 手機
 export type ServerMessage =
   | { type: 'welcome'; name: string; serverTime: number; spec: RecordingSpec }
-  | ({ type: 'config' } & RecordingSpec) // Mac 改了錄影設定，手機可以先把相機準備好
+  | ({ type: 'config' } & RecordingSpec) // 電腦改了錄影設定，手機可以先把相機準備好
   | { type: 'sync'; t0: number; t1: number }
   | ({ type: 'start'; fileId: string; takeId: string; fileName: string; startAt: number } & RecordingSpec)
   | { type: 'stop'; fileId: string }

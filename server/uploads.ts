@@ -67,7 +67,7 @@ export async function writeChunk(f: FileEntry, offset: number, req: IncomingMess
   return sizeOf(file);
 }
 
-// 手機傳完最後一段後呼叫。Mac 這時就開始算雜湊，跟手機同時算，比較快。
+// 手機傳完最後一段後呼叫。電腦這時就開始算雜湊，跟手機同時算，比較快。
 export function finish(f: FileEntry, size: number): void {
   const file = partPath(f);
   const current = sizeOf(file);

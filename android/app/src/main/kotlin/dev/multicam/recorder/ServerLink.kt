@@ -12,9 +12,9 @@ import org.json.JSONObject
 import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 
-// 和 Mac 的 WebSocket 連線。所有狀態都只在主執行緒改動。
+// 和電腦的 WebSocket 連線。所有狀態都只在主執行緒改動。
 // 斷線時照常錄影；重要的訊息（開始、停止、失敗）先排隊，連回來再送。
-class MacLink(private val store: Store, private val listener: Listener) {
+class ServerLink(private val store: Store, private val listener: Listener) {
     interface Listener {
         fun onConnectionChanged(connected: Boolean)
         fun onUnpaired()
@@ -30,7 +30,7 @@ class MacLink(private val store: Store, private val listener: Listener) {
     var connected = false
         private set
 
-    // Mac 時間 - 手機時間（毫秒）
+    // 電腦時間 - 手機時間（毫秒）
     var clockOffset = 0L
         private set
 

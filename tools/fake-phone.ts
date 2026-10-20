@@ -1,5 +1,5 @@
-// 模擬一支手機，在沒有實機的情況下測試 Mac 端：配對 → 連線 → 收到指令就用 ffmpeg
-// 產生測試影片（彩色測試畫面加嗶聲），並照 mac/protocol.ts 的流程邊錄邊傳、停止後驗證。
+// 模擬一支手機，在沒有實機的情況下測試電腦端：配對 → 連線 → 收到指令就用 ffmpeg
+// 產生測試影片（漸層動畫加嗶聲），並照 server/protocol.ts 的流程邊錄邊傳、停止後驗證。
 //
 // 用法：node tools/fake-phone.ts --model "Pixel 11 Pro" [--tone 660] [--mic "手機內建"] [--server http://127.0.0.1:8787]
 
@@ -18,13 +18,13 @@ import {
   type ServerMessage,
   type StopReason,
   type VerifyResponse,
-} from '../mac/protocol.ts';
+} from '../server/protocol.ts';
 
 const { values: args } = parseArgs({
   options: {
     model: { type: 'string', default: 'Pixel 11 Pro' },
     tone: { type: 'string', default: '440' },
-    mic: { type: 'string', default: '模擬麥克風' }, // 回報給 Mac 的收音來源
+    mic: { type: 'string', default: '模擬麥克風' }, // 回報給電腦的收音來源
     server: { type: 'string', default: 'http://127.0.0.1:8787' },
   },
 });
@@ -35,7 +35,7 @@ const dataDir = process.env.RECORDER_DATA_DIR ?? path.join(import.meta.dirname, 
 const home = path.resolve(dataDir, 'fake-phones', slug);
 // 依伺服器的埠號分開存，同時開好幾個伺服器測試時才不會連錯
 const credsFile = path.join(home, `creds-${new URL(args.server).port || '80'}.json`);
-const SIZE: Record<Resolution, string> = { '2160p': '3840x2160', '1080p': '1920x1080', '720p': '1280x720' };
+const SIZE: Record<Resolution, string> = { '2160p': '3840x2160', '1440p': '2560x1440', '1080p': '1920x1080', '720p': '1280x720' };
 const PIECE = 4 * 1024 * 1024; // 每次 PUT 的大小
 const TAIL_GUARD = 256 * 1024; // 錄影中最後這段可能還在寫入，先不傳
 
@@ -51,7 +51,7 @@ interface Creds {
 }
 
 async function pair(): Promise<Creds> {
-  // 真的手機是掃 QR Code；模擬器在 Mac 本機，直接跟伺服器要 QR Code 的內容
+  // 真的手機是掃 QR Code；模擬器在電腦本機，直接跟伺服器要 QR Code 的內容
   const r = await fetch(`${args.server}/api/pairing`, { method: 'POST' });
   if (!r.ok) throw new Error(`拿不到配對碼：HTTP ${r.status}`);
   const { payload } = (await r.json()) as { payload: QrPayload };
@@ -76,7 +76,7 @@ const auth = () => ({ 'X-Device-Token': creds.token });
 
 let ws: WebSocket | undefined;
 const outbox: DeviceMessage[] = [];
-let clockOffset = 0; // Mac 時間 - 本機時間
+let clockOffset = 0; // 電腦時間 - 本機時間
 let bestRtt = Infinity;
 const serverNow = () => Date.now() + clockOffset;
 
@@ -101,7 +101,7 @@ function connect(): void {
   socket.on('close', async (code) => {
     ws = undefined;
     if (code === 4001) {
-      log('Mac 說這支手機沒有配對，重新配對');
+      log('電腦說這支手機沒有配對，重新配對');
       try {
         creds = await pair();
       } catch (e) {
@@ -133,10 +133,10 @@ function onMessage(m: ServerMessage): void {
       break;
     case 'welcome':
     case 'rename':
-      log(`Mac 上的名稱：${m.name}`);
+      log(`電腦上的名稱：${m.name}`);
       break;
     case 'config':
-      log(`Mac 的錄影設定改成 ${m.resolution}`);
+      log(`電腦的錄影設定改成 ${m.resolution}，輔助框 ${m.guide}`);
       break;
     case 'error':
       log(m.message);
@@ -188,6 +188,54 @@ interface Rec {
 
 let rec: Rec | undefined;
 
+// 測試畫面：流動的漸層上有一圈刻度，白點每 3 秒繞一圈，下方是音量表；聲音是每秒嗶一聲。
+// 兩支模擬手機同時開始時，白點的位置和嗶聲都會對齊。顏色依手機名稱挑，方便分辨是哪一台。
+// 先用 960×540 畫再放大到要求的解析度，4K 也能即時產生。
+const PALETTES = [
+  { a: ['1c0a0a', 'd11f3a', 'ffb000', '1c0a0a'], b: ['ff4d8d', '1c0a0a'] }, // 紅橘
+  { a: ['0a1030', '1d4ed8', '22d3ee', '0a1030'], b: ['8b5cf6', '0a1030'] }, // 藍紫
+  { a: ['04140f', '0f766e', '3ddc84', '04140f'], b: ['a3e635', '04140f'] }, // 綠
+  { a: ['140b24', '7c3aed', 'f472b6', '140b24'], b: ['fb923c', '140b24'] }, // 粉紫
+];
+
+function testPattern(width: number, height: number, fps: number): string[] {
+  const nameSum = [...model].reduce((n, c) => n + c.codePointAt(0)!, 0);
+  const { a, b } = PALETTES[nameSum % PALETTES.length];
+  const colors = (list: string[]) => list.map((c, i) => `c${i}=0x${c}`).join(':');
+  const R = 150; // 刻度圈的半徑
+  const dist = (x: string, y: string) => `hypot(X-(${x}),Y-(${y}))`;
+  // 12 個刻度點，3、6、9、12 點鐘的大一點
+  const tick = 'round(atan2(Y-H/2,X-W/2)/(PI/6))';
+  const tickDist = dist(`W/2+${R + 18}*cos(${tick}*PI/6)`, `H/2+${R + 18}*sin(${tick}*PI/6)`);
+  const dial = [
+    `110*exp(-pow(${dist('W/2', 'H/2')}-${R},2)/5)`, // 圈
+    `230*clip(if(eq(mod(${tick},3),0),3.2,2.2)-${tickDist},0,1)`, // 刻度
+    `230*clip(4-${dist('W/2', 'H/2')},0,1)`, // 圓心
+  ].join('+');
+  const dot = `255*clip(9.5-${dist('18', '18')},0,1)+110*exp(-pow(${dist('18', '18')},2)/50)`;
+  const still = (size: string, alpha: string) =>
+    `color=c=white@0:s=${size}:r=${fps}:d=${1 / fps},format=rgba,geq=r=255:g=255:b=255:a='min(255,${alpha})',loop=loop=-1:size=1`;
+  const input = (graph: string) => ['-re', '-f', 'lavfi', '-i', graph];
+  return [
+    ...input(`gradients=s=960x540:r=${fps}:n=4:${colors(a)}:seed=3:speed=0.012:type=linear`),
+    ...input(`gradients=s=960x540:r=${fps}:n=2:${colors(b)}:seed=9:speed=0.02:type=radial`),
+    ...input(`aevalsrc=exprs='0.12*sin(2*PI*${args.tone}*t)+0.4*lt(mod(t,1),0.1)*sin(2*PI*4*${args.tone}*t)':s=48000`),
+    ...input(still('960x540', dial)),
+    ...input(still('36x36', dot)),
+    ...input(`color=c=black@0:s=960x540:r=${fps},format=rgba`),
+    '-filter_complex',
+    [
+      '[0:v]format=gbrp[a];[1:v]format=gbrp[b];[a][b]blend=all_mode=screen,vignette=angle=PI/5,format=yuv420p[bg]',
+      // 白點畫在透明的一層上，lagfun 讓它拖出漸淡的尾巴
+      `[5:v][4:v]overlay=x='W/2+${R}*cos(2*PI*t/3-PI/2)-w/2':y='H/2+${R}*sin(2*PI*t/3-PI/2)-h/2':format=rgb,lagfun=decay=0.9[dot]`,
+      '[bg][3:v]overlay=format=auto[dial];[dial][dot]overlay=format=auto[pic]',
+      `[2:a]asplit=2[a][meter];[meter]showvolume=r=${fps}:w=320:h=6:b=0:t=0:v=0:f=0.8:p=0.18:c=0xe6ffffff[vu]`,
+      `[pic][vu]overlay=x=(W-w)/2:y=H/2+${R + 52}:format=auto,scale=${width}:${height}:flags=fast_bilinear,format=yuv420p[v]`,
+    ].join(';'),
+    ...['-map', '[v]', '-map', '[a]'],
+  ];
+}
+
 function startRecording(m: Extract<ServerMessage, { type: 'start' }>): void {
   if (rec) {
     sendMsg({ type: 'recordingFailed', fileId: m.fileId, error: '這支手機已經在錄影' });
@@ -197,12 +245,14 @@ function startRecording(m: Extract<ServerMessage, { type: 'start' }>): void {
   rec = r;
   const delay = Math.max(0, m.startAt - serverNow());
   r.timer = setTimeout(() => {
+    const [width, height] = SIZE[m.resolution].split('x').map(Number);
     const ffmpegArgs = [
       ...['-hide_banner', '-loglevel', 'error'],
-      ...['-re', '-f', 'lavfi', '-i', `testsrc2=size=${SIZE[m.resolution]}:rate=${m.fps}`],
-      ...['-re', '-f', 'lavfi', '-i', `sine=frequency=${args.tone}:sample_rate=48000:beep_factor=4`],
-      ...['-t', String(m.maxDurationSec), '-vf', 'format=yuv420p'],
-      ...['-c:v', 'h264_videotoolbox', '-b:v', String(m.bitrate), '-c:a', 'aac', '-b:a', '128k'],
+      ...testPattern(width, height, m.fps),
+      ...['-t', String(m.maxDurationSec)],
+      // macOS 用硬體編碼比較省 CPU，其他系統用 libx264
+      ...(process.platform === 'darwin' ? ['-c:v', 'h264_videotoolbox'] : ['-c:v', 'libx264', '-preset', 'veryfast']),
+      ...['-b:v', String(m.bitrate), '-c:a', 'aac', '-b:a', '128k'],
       ...['-y', r.file],
     ];
     const proc = spawn('ffmpeg', ffmpegArgs, { stdio: ['pipe', 'ignore', 'pipe'] });
@@ -212,7 +262,7 @@ function startRecording(m: Extract<ServerMessage, { type: 'start' }>): void {
     proc.stderr!.on('data', (d) => (stderr += d));
     proc.on('exit', (code) => onRecordingEnded(r, code, stderr));
     jobs.push({ fileId: r.fileId, file: r.file, sent: 0 });
-    sendMsg({ type: 'recordingStarted', fileId: r.fileId, startedAt: Math.round(serverNow()) });
+    sendMsg({ type: 'recordingStarted', fileId: r.fileId, startedAt: Math.round(serverNow()), width, height });
     log(`開始錄影 ${m.fileName}（${m.resolution}，最長 ${m.maxDurationSec} 秒）`);
   }, delay);
 }
@@ -231,6 +281,7 @@ function stopRecording(fileId: string): void {
 
 function onRecordingEnded(r: Rec, code: number | null, stderr: string): void {
   rec = undefined;
+  sendStatus(); // 和真的 App 一樣，停止後馬上回報
   const job = jobs.find((j) => j.fileId === r.fileId);
   if (code !== 0 || !job) {
     sendMsg({ type: 'recordingFailed', fileId: r.fileId, error: `ffmpeg 結束代碼 ${code}：${stderr.trim()}` });
@@ -324,13 +375,13 @@ async function step(job: Job): Promise<boolean> {
   if (job.sent < limit) await sendRange(job, job.sent, limit);
   if (job.size === undefined || job.sent < job.size) return false;
 
-  // 錄完了：通知 Mac 開始算雜湊，自己也同時算，然後比對、補傳不一樣的分段
+  // 錄完了：通知電腦開始算雜湊，自己也同時算，然後比對、補傳不一樣的分段
   await call('POST', `/api/upload/${job.fileId}/finish`, { size: job.size, durationMs: job.durationMs ?? 0 });
   const hashes = await chunkHashes(job.file, job.size);
   for (let round = 0; round < 3; round++) {
     const v = await call<VerifyResponse>('POST', `/api/upload/${job.fileId}/verify`, { chunkSize: CHUNK_SIZE, hashes });
     if (v.ok) {
-      log(`已傳到 Mac 並驗證通過${round ? `（補傳 ${round} 次）` : ''}`);
+      log(`已傳到電腦並驗證通過${round ? `（補傳 ${round} 次）` : ''}`);
       return true;
     }
     for (const i of v.resend) await sendRange(job, i * CHUNK_SIZE, Math.min((i + 1) * CHUNK_SIZE, job.size));
@@ -348,11 +399,11 @@ async function uploadLoop(): Promise<void> {
       } catch (e) {
         job.retryAt = Date.now() + 3000;
         if (e instanceof UploadError && e.status === 409 && e.body.receivedBytes !== undefined) {
-          job.sent = e.body.receivedBytes; // Mac 收到的跟我們以為的不一樣，從 Mac 的進度接著傳
+          job.sent = e.body.receivedBytes; // 電腦收到的跟我們以為的不一樣，從電腦的進度接著傳
           job.retryAt = undefined;
         } else {
           log(`上傳暫停，3 秒後重試：${(e as Error).message}`);
-          // 連不上之前那次 PUT 可能其實有寫進去，下次從 Mac 實際收到的位置繼續
+          // 連不上之前那次 PUT 可能其實有寫進去，下次從電腦實際收到的位置繼續
           call<{ receivedBytes: number }>('GET', `/api/upload/${job.fileId}`)
             .then((r) => (job.sent = Math.min(r.receivedBytes, job.size ?? Infinity)))
             .catch(() => {});

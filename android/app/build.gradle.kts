@@ -1,5 +1,13 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
+}
+
+// 發佈用的簽章金鑰不放進 git，設定寫在 android/keystore.properties（沒有這個檔案就只能編 debug 版）
+val keystore = Properties().apply {
+    val file = rootProject.file("keystore.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
 }
 
 android {
@@ -8,10 +16,33 @@ android {
 
     defaultConfig {
         applicationId = "dev.multicam.recorder"
-        minSdk = 31 // Android 12；兩支手機都符合
+        minSdk = 31 // Android 12
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
+    }
+
+    signingConfigs {
+        if (!keystore.isEmpty) {
+            create("release") {
+                storeFile = file(keystore.getProperty("storeFile"))
+                storePassword = keystore.getProperty("storePassword")
+                keyAlias = keystore.getProperty("keyAlias")
+                keyPassword = keystore.getProperty("keyPassword")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig = signingConfigs.findByName("release")
+        }
+    }
+
+    lint {
+        // 發佈前不跑 lint：Homebrew 的 JDK 在部分 macOS 上，lint 分析 Kotlin 時會載不到字型函式庫而當掉。
+        // 要跑完整的 lint，請改用自帶 freetype 的 JDK（例如 Temurin）。
+        checkReleaseBuilds = false
     }
 
     compileOptions {

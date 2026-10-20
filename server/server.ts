@@ -11,6 +11,7 @@ import type {
   DeviceMessage,
   DeviceStatus,
   FinishRequest,
+  Guide,
   PairRequest,
   PairResponse,
   QrPayload,
@@ -19,7 +20,19 @@ import type {
   ServerMessage,
   VerifyRequest,
 } from './protocol.ts';
-import { checkDir, db, DEFAULT_STORAGE_DIR, save, saveNow, storageInfo, type Device, type FileEntry, type StorageInfo } from './store.ts';
+import {
+  checkDir,
+  db,
+  DEFAULT_STORAGE_DIR,
+  GOOD_FORMATS,
+  save,
+  saveNow,
+  storageInfo,
+  type Device,
+  type FileEntry,
+  type Project,
+  type StorageInfo,
+} from './store.ts';
 import { finalPath, finish, receivedBytes, verify, writeChunk } from './uploads.ts';
 
 const PORT = Number(process.env.PORT ?? 8787);
@@ -28,7 +41,16 @@ const MAX_DURATION_SEC = Number(process.env.RECORDER_MAX_SEC ?? 30 * 60);
 const WARN_BEFORE_SEC = Number(process.env.RECORDER_WARN_SEC ?? 3 * 60);
 const START_DELAY_MS = 800; // 先把指令送到每台手機，大家在同一個時間點開始
 const START_TIMEOUT_MS = 10_000;
-const BITRATE: Record<Resolution, number> = { '2160p': 40_000_000, '1080p': 16_000_000, '720p': 8_000_000 };
+const RESOLUTIONS: { id: Resolution; label: string; width: number; height: number; bitrate: number }[] = [
+  { id: '2160p', label: '4K', width: 3840, height: 2160, bitrate: 40_000_000 },
+  { id: '1440p', label: '2K', width: 2560, height: 1440, bitrate: 24_000_000 },
+  { id: '1080p', label: '1080p', width: 1920, height: 1080, bitrate: 16_000_000 },
+  { id: '720p', label: '720p', width: 1280, height: 720, bitrate: 8_000_000 },
+];
+const GUIDES: Guide[] = ['none', '9:16', '4:5', '1:1'];
+const MAX_DEVICES = 10; // 再多 Wi-Fi 和傳輸就吃不消了
+// 手機還沒裝 App 時，配對網頁會提供這個下載連結（GitHub Releases 上最新版的 APK）
+const APP_DOWNLOAD_URL = 'https://github.com/dean9703111/multicam-recorder/releases/latest/download/MultiCamRecorder.apk';
 const PUBLIC_DIR = path.join(import.meta.dirname, 'public');
 const NODE_MODULES = path.join(import.meta.dirname, '../node_modules');
 const VENDOR_FILE = path.join(NODE_MODULES, 'htm/preact/standalone.module.js');
@@ -113,10 +135,16 @@ function onDeviceMessage(d: Device, l: Live, m: DeviceMessage): void {
         f.state = 'recording';
         f.startedAt = m.startedAt;
         f.error = undefined;
+        if (typeof m.width === 'number' && typeof m.height === 'number') {
+          f.videoWidth = m.width;
+          f.videoHeight = m.height;
+        }
         save();
       }
       break;
     case 'recordingStopped':
+      // 手機每 2 秒才回報一次狀態，先在這裡清掉，緊接著再按開始才不會被當成「已經在錄影」
+      if (l.status.recordingFileId === m.fileId) l.status.recordingFileId = null;
       // 傳輸可能比這則訊息早完成，所以停止原因一定要記，狀態則不要倒退
       if (f) {
         f.stoppedAt ??= Date.now();
@@ -130,6 +158,7 @@ function onDeviceMessage(d: Device, l: Live, m: DeviceMessage): void {
       }
       break;
     case 'recordingFailed':
+      if (l.status.recordingFileId === m.fileId) l.status.recordingFileId = null;
       if (f && f.state !== 'ready') {
         f.state = 'failed';
         f.error = m.error;
@@ -145,7 +174,11 @@ function onDeviceMessage(d: Device, l: Live, m: DeviceMessage): void {
 const activeFile = (deviceId: string): FileEntry | undefined =>
   db.files.find((f) => f.deviceId === deviceId && (f.state === 'starting' || f.state === 'recording'));
 
+const isRecording = (): boolean => db.files.some((f) => f.state === 'starting' || f.state === 'recording');
+
 function startRecording(deviceIds?: string[]): { skipped: string[] } {
+  const project = currentProject();
+  if (!project) throw new HttpError(409, '請先新增專案', { needProject: true });
   const skipped: string[] = [];
   const targets = db.devices.filter((d) => {
     if (deviceIds && !deviceIds.includes(d.id)) return false;
@@ -162,10 +195,11 @@ function startRecording(deviceIds?: string[]): { skipped: string[] } {
   const startAt = Date.now() + START_DELAY_MS;
   const spec = currentSpec();
   for (const d of targets) {
-    const dir = db.settings.storageDir;
+    const dir = project.dir;
     const f: FileEntry = {
       id: crypto.randomUUID(),
       takeId,
+      projectId: project.id,
       deviceId: d.id,
       name: uniqueName(dir, `${stamp(startAt)}_${fileSafe(d.name)}.mp4`),
       dir,
@@ -182,8 +216,59 @@ function startRecording(deviceIds?: string[]): { skipped: string[] } {
 }
 
 function currentSpec(): RecordingSpec {
-  const resolution = db.settings.resolution;
-  return { resolution, fps: 30, bitrate: BITRATE[resolution], maxDurationSec: MAX_DURATION_SEC, warnBeforeSec: WARN_BEFORE_SEC };
+  const r = RESOLUTIONS.find((x) => x.id === db.settings.resolution) ?? RESOLUTIONS[0];
+  return {
+    resolution: r.id,
+    fps: 30,
+    bitrate: r.bitrate,
+    maxDurationSec: MAX_DURATION_SEC,
+    warnBeforeSec: WARN_BEFORE_SEC,
+    guide: db.settings.guide,
+  };
+}
+
+// ---------- 專案 ----------
+
+const currentProject = (): Project | undefined => db.projects.find((p) => p.id === db.settings.projectId);
+
+// 專案名稱就是資料夾名稱，建在目前設定的錄影資料夾底下
+function createProject(rawName: unknown): Project {
+  const name = typeof rawName === 'string' ? rawName.trim() : '';
+  if (!name || name.length > 60) throw new HttpError(400, '專案名稱要 1 到 60 個字');
+  if (/[/\\:*?"<>|]/.test(name) || name.startsWith('.')) {
+    throw new HttpError(400, '專案名稱不能包含 / \\ : * ? " < > |，也不能用 . 開頭');
+  }
+  if (isRecording()) throw new HttpError(409, '錄影中不能切換專案，請先停止');
+  const rootError = checkDir(db.settings.storageDir);
+  if (rootError) throw new HttpError(400, `錄影資料夾不能用：${rootError}`);
+  const dir = path.join(db.settings.storageDir, name);
+  if (db.projects.some((p) => p.dir === dir)) throw new HttpError(409, '已經有同名的專案，可以從專案清單打開它');
+  fs.mkdirSync(dir, { recursive: true });
+  endCurrentProject();
+  const project: Project = { id: crypto.randomUUID(), name, dir, createdAt: Date.now() };
+  db.projects.push(project);
+  db.settings.projectId = project.id;
+  save();
+  changed();
+  return project;
+}
+
+function endCurrentProject(): void {
+  const p = currentProject();
+  if (p) p.endedAt = Date.now();
+  db.settings.projectId = null;
+}
+
+function openProject(id: string): void {
+  const p = db.projects.find((x) => x.id === id);
+  if (!p) throw new HttpError(404, '找不到這個專案');
+  if (isRecording()) throw new HttpError(409, '錄影中不能切換專案，請先停止');
+  if (p.id === db.settings.projectId) return;
+  endCurrentProject();
+  p.endedAt = undefined;
+  db.settings.projectId = p.id;
+  save();
+  changed();
 }
 
 function stopRecording(deviceIds?: string[]): { skipped: string[] } {
@@ -233,7 +318,10 @@ function defaultName(model: string): string {
 
 let pairing: { token: string; expiresAt: number } | undefined;
 
-// Mac 在區網的 IP。優先用實體網卡（en0 通常是 Wi-Fi），避開 VPN 的 utun。
+// 這台電腦在區網的 IP。避開 VPN、虛擬機、Docker 這類虛擬網卡，優先用私有網段的位址。
+const VIRTUAL_NIC = /^(utun|tun|tap|bridge|vmnet|vbox|veth|docker|br-|zt|tailscale|wg)|virtual|vmware|vethernet|hyper-v/i;
+const PRIVATE_IP = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/;
+
 function lanAddress(): string | undefined {
   const found: { name: string; address: string }[] = [];
   for (const [name, list] of Object.entries(os.networkInterfaces())) {
@@ -241,14 +329,15 @@ function lanAddress(): string | undefined {
       if (a.family === 'IPv4' && !a.internal && !a.address.startsWith('169.254.')) found.push({ name, address: a.address });
     }
   }
-  return (found.find((a) => a.name.startsWith('en')) ?? found[0])?.address;
+  const rank = (a: { name: string; address: string }) => (VIRTUAL_NIC.test(a.name) ? 2 : 0) + (PRIVATE_IP.test(a.address) ? 0 : 1);
+  return found.sort((a, b) => rank(a) - rank(b))[0]?.address;
 }
 
 // 有效期間內重開配對畫面會沿用同一個 QR Code，兩支手機掃同一個就好。
 // QR Code 是網址：用手機相機掃，會打開下面 pairPage 的網頁；用 App 內的掃描則直接讀網址裡的配對碼。
 async function createPairing(renew: boolean): Promise<{ qr: string; link: string; payload: QrPayload; expiresAt: number }> {
   const address = lanAddress();
-  if (!address) throw new HttpError(500, '找不到 Mac 的區域網路 IP，請確認 Mac 已連上 Wi-Fi');
+  if (!address) throw new HttpError(500, '找不到這台電腦的區域網路 IP，請確認電腦已連上網路');
   if (renew || !pairing || pairing.expiresAt - Date.now() < 60_000) {
     pairing = { token: crypto.randomBytes(16).toString('base64url'), expiresAt: Date.now() + 10 * 60_000 };
   }
@@ -261,20 +350,33 @@ async function createPairing(renew: boolean): Promise<{ qr: string; link: string
 const escapeHtml = (s: string): string =>
   s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
-// 用手機相機掃 QR Code 後打開的網頁。按鈕會用 multicam://pair 打開 App，並把 Mac 位址和配對碼交給它。
+// 用手機相機掃 QR Code 後打開的網頁。按鈕會用 multicam://pair 打開 App，並把電腦位址和配對碼交給它；
+// 還沒裝 App 的話，Chrome 會改去下載 APK（browser_fallback_url）。
 function pairPage(req: IncomingMessage, res: ServerResponse, code: string | null): void {
   const valid = !!pairing && code === pairing.token && Date.now() < pairing.expiresAt;
   const host = /^[\w.-]+(:\d+)?$/.test(req.headers.host ?? '') ? req.headers.host : `${lanAddress()}:${PORT}`;
   const intent =
     `intent://pair?server=${encodeURIComponent(`http://${host}`)}&code=${encodeURIComponent(code ?? '')}` +
-    '#Intent;scheme=multicam;package=dev.multicam.recorder;end';
-  const body = valid
-    ? `<h1>配對這支手機</h1>
+    `#Intent;scheme=multicam;package=dev.multicam.recorder;S.browser_fallback_url=${encodeURIComponent(APP_DOWNLOAD_URL)};end`;
+  const ios = /iPhone|iPad|iPod/.test(req.headers['user-agent'] ?? '');
+  let body: string;
+  if (ios) {
+    body = `<h1>目前只支援 Android</h1>
+       <p>「多機錄影」的手機 App 目前只有 Android 版，iPhone 還不能當攝影機。</p>`;
+  } else if (valid) {
+    body = `<h1>配對這支手機</h1>
        <p>按下按鈕會打開「多機錄影」App，並自動完成配對。</p>
        <a class="btn" href="${escapeHtml(intent)}">打開 App 並配對</a>
-       <p class="note">按了沒反應的話，請確認這支手機已經安裝「多機錄影」App。</p>`
-    : `<h1>QR Code 已失效</h1>
-       <p>請在 Mac 上按「配對手機」，再掃一次新的 QR Code。</p>`;
+       <h2>還沒安裝 App？</h2>
+       <ol>
+         <li>按上面的按鈕，或<a href="${APP_DOWNLOAD_URL}">直接下載 APK</a>。下載完點開安裝，第一次會要你允許瀏覽器安裝應用程式。</li>
+         <li>裝好後回到這一頁，再按一次「打開 App 並配對」。</li>
+       </ol>
+       <p class="note">這個 QR Code 10 分鐘內有效。過期的話，請在電腦上按「配對手機」重新產生。</p>`;
+  } else {
+    body = `<h1>QR Code 已失效</h1>
+       <p>請在電腦上按「配對手機」，再掃一次新的 QR Code。</p>`;
+  }
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
   res.end(`<!doctype html>
 <html lang="zh-Hant-TW">
@@ -282,13 +384,18 @@ function pairPage(req: IncomingMessage, res: ServerResponse, code: string | null
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>配對多機錄影</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='none' stroke='%23ece8e1' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='8' fill='%23ff3b3b'/%3E%3C/svg%3E" />
 <style>
   body { margin: 0; padding: 40px 20px; background: #0a0b0d; color: #ece8e1; font: 17px/1.6 system-ui, sans-serif; }
   h1 { font-size: 26px; margin: 0 0 12px; }
-  p { color: #b9bdc4; }
+  h2 { font-size: 18px; margin: 36px 0 8px; }
+  p, li { color: #b9bdc4; }
+  ol { padding-left: 22px; }
+  li + li { margin-top: 8px; }
+  a { color: #59c2ff; }
   .btn { display: block; margin: 28px 0; padding: 16px; border-radius: 6px; background: #ff3b3b; color: #fff;
          font-size: 19px; font-weight: 700; text-align: center; text-decoration: none; }
-  .note { font-size: 14px; color: #8b919a; }
+  .note { margin-top: 28px; font-size: 14px; color: #8b919a; }
 </style>
 </head>
 <body>${body}</body>
@@ -303,6 +410,9 @@ async function pair(req: IncomingMessage, res: ServerResponse): Promise<void> {
   if (typeof b.deviceId !== 'string' || !/^[\w-]{8,64}$/.test(b.deviceId)) throw new HttpError(400, 'deviceId 格式不正確');
   const model = typeof b.model === 'string' && b.model.trim() ? b.model.trim() : 'Android';
   let d = db.devices.find((x) => x.id === b.deviceId);
+  if (!d && db.devices.length >= MAX_DEVICES) {
+    throw new HttpError(409, `最多只能配對 ${MAX_DEVICES} 支手機，請先在電腦上移除不用的手機`);
+  }
   if (!d) {
     d = { id: b.deviceId, token: '', model, name: defaultName(model), pairedAt: Date.now() };
     db.devices.push(d);
@@ -340,13 +450,30 @@ function currentStorage(): StorageInfo {
 }
 
 function snapshot() {
+  // 每個專案有幾支傳完的影片、共多大
+  const stats = new Map<string, { files: number; bytes: number }>();
+  for (const f of db.files) {
+    const s = stats.get(f.projectId) ?? { files: 0, bytes: 0 };
+    if (f.state === 'ready') {
+      s.files++;
+      s.bytes += f.size ?? 0;
+    }
+    stats.set(f.projectId, s);
+  }
   return {
     type: 'state',
     serverTime: Date.now(),
+    platform: process.platform, // 網頁依系統顯示 Finder 或檔案總管
+    diskFormats: GOOD_FORMATS,
     settings: db.settings,
     storage: currentStorage(),
-    limits: { maxDurationSec: MAX_DURATION_SEC, warnBeforeSec: WARN_BEFORE_SEC },
-    recordingBitrate: BITRATE[db.settings.resolution], // 網頁用來估算手機還能錄多久
+    limits: { maxDurationSec: MAX_DURATION_SEC, warnBeforeSec: WARN_BEFORE_SEC, maxDevices: MAX_DEVICES },
+    resolutions: RESOLUTIONS,
+    guides: GUIDES,
+    project: currentProject() ?? null,
+    projects: [...db.projects]
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .map((p) => ({ ...p, ...(stats.get(p.id) ?? { files: 0, bytes: 0 }) })),
     devices: db.devices.map((d) => ({
       id: d.id,
       name: d.name,
@@ -354,38 +481,87 @@ function snapshot() {
       online: live.has(d.id),
       status: live.get(d.id)?.status ?? {},
     })),
-    files: db.files.map((f) => ({ ...f, receivedBytes: f.state === 'ready' ? f.size : receivedBytes(f) })),
+    // 只送目前專案的影片
+    files: db.files
+      .filter((f) => f.projectId === db.settings.projectId)
+      .map((f) => ({ ...f, receivedBytes: f.state === 'ready' ? f.size : receivedBytes(f) })),
   };
 }
 
 // ---------- 選擇資料夾 ----------
 
-// 瀏覽器拿不到資料夾的完整路徑，所以由 Mac 這邊跳出系統的「選擇檔案夾」視窗。
-// 控制台只能在 Mac 本機開，視窗一定出現在使用者面前。
+// 瀏覽器拿不到資料夾的完整路徑，所以由伺服器這邊跳出系統的選擇資料夾視窗。
+// 控制台只能在執行伺服器的這台電腦上開，視窗一定出現在使用者面前。
 let choosing = false;
+
+// 回傳 [指令, 參數, 使用者按取消時的判斷]；不支援的系統回傳 undefined
+function folderPicker(start: string): [string, string[], (code: number | null, stderr: string) => boolean] | undefined {
+  if (process.platform === 'darwin') {
+    const quoted = `"${start.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+    const script = [
+      'activate',
+      `set f to choose folder with prompt "選擇錄影資料夾（建議選外接 SSD）" default location (POSIX file ${quoted})`,
+      'POSIX path of f',
+    ];
+    return ['osascript', script.flatMap((line) => ['-e', line]), (_, stderr) => /-128/.test(stderr)];
+  }
+  if (process.platform === 'win32') {
+    const ps = [
+      '[Console]::OutputEncoding = [System.Text.Encoding]::UTF8',
+      'Add-Type -AssemblyName System.Windows.Forms',
+      '$owner = New-Object System.Windows.Forms.Form -Property @{ TopMost = $true }',
+      '$d = New-Object System.Windows.Forms.FolderBrowserDialog',
+      "$d.Description = '選擇錄影資料夾（建議選外接 SSD）'",
+      `$d.SelectedPath = '${start.replace(/'/g, "''")}'`,
+      "if ($d.ShowDialog($owner) -eq 'OK') { $d.SelectedPath } else { exit 2 }",
+    ].join('; ');
+    return ['powershell.exe', ['-NoProfile', '-STA', '-Command', ps], (code) => code === 2];
+  }
+  return undefined;
+}
 
 async function chooseFolder(): Promise<{ path?: string; canceled?: boolean }> {
   if (choosing) throw new HttpError(409, '選擇資料夾的視窗已經開著了');
   const current = db.settings.storageDir;
-  const start = fs.existsSync(current) ? current : '/Volumes';
-  const quoted = `"${start.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
-  const script = [
-    'activate',
-    `set f to choose folder with prompt "選擇錄影資料夾（建議選外接 SSD）" default location (POSIX file ${quoted})`,
-    'POSIX path of f',
-  ];
+  const start = fs.existsSync(current) ? current : process.platform === 'darwin' ? '/Volumes' : os.homedir();
+  const picker = folderPicker(start);
+  if (!picker) throw new HttpError(501, '這個系統沒有選擇資料夾的視窗，請直接貼上路徑');
+  const [command, args, canceled] = picker;
   choosing = true;
   try {
     return await new Promise((resolve, reject) => {
-      execFile('osascript', script.flatMap((line) => ['-e', line]), { timeout: 10 * 60_000 }, (err, stdout, stderr) => {
-        if (!err) return resolve({ path: stdout.trim().replace(/(.)\/$/, '$1') });
-        if (/-128/.test(stderr)) return resolve({ canceled: true }); // 使用者按了取消
+      execFile(command, args, { timeout: 10 * 60_000 }, (err, stdout, stderr) => {
+        if (!err) return resolve({ path: stdout.trim().replace(/(.)[\\/]$/, '$1') });
+        if (canceled(typeof err.code === 'number' ? err.code : null, stderr)) return resolve({ canceled: true });
         reject(new HttpError(500, `打不開選擇資料夾的視窗：${stderr.trim() || err.message}`));
       });
     });
   } finally {
     choosing = false;
   }
+}
+
+// 在 Finder／檔案總管打開目前的專案資料夾；有指定影片時，macOS 會直接選取那支影片
+function openFolder(fileId?: string): void {
+  let target: string;
+  if (fileId) {
+    const f = db.files.find((x) => x.id === fileId && x.state === 'ready');
+    if (!f) throw new HttpError(404, '找不到這支影片');
+    target = finalPath(f);
+  } else {
+    const p = currentProject();
+    if (!p) throw new HttpError(409, '還沒有專案');
+    target = p.dir;
+  }
+  if (!fs.existsSync(target)) throw new HttpError(404, `找不到 ${target}`);
+  const folder = fileId ? path.dirname(target) : target;
+  const [command, args] =
+    process.platform === 'darwin'
+      ? ['open', fileId ? ['-R', target] : [target]]
+      : process.platform === 'win32'
+        ? ['explorer.exe', [folder]]
+        : ['xdg-open', [folder]];
+  execFile(command, args, () => {}); // explorer.exe 成功時也會回傳非 0，所以不看結果
 }
 
 // ---------- HTTP ----------
@@ -401,8 +577,8 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
   let m = /^\/api\/upload\/([\w-]+)(\/finish|\/verify)?$/.exec(p);
   if (m) return upload(req, res, m[1], m[2], url);
 
-  // 其他都只允許 Mac 本機
-  if (!isLoopback(req)) throw new HttpError(403, '只能在 Mac 本機操作');
+  // 其他都只允許執行伺服器的這台電腦本機
+  if (!isLoopback(req)) throw new HttpError(403, '只能在執行伺服器的這台電腦上操作');
 
   if (method === 'GET') {
     const name = p === '/' ? 'index.html' : p.slice(1);
@@ -433,18 +609,43 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
       return sendJson(res, 200, stopRecording(b.deviceIds));
     }
     if (p === '/api/choose-folder') return sendJson(res, 200, await chooseFolder());
+    if (p === '/api/open-folder') {
+      const b = await readJson<{ fileId?: string }>(req);
+      openFolder(b.fileId);
+      return sendJson(res, 200, { ok: true });
+    }
+    if (p === '/api/projects') {
+      const b = await readJson<{ name?: string }>(req);
+      return sendJson(res, 200, createProject(b.name));
+    }
+    if (p === '/api/projects/end') {
+      if (isRecording()) throw new HttpError(409, '錄影中不能結束專案，請先停止');
+      endCurrentProject();
+      save();
+      changed();
+      return sendJson(res, 200, { ok: true });
+    }
+    m = /^\/api\/projects\/([\w-]+)\/open$/.exec(p);
+    if (m) {
+      openProject(m[1]);
+      return sendJson(res, 200, { ok: true });
+    }
     if (p === '/api/pairing') {
       const b = await readJson<{ renew?: boolean }>(req);
       return sendJson(res, 200, await createPairing(b.renew === true));
     }
     if (p === '/api/settings') {
-      const b = await readJson<{ resolution?: Resolution; storageDir?: string }>(req);
+      const b = await readJson<{ resolution?: Resolution; guide?: Guide; storageDir?: string }>(req);
       if (b.resolution !== undefined) {
-        if (!(b.resolution in BITRATE)) throw new HttpError(400, '不支援這個解析度');
-        if (db.files.some((f) => f.state === 'starting' || f.state === 'recording')) {
-          throw new HttpError(409, '錄影中不能改解析度，停止後再調整');
-        }
+        if (!RESOLUTIONS.some((r) => r.id === b.resolution)) throw new HttpError(400, '不支援這個解析度');
+        if (isRecording()) throw new HttpError(409, '錄影中不能改解析度，停止後再調整');
         db.settings.resolution = b.resolution;
+      }
+      if (b.guide !== undefined) {
+        if (!GUIDES.includes(b.guide)) throw new HttpError(400, '不支援這種輔助框');
+        db.settings.guide = b.guide; // 只影響預覽，錄影中也可以改
+      }
+      if (b.resolution !== undefined || b.guide !== undefined) {
         for (const id of live.keys()) send(id, { type: 'config', ...currentSpec() });
       }
       if (b.storageDir !== undefined) {
@@ -453,6 +654,27 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
         if (error) throw new HttpError(400, error);
         db.settings.storageDir = dir;
       }
+      save();
+      changed();
+      return sendJson(res, 200, { ok: true });
+    }
+    m = /^\/api\/devices\/([\w-]+)\/remove$/.exec(p);
+    if (m) {
+      const d = db.devices.find((x) => x.id === m![1]);
+      if (!d) throw new HttpError(404, '找不到這支手機');
+      const active = activeFile(d.id);
+      const l = live.get(d.id);
+      if (active && l) throw new HttpError(409, '這支手機正在錄影，停止後才能移除');
+      // 錄影中斷線、一直沒連回來的手機（例如沒電了）也要能移除，不然整個控制台會一直停在錄影中
+      if (active) {
+        active.state = 'failed';
+        active.error = '手機已從電腦上移除，影片留在手機上';
+      }
+      if (l) {
+        sendTo(l.ws, { type: 'error', code: 'unpaired', message: '這支手機已經從電腦上移除，要再使用請重新掃 QR Code' });
+        l.ws.close(4001, 'removed');
+      }
+      db.devices = db.devices.filter((x) => x !== d);
       save();
       changed();
       return sendJson(res, 200, { ok: true });
@@ -546,6 +768,20 @@ server.on('upgrade', (req, socket, head) => {
 const stopSent = new Set<string>();
 let tick = 0;
 
+// 使用者在 Finder 或檔案總管裡刪掉的影片或專案資料夾，清單上也跟著拿掉。
+// 上一層資料夾也不見時（例如外接硬碟沒接上）先保留，接回來就會恢復。
+function pruneMissing(): boolean {
+  const before = db.projects.length + db.files.length;
+  const gone = new Set(db.projects.filter((p) => fs.existsSync(path.dirname(p.dir)) && !fs.existsSync(p.dir)).map((p) => p.id));
+  if (gone.size) {
+    db.projects = db.projects.filter((p) => !gone.has(p.id));
+    db.files = db.files.filter((f) => !gone.has(f.projectId));
+    if (db.settings.projectId && gone.has(db.settings.projectId)) db.settings.projectId = null;
+  }
+  db.files = db.files.filter((f) => f.state !== 'ready' || !fs.existsSync(f.dir) || fs.existsSync(finalPath(f)));
+  return db.projects.length + db.files.length !== before;
+}
+
 setInterval(() => {
   const now = Date.now();
   for (const f of db.files) {
@@ -560,8 +796,19 @@ setInterval(() => {
       stopSent.add(f.id);
       send(f.deviceId, { type: 'stop', fileId: f.id });
     }
+    // 錄影中斷線、超過上限時間一分鐘還沒連回來（例如沒電了）就不再等，免得控制台一直停在錄影中。
+    // 手機之後連回來的話，照樣會把影片傳完。
+    if (f.state === 'recording' && f.startedAt && !live.has(f.deviceId) && now - f.startedAt > (f.spec.maxDurationSec + 60) * 1000) {
+      f.state = 'failed';
+      f.error = '手機斷線後一直沒有連回來，影片還在手機上';
+      save();
+      changed();
+    }
   }
-  if (++tick % 5 === 0) changed(); // 剩餘空間等資訊定期更新
+  if (++tick % 5 === 0) {
+    if (pruneMissing()) save();
+    changed(); // 剩餘空間等資訊定期更新
+  }
 }, 1000);
 
 // 偵測已經斷掉但沒有正常關閉的連線
@@ -587,6 +834,12 @@ server.on('error', (e: NodeJS.ErrnoException) => {
   console.error(e.code === 'EADDRINUSE' ? `連接埠 ${PORT} 已被占用，伺服器可能已經在執行` : e.message);
   process.exit(1);
 });
+
+// 上次失敗的錄影只是殘留紀錄，重新啟動時清掉
+db.files = db.files.filter((f) => f.state !== 'failed');
+if (!currentProject()) db.settings.projectId = null;
+pruneMissing();
+saveNow();
 
 // 預設的錄影資料夾由我們自己建立；使用者指定的資料夾則必須已經存在
 if (db.settings.storageDir === DEFAULT_STORAGE_DIR) fs.mkdirSync(DEFAULT_STORAGE_DIR, { recursive: true });

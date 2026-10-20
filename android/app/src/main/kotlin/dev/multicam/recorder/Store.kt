@@ -11,7 +11,7 @@ class UploadJob(val fileId: String, val path: String) {
     @Volatile var size = -1L
     @Volatile var durationMs = 0L
     @Volatile var retryAt = 0L
-    @Volatile var resync = true // 先問 Mac 實際收到多少，再接著傳
+    @Volatile var resync = true // 先問電腦實際收到多少，再接著傳
     var hashes: List<String>? = null
 }
 
@@ -34,7 +34,7 @@ class Store(context: Context) {
         get() = prefs.getString("name", null)
         set(value) = prefs.edit().putString("name", value).apply()
 
-    // 已傳到 Mac 並驗證過的檔案路徑，「清除已傳完的影片」只會刪這些
+    // 已傳到電腦並驗證過的檔案路徑，「清除已傳完的影片」只會刪這些
     var transferred: Set<String>
         get() = prefs.getStringSet("transferred", emptySet())!!.toSet()
         set(value) = prefs.edit().putStringSet("transferred", value).apply()

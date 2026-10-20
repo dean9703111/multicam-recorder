@@ -106,7 +106,7 @@ class CameraRecorder(private val context: Context, private val listener: Listene
         if (device == null) manager.openCamera(cameraId, executor, deviceCallback) else createSession()
     }
 
-    // Mac 改了解析度：沒在錄影就先把 session 準備好，開始時才不用等
+    // 電腦改了解析度：沒在錄影就先把 session 準備好，開始時才不用等
     fun configure(size: Size) = handler.post {
         wantedSize = size
         if (sessionSize != size && recorder == null && prepared == null) createSession()

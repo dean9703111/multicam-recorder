@@ -16,14 +16,14 @@ import java.security.MessageDigest
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 
-// 照 mac/protocol.ts 的流程把影片傳到 Mac：錄影中就邊錄邊傳，停止後 finish → 分段雜湊 → verify → 補傳。
-// 跑在自己的執行緒，連不上就每 3 秒重試，App 重開後會從 Mac 已收到的位置繼續。
+// 照 server/protocol.ts 的流程把影片傳到電腦：錄影中就邊錄邊傳，停止後 finish → 分段雜湊 → verify → 補傳。
+// 跑在自己的執行緒，連不上就每 3 秒重試，App 重開後會從電腦已收到的位置繼續。
 class Uploader(private val store: Store, private val onChange: () -> Unit) {
     private val client = OkHttpClient.Builder()
         .connectTimeout(5, TimeUnit.SECONDS)
         // 10 秒送不出任何資料就當作這條連線卡住了，換一條新的重來（Wi-Fi 不穩時常見）
         .writeTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(120, TimeUnit.SECONDS) // verify 時 Mac 要算整支檔案的雜湊
+        .readTimeout(120, TimeUnit.SECONDS) // verify 時電腦要算整支檔案的雜湊
         .build()
     private val jobs = CopyOnWriteArrayList<UploadJob>()
 
@@ -60,7 +60,7 @@ class Uploader(private val store: Store, private val onChange: () -> Unit) {
 
     // 畫面上顯示的傳輸狀態
     fun summary(): String {
-        if (jobs.isEmpty()) return "影片都已傳到 Mac"
+        if (jobs.isEmpty()) return "影片都已傳到電腦"
         val recording = jobs.count { it.size < 0 }
         val left = jobs.filter { it.size >= 0 }.sumOf { (it.size - it.sent).coerceAtLeast(0) }
         val parts = mutableListOf<String>()
@@ -73,6 +73,11 @@ class Uploader(private val store: Store, private val onChange: () -> Unit) {
 
     private fun loop() {
         while (true) {
+            // 被電腦移除或還沒配對時先暫停，重新配對後會從電腦已收到的位置接著傳
+            if (store.token == null) {
+                Thread.sleep(1000)
+                continue
+            }
             for (job in jobs) {
                 if (System.currentTimeMillis() < job.retryAt) continue
                 try {
@@ -85,14 +90,14 @@ class Uploader(private val store: Store, private val onChange: () -> Unit) {
                     when {
                         e.status == 409 && e.body.has("receivedBytes") -> job.sent = e.body.getLong("receivedBytes")
                         e.status == 404 -> {
-                            // Mac 不認得這支影片（例如資料被清掉），不再重試，檔案留在手機上
-                            Log.w(TAG, "Mac 找不到 ${job.fileId}，停止傳輸")
+                            // 電腦不認得這支影片（例如資料被清掉），不再重試，檔案留在手機上
+                            Log.w(TAG, "電腦找不到 ${job.fileId}，停止傳輸")
                             drop(job.fileId)
                         }
                         else -> retryLater(job, e)
                     }
                 } catch (e: Exception) {
-                    retryLater(job, e) // 網路斷線、Mac 回了看不懂的內容等
+                    retryLater(job, e) // 網路斷線、電腦回了看不懂的內容等
                 }
                 onChange()
             }
@@ -120,7 +125,7 @@ class Uploader(private val store: Store, private val onChange: () -> Unit) {
         if (job.sent < limit) sendRange(job, job.sent, limit)
         if (job.size < 0 || job.sent < job.size) return false
 
-        // 錄完了：通知 Mac 開始算雜湊，手機同時也算，算完比對、補傳不一樣的分段
+        // 錄完了：通知電腦開始算雜湊，手機同時也算，算完比對、補傳不一樣的分段
         call("POST", "/api/upload/${job.fileId}/finish", json("size" to job.size, "durationMs" to job.durationMs))
         val hashes = job.hashes ?: chunkHashes(file, job.size).also { job.hashes = it }
         repeat(3) {
@@ -196,7 +201,7 @@ class Uploader(private val store: Store, private val onChange: () -> Unit) {
 
     companion object {
         private const val TAG = "Uploader"
-        const val CHUNK_SIZE = 16L * 1024 * 1024 // 要和 mac/protocol.ts 一致
+        const val CHUNK_SIZE = 16L * 1024 * 1024 // 要和 server/protocol.ts 一致
         private const val PIECE = 4 * 1024 * 1024
         private const val TAIL_GUARD = 256L * 1024
         private val OCTET = "application/octet-stream".toMediaType()

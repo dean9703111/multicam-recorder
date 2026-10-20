@@ -9,3 +9,5 @@ android/build/
 android/app/build/
 android/local.properties
 .DS_Store
+android/keystore.properties
+*.jks

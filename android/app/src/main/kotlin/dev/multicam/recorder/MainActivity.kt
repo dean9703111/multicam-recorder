@@ -7,6 +7,8 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
+import android.graphics.drawable.Drawable
 import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
@@ -21,9 +23,11 @@ import android.os.Handler
 import android.os.Looper
 import android.os.StatFs
 import android.os.SystemClock
+import android.provider.Settings
 import android.util.Size
 import android.view.Surface
 import android.view.SurfaceHolder
+import android.view.SurfaceView
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
@@ -42,9 +46,9 @@ import org.json.JSONObject
 import java.io.File
 import kotlin.concurrent.thread
 
-// 唯一的畫面：相機預覽加上狀態。錄影的開始和停止都由 Mac 控制。
+// 唯一的畫面：相機預覽加上狀態。錄影的開始和停止都由電腦控制。
 // App 必須留在前景、螢幕不能關（Android 不讓背景 App 用相機），切到背景時會先把錄影正常收尾。
-class MainActivity : Activity(), MacLink.Listener, CameraRecorder.Listener {
+class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
     private class Recording(val fileId: String, val file: File, val maxDurationSec: Int, val warnBeforeSec: Int) {
         var startedAt = 0L // 手機時間；0 表示還沒到開始時間
         var stopping = false
@@ -52,7 +56,7 @@ class MainActivity : Activity(), MacLink.Listener, CameraRecorder.Listener {
 
     private val main = Handler(Looper.getMainLooper())
     private lateinit var store: Store
-    private lateinit var link: MacLink
+    private lateinit var link: ServerLink
     private lateinit var uploader: Uploader
     private lateinit var camera: CameraRecorder
     private lateinit var moviesDir: File
@@ -62,18 +66,22 @@ class MainActivity : Activity(), MacLink.Listener, CameraRecorder.Listener {
     private lateinit var timerView: TextView
     private lateinit var micView: TextView
     private lateinit var uploadView: TextView
+    private lateinit var guideView: GuideOverlay
     private lateinit var scanButton: Button
+    private var scanBackground: Drawable? = null // 按鈕原本的樣子
+    private var scanHighlight: Drawable? = null // 還沒配對時用的紅色版本（另外複製一份，原本的才不會被染色）
     private lateinit var dimButton: Button
     private lateinit var cleanButton: Button
 
     private var surface: Surface? = null
     private var cameraReady = false
-    private var videoSize = Size(3840, 2160) // 預設 4K，收到 Mac 的設定後更新
+    private var videoSize = Size(3840, 2160) // 預設 4K，收到電腦的設定後更新
     private var recording: Recording? = null
     private var recordingMic: String? = null
     private var dimmed = false
     private var wifiLock: WifiManager.WifiLock? = null
     private var tick = 0
+    private var disconnectedSince = SystemClock.elapsedRealtime() // 連不上太久就提示檢查網路
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -85,18 +93,27 @@ class MainActivity : Activity(), MacLink.Listener, CameraRecorder.Listener {
         camera = CameraRecorder(this, this)
         videoSize = camera.videoSize(videoSize.width, videoSize.height)
         uploader = Uploader(store) { main.post { render() } }
-        link = MacLink(store, this)
+        link = ServerLink(store, this)
 
         nameView = findViewById(R.id.name)
         connectionView = findViewById(R.id.connection)
         timerView = findViewById(R.id.timer)
         micView = findViewById(R.id.mic)
         uploadView = findViewById(R.id.upload)
+        guideView = findViewById(R.id.guide)
         scanButton = findViewById<Button>(R.id.scan).apply { setOnClickListener { scan() } }
+        scanBackground = scanButton.background
+        scanHighlight = scanBackground?.constantState?.newDrawable(resources, theme)?.mutate()?.apply { setTintList(RED_TINT) }
         dimButton = findViewById<Button>(R.id.dim).apply { setOnClickListener { toggleDim() } }
         cleanButton = findViewById<Button>(R.id.clean).apply { setOnClickListener { confirmClean() } }
+        // 權限被拒絕過，系統就不會再問，只能到 App 的設定頁打開
+        findViewById<View>(R.id.status).setOnClickListener {
+            if (!hasPermissions()) {
+                startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)))
+            }
+        }
 
-        val preview = findViewById<AspectSurfaceView>(R.id.preview)
+        val preview = findViewById<SurfaceView>(R.id.preview)
         preview.holder.setFixedSize(camera.previewSize.width, camera.previewSize.height)
         preview.holder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceCreated(holder: SurfaceHolder) {
@@ -180,16 +197,16 @@ class MainActivity : Activity(), MacLink.Listener, CameraRecorder.Listener {
         if (hasPermissions()) openCamera() else toast(getString(R.string.need_permission))
     }
 
-    // ---------- Mac 的指令 ----------
+    // ---------- 電腦的指令 ----------
 
     override fun onConnectionChanged(connected: Boolean) {
-        if (connected) sendStatus()
+        if (connected) sendStatus() else disconnectedSince = SystemClock.elapsedRealtime()
         render()
     }
 
+    // 電腦斷線前會先送 error 訊息說明原因（已經被移除，或不認得這支手機），這裡不再另外提示
     override fun onUnpaired() {
         store.token = null
-        toast("Mac 不認得這支手機，請重新掃 Mac 上的 QR Code")
         render()
     }
 
@@ -209,6 +226,7 @@ class MainActivity : Activity(), MacLink.Listener, CameraRecorder.Listener {
     }
 
     private fun applySpec(spec: JSONObject) {
+        guideView.setGuide(spec.optString("guide", "none"))
         val requested = sizeOf(spec.optString("resolution")) ?: return
         videoSize = camera.videoSize(requested.width, requested.height)
         if (recording == null) camera.configure(videoSize)
@@ -216,6 +234,7 @@ class MainActivity : Activity(), MacLink.Listener, CameraRecorder.Listener {
 
     private fun startRecording(msg: JSONObject) {
         val fileId = msg.getString("fileId")
+        guideView.setGuide(msg.optString("guide", "none"))
         if (recording != null) return reportFailed(fileId, "這支手機已經在錄影")
         if (!cameraReady) return reportFailed(fileId, "相機還沒準備好")
         val requested = sizeOf(msg.getString("resolution")) ?: return reportFailed(fileId, "不支援這個解析度")
@@ -235,7 +254,8 @@ class MainActivity : Activity(), MacLink.Listener, CameraRecorder.Listener {
                 uploader.add(UploadJob(fileId, file.path)) // 開始邊錄邊傳
                 link.send(
                     JSONObject().put("type", "recordingStarted").put("fileId", fileId)
-                        .put("startedAt", link.toServerTime(started.wallClockMs)),
+                        .put("startedAt", link.toServerTime(started.wallClockMs))
+                        .put("width", spec.size.width).put("height", spec.size.height), // 不支援時已經降級過
                     queueIfOffline = true,
                 )
             }.onFailure { e ->
@@ -270,7 +290,7 @@ class MainActivity : Activity(), MacLink.Listener, CameraRecorder.Listener {
                 reportFailed(fileId, "錄影沒有正常結束：${result.exceptionOrNull()?.message}")
             } else {
                 val durationMs = durationOf(rec.file) ?: (System.currentTimeMillis() - rec.startedAt)
-                // 先送停止訊息再讓上傳收尾，Mac 才會記到停止原因
+                // 先送停止訊息再讓上傳收尾，電腦才會記到停止原因
                 link.send(
                     JSONObject().put("type", "recordingStopped").put("fileId", fileId).put("reason", reason)
                         .put("durationMs", durationMs).put("size", size),
@@ -336,7 +356,7 @@ class MainActivity : Activity(), MacLink.Listener, CameraRecorder.Listener {
         intent.getStringExtra("qr")?.takeIf { debuggable }?.let(::pairFromQr)
     }
 
-    // QR Code 的內容是 http://<Mac>:8787/pair?code=<配對碼>
+    // QR Code 的內容是 http://<電腦>:8787/pair?code=<配對碼>
     private fun pairFromQr(raw: String) {
         val uri = Uri.parse(raw)
         val code = runCatching { uri.getQueryParameter("code") }.getOrNull()
@@ -403,12 +423,24 @@ class MainActivity : Activity(), MacLink.Listener, CameraRecorder.Listener {
 
     private fun render() {
         nameView.text = store.name ?: Build.MODEL
+        val unpaired = store.token == null
         connectionView.text = when {
-            store.token == null -> "尚未配對：請點右下角「掃描 QR Code」"
-            link.connected -> "已連線到 Mac"
+            !hasPermissions() -> "需要相機和麥克風權限才能錄影，點這裡打開設定"
+            unpaired -> "尚未配對：請點右下角「掃描 QR Code」"
+            link.connected -> "已連線到電腦"
+            SystemClock.elapsedRealtime() - disconnectedSince > 10_000 -> "連不到電腦：請確認電腦上的伺服器開著，手機和電腦連同一個 Wi-Fi"
             else -> "連線中…"
         }
-        connectionView.setTextColor(if (link.connected) GREEN else MUTED)
+        connectionView.setTextColor(
+            when {
+                !hasPermissions() -> AMBER
+                link.connected -> GREEN
+                else -> MUTED
+            },
+        )
+        // 還沒配對時，把掃描按鈕標成紅色，告訴使用者下一步
+        val background = if (unpaired) scanHighlight ?: scanBackground else scanBackground
+        if (scanButton.background !== background) scanButton.background = background
         micView.text = "收音：${micLabel()}"
         uploadView.text = uploader.summary()
 
@@ -431,7 +463,9 @@ class MainActivity : Activity(), MacLink.Listener, CameraRecorder.Listener {
         }
         // 錄影中不能掃描或清檔案：掃描會切到別的畫面，錄影就會中斷
         scanButton.isEnabled = rec == null
-        cleanButton.isEnabled = rec == null
+        val cleanable = store.transferred.count { File(it).exists() }
+        cleanButton.text = if (cleanable > 0) getString(R.string.clean_count, cleanable) else getString(R.string.clean)
+        cleanButton.isEnabled = rec == null && cleanable > 0
     }
 
     private fun toggleDim() {
@@ -447,7 +481,7 @@ class MainActivity : Activity(), MacLink.Listener, CameraRecorder.Listener {
         if (files.isEmpty()) return toast("沒有已傳完的影片可以清除")
         AlertDialog.Builder(this)
             .setTitle(R.string.clean)
-            .setMessage("刪除 ${files.size} 支已傳到 Mac 並驗證過的影片，共 ${formatBytes(files.sumOf { it.length() })}？\nMac 上的檔案不受影響。")
+            .setMessage("刪除 ${files.size} 支已傳到電腦並驗證過的影片，共 ${formatBytes(files.sumOf { it.length() })}？\n電腦上的檔案不受影響。")
             .setPositiveButton("刪除") { _, _ ->
                 files.forEach { it.delete() }
                 store.transferred = emptySet()
@@ -498,9 +532,11 @@ class MainActivity : Activity(), MacLink.Listener, CameraRecorder.Listener {
         private const val GREEN = 0xFF3DDC84.toInt()
         private const val RED = 0xFFFF3B3B.toInt()
         private const val AMBER = 0xFFFFB000.toInt()
+        private val RED_TINT = ColorStateList.valueOf(RED)
 
         private fun sizeOf(resolution: String) = when (resolution) {
             "2160p" -> Size(3840, 2160)
+            "1440p" -> Size(2560, 1440)
             "1080p" -> Size(1920, 1080)
             "720p" -> Size(1280, 720)
             else -> null
