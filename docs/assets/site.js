@@ -32,6 +32,22 @@ for (const block of document.querySelectorAll('.code')) {
   });
 }
 
+// 窄螢幕的選單：點了連結、按 Esc 或點選單外面就收起來
+const menu = document.querySelector('.nav-menu');
+if (menu) {
+  menu.addEventListener('click', (e) => {
+    if (e.target.closest('a')) menu.open = false;
+  });
+  document.addEventListener('click', (e) => {
+    if (menu.open && !menu.contains(e.target)) menu.open = false;
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || !menu.open) return;
+    menu.open = false;
+    menu.querySelector('summary').focus();
+  });
+}
+
 // 臉部優先的對比圖：拖拉或用方向鍵移動分隔線，動手之後就不再自動播
 for (const wipe of document.querySelectorAll('.wipe')) {
   const input = wipe.querySelector('.wipe-input');
