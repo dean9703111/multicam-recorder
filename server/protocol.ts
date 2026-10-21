@@ -22,6 +22,9 @@
 // - 方向：直拿錄直的、橫拿錄橫的。在 status 回報 orientation，轉向時馬上回報；
 //   開始錄影時鎖住當下的方向直到停止，recordingStarted 也帶 orientation。
 // - 變焦：收到 zoom 就把倍率套到預覽和錄影（超出範圍時取最接近的值），在 status 回報實際倍率和可用範圍。
+// - 人像設定（facePriority、bokeh、lockExposure）跟著錄影設定一起送。手機在 hello 的 camera 回報做得到哪些，
+//   做不到的就略過；status 的 bokeh 回報背景虛化現在有沒有套用。背景虛化時變焦範圍可能變小，
+//   這時倍率取範圍內最接近的值，關掉虛化後回到原本要求的倍率。
 //   完整的參考實作在 tools/fake-phone.ts。
 
 export type Resolution = '2160p' | '1440p' | '1080p' | '720p';
@@ -39,6 +42,17 @@ export interface RecordingSpec {
   maxDurationSec: number;
   warnBeforeSec: number; // 剩這麼多秒時提醒
   guide: Guide;
+  // 人像設定，錄影中不能改
+  facePriority: boolean; // 對焦、曝光、白平衡以人臉為準
+  bokeh: boolean; // 背景虛化，由手機的相機處理；錄影解析度超過手機的上限時不套用，不會為了虛化降解析度
+  lockExposure: boolean; // 開始錄影時鎖定曝光和白平衡，到停止前亮度和顏色都不變
+}
+
+// 手機的相機做得到哪些人像設定（舊版 App 沒有回報）
+export interface CameraCapabilities {
+  facePriority: boolean;
+  bokehMax: [number, number] | null; // 背景虛化能錄的最大解析度（橫的寬高），null 表示做不到
+  lockExposure: boolean;
 }
 
 // /api/pairing 回傳的配對資訊（模擬手機用）
@@ -68,15 +82,16 @@ export interface DeviceStatus {
   recordingFileId?: string | null;
   audioInput?: string; // 目前用哪支麥克風，例如「外接 USB（DJI Mic）」
   zoom?: number; // 目前的變焦倍率
-  zoomRange?: [number, number]; // 這支手機能用的變焦範圍，例如 [0.5, 10]
+  zoomRange?: [number, number]; // 這支手機現在能用的變焦範圍，例如 [0.5, 10]；背景虛化時可能變小
   orientation?: Orientation; // 錄影中是開始時鎖住的方向
+  bokeh?: boolean; // 背景虛化現在有沒有套用
 }
 
 export type StopReason = 'user' | 'maxDuration' | 'error';
 
 // 手機 → 電腦
 export type DeviceMessage =
-  | { type: 'hello'; model: string; appVersion: string; features?: string[] } // features：'preview'、'zoom'
+  | { type: 'hello'; model: string; appVersion: string; features?: string[]; camera?: CameraCapabilities } // features：'preview'、'zoom'
   | { type: 'sync'; t0: number }
   | ({ type: 'status' } & DeviceStatus)
   // startedAt 要換算成電腦時間；width、height 是實際錄的解析度（手機不支援要求的解析度時會降級），

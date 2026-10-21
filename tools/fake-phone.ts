@@ -4,6 +4,7 @@
 // 用法：node tools/fake-phone.ts --model "Pixel 11 Pro" [--tone 660] [--mic "手機內建"] [--server http://127.0.0.1:8787]
 //                              [--encoder libx264]（預設 macOS 用硬體編碼 h264_videotoolbox，其他系統用 libx264）
 //                              [--orientation portrait]（模擬直拿的手機，預設是橫拿）
+//                              [--bokeh-max 1920x1080]（模擬做得到背景虛化的手機，這是虛化能錄的最大解析度）
 
 import { spawn, execFileSync, type ChildProcess } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -17,6 +18,7 @@ import {
   type Orientation,
   type PairResponse,
   type QrPayload,
+  type RecordingSpec,
   type Resolution,
   type ServerMessage,
   type StopReason,
@@ -31,12 +33,16 @@ const { values: args } = parseArgs({
     server: { type: 'string', default: 'http://127.0.0.1:8787' },
     encoder: { type: 'string', default: process.platform === 'darwin' ? 'h264_videotoolbox' : 'libx264' },
     orientation: { type: 'string', default: 'landscape' },
+    'bokeh-max': { type: 'string' },
   },
 });
 
 if (args.orientation !== 'portrait' && args.orientation !== 'landscape') throw new Error('--orientation 只能是 portrait 或 landscape');
 const orientation = args.orientation as Orientation;
 const portrait = orientation === 'portrait';
+// 沒給就是做不到背景虛化
+const bokehMax = args['bokeh-max'] ? (args['bokeh-max'].split('x').map(Number) as [number, number]) : null;
+if (bokehMax && !(bokehMax.length === 2 && bokehMax.every((n) => n > 0))) throw new Error('--bokeh-max 要寫成 1920x1080');
 
 const model = args.model;
 const slug = model.replace(/\W+/g, '-').toLowerCase();
@@ -47,6 +53,7 @@ const credsFile = path.join(home, `creds-${new URL(args.server).port || '80'}.js
 const SIZE: Record<Resolution, string> = { '2160p': '3840x2160', '1440p': '2560x1440', '1080p': '1920x1080', '720p': '1280x720' };
 const PIECE = 4 * 1024 * 1024; // 每次 PUT 的大小
 const ZOOM_RANGE: [number, number] = [1, 4]; // 模擬的變焦只能放大（從畫面中間裁切）
+const BOKEH_ZOOM_RANGE: [number, number] = [1, 3]; // 背景虛化時範圍比較小，和 Pixel 11 Pro 一樣
 const TAIL_GUARD = 256 * 1024; // 錄影中最後這段可能還在寫入，先不傳
 
 const log = (...a: unknown[]) => console.log(`[${model}]`, ...a);
@@ -101,7 +108,8 @@ function connect(): void {
   ws = socket;
   socket.on('open', () => {
     log('已連線');
-    socket.send(JSON.stringify({ type: 'hello', model, appVersion: 'fake-1', features: ['preview', 'zoom'] } satisfies DeviceMessage));
+    const camera = { facePriority: true, bokehMax, lockExposure: true };
+    socket.send(JSON.stringify({ type: 'hello', model, appVersion: 'fake-1', features: ['preview', 'zoom'], camera } satisfies DeviceMessage));
     for (const m of outbox.splice(0)) socket.send(JSON.stringify(m));
     bestRtt = Infinity;
     for (let i = 0; i < 5; i++) setTimeout(() => sendMsg({ type: 'sync', t0: Date.now() }), i * 200);
@@ -143,6 +151,7 @@ function onMessage(m: ServerMessage): void {
       stopRecording(m.fileId);
       break;
     case 'welcome':
+      applySpec(m.spec);
       setZoom(m.zoom);
       log(`電腦上的名稱：${m.name}`);
       break;
@@ -151,14 +160,20 @@ function onMessage(m: ServerMessage): void {
       break;
     case 'zoom':
       setZoom(m.ratio);
-      log(`變焦改成 ${zoom}×`);
+      log(`變焦改成 ${zoomNow()}×`);
       break;
     case 'preview':
       setPreview(m.on);
       break;
-    case 'config':
-      log(`電腦的錄影設定改成 ${m.resolution}，輔助框 ${m.guide}`);
+    case 'config': {
+      const onOff = (on: boolean) => (on ? '開' : '關');
+      applySpec(m);
+      log(
+        `電腦的錄影設定改成 ${m.resolution}，輔助框 ${m.guide}，` +
+          `臉部優先${onOff(m.facePriority)}、背景虛化${onOff(m.bokeh)}${m.bokeh && !bokehOn() ? '（這個解析度做不到）' : ''}、鎖定曝光${onOff(m.lockExposure)}`,
+      );
       break;
+    }
     case 'error':
       log(m.message);
       break;
@@ -183,9 +198,10 @@ function sendStatus(): void {
     cameraReady: true,
     recordingFileId: rec?.fileId ?? null,
     audioInput: args.mic,
-    zoom,
-    zoomRange: ZOOM_RANGE,
+    zoom: zoomNow(),
+    zoomRange: zoomRange(),
     orientation,
+    bokeh: bokehOn(),
   });
 }
 
@@ -251,33 +267,54 @@ function testPattern(width: number, height: number, fps: number, withAudio = tru
     ...input(`color=c=black@0:s=${base}:r=${fps},format=rgba`),
     '-filter_complex',
     [
-      '[0:v]format=gbrp[a];[1:v]format=gbrp[b];[a][b]blend=all_mode=screen,vignette=angle=PI/5,format=yuv420p[bg]',
+      // 背景虛化時只模糊背景的漸層，刻度和白點維持清楚
+      `[0:v]format=gbrp[a];[1:v]format=gbrp[b];[a][b]blend=all_mode=screen,vignette=angle=PI/5,format=yuv420p${bokehOn() ? ',boxblur=12' : ''}[bg]`,
       // 白點畫在透明的一層上，lagfun 讓它拖出漸淡的尾巴；張數少的時候衰減快一點，尾巴才一樣長
       `[5:v][4:v]overlay=x='W/2+${R}*cos(2*PI*t/3-PI/2)-w/2':y='H/2+${R}*sin(2*PI*t/3-PI/2)-h/2':format=rgb,lagfun=decay=${(0.9 ** (30 / fps)).toFixed(3)}[dot]`,
       '[bg][3:v]overlay=format=auto[dial];[dial][dot]overlay=format=auto[pic]',
       withAudio ? '[2:a]asplit=2[a][meter]' : '[2:a]anull[meter]',
       `[meter]showvolume=r=${fps}:w=320:h=6:b=0:t=0:v=0:f=0.8:p=0.18:c=0xe6ffffff[vu]`,
-      `[pic][vu]overlay=x=(W-w)/2:y=H/2+${R + 52}:format=auto,crop=iw/${zoom}:ih/${zoom},scale=${width}:${height}:flags=fast_bilinear,format=yuv420p[v]`,
+      `[pic][vu]overlay=x=(W-w)/2:y=H/2+${R + 52}:format=auto,crop=iw/${zoomNow()}:ih/${zoomNow()},scale=${width}:${height}:flags=fast_bilinear,format=yuv420p[v]`,
     ].join(';'),
     ...['-map', '[v]', ...(withAudio ? ['-map', '[a]'] : [])],
   ];
 }
 
-// ---------- 變焦與即時畫面 ----------
+// ---------- 變焦、人像設定與即時畫面 ----------
 
-let zoom = 1;
+let requestedZoom = 1; // 電腦要求的倍率，實際用的是 zoomNow()
+let spec: RecordingSpec | undefined; // 電腦最近送來的錄影設定
 let preview: ChildProcess | undefined;
 
-function setZoom(ratio: number): void {
-  const next = Math.min(ZOOM_RANGE[1], Math.max(ZOOM_RANGE[0], ratio || 1));
-  if (next === zoom) return;
-  zoom = next;
+// 背景虛化有沒有套用：設定打開、這支做得到、解析度沒超過上限
+function bokehOn(): boolean {
+  if (!spec?.bokeh || !bokehMax) return false;
+  const [width, height] = SIZE[spec.resolution].split('x').map(Number);
+  return width <= bokehMax[0] && height <= bokehMax[1];
+}
+
+const zoomRange = (): [number, number] => (bokehOn() ? BOKEH_ZOOM_RANGE : ZOOM_RANGE);
+// 超出範圍時取最接近的值；背景虛化關掉後回到原本要求的倍率
+const zoomNow = (): number => Math.min(zoomRange()[1], Math.max(zoomRange()[0], requestedZoom));
+
+// 變焦或背景虛化有變就回報，即時畫面重新開一次才會套用；錄影中的影片維持開始時的樣子
+function changeView(change: () => void): void {
+  const before = `${zoomNow()} ${bokehOn()}`;
+  change();
+  if (`${zoomNow()} ${bokehOn()}` === before) return;
   sendStatus();
-  // 即時畫面重新開一次才會套用；錄影中的影片維持開始時的倍率
   if (preview) {
     setPreview(false);
     setPreview(true);
   }
+}
+
+function setZoom(ratio: number): void {
+  changeView(() => (requestedZoom = ratio || 1));
+}
+
+function applySpec(next: RecordingSpec): void {
+  changeView(() => (spec = next));
 }
 
 // 每秒 5 張 640×360（直拿是 360×640）的 JPEG。ffmpeg 輸出的 JPEG 一張接一張，用結尾的 FF D9 切開。
@@ -316,6 +353,7 @@ function startRecording(m: Extract<ServerMessage, { type: 'start' }>): void {
     sendMsg({ type: 'recordingFailed', fileId: m.fileId, error: '這支手機已經在錄影' });
     return;
   }
+  applySpec(m); // 開始的指令也帶著完整的錄影設定
   const r: Rec = { fileId: m.fileId, file: path.join(home, m.fileName) };
   rec = r;
   const delay = Math.max(0, m.startAt - serverNow());

@@ -1,6 +1,6 @@
 # 多機錄影 MultiCam Recorder
 
-> 多機錄影（MultiCam Recorder）是免費、開源的手機多機位錄影工具：在電腦（macOS 或 Windows）的網頁控制台同步遙控多支 Android 手機錄影，有即時畫面、各別變焦、手機原生 4K、直式＋橫式同時錄，影片邊錄邊傳回電腦。MultiCam Recorder is a free, open-source multi-camera recording tool that turns Android phones into synchronized cameras controlled from a web dashboard on a Mac or Windows PC over local Wi-Fi.
+> 多機錄影（MultiCam Recorder）是免費、開源的手機多機位錄影工具：在電腦（macOS 或 Windows）的網頁控制台同步遙控多支 Android 手機錄影，有即時畫面、各別變焦、手機原生 4K、人像模式、直式＋橫式同時錄，影片邊錄邊傳回電腦。MultiCam Recorder is a free, open-source multi-camera recording tool that turns Android phones into synchronized cameras controlled from a web dashboard on a Mac or Windows PC over local Wi-Fi.
 
 作者：林鼎淵（Dean Lin），https://deanlin.net/about/。引用時請附上產品網站或 GitHub 的網址。
 
@@ -11,6 +11,7 @@
 - 手機：Android 12 以上，最多 10 台；目前沒有 iPhone 版。Phones: Android 12+, up to 10; no iPhone app yet.
 - 錄影：4K（3840×2160）、2K、1080p、720p，每秒 30 格，MP4（H.264＋AAC），單段最長 30 分鐘。Video: up to 4K at 30 fps, MP4, up to 30 minutes per take.
 - 方向：手機橫拿錄 16:9、直拿錄 9:16，可以一台錄長影片、一台錄短影音（Reels、Shorts、TikTok）。Portrait 9:16 and landscape 16:9 phones can record in the same take.
+- 人像設定：臉部優先（預設開，對焦、曝光、白平衡以人臉為準）、背景虛化（用 Android 的連續背景虛化，手機做得到才有，例如 Pixel 11 Pro 最高 1080p）、錄影時鎖定曝光和白平衡；都由手機的相機處理，解析度和畫質不變。沒有濾鏡和美顏，調色建議在剪輯軟體裡做。Portrait settings: face priority (on by default), background blur on phones that support Android's continuous bokeh mode (e.g. Pixel 11 Pro up to 1080p), and exposure/white-balance lock while recording; no filters.
 - 同步：按一個鍵（R），電腦先和每台手機對時，約好同一刻一起開始錄影。One key starts every phone at the same scheduled moment.
 - 傳檔：影片在手機上用原生畫質錄，錄影中就經由區域網路傳回電腦，停止後用 SHA-256 分段驗證，馬上能在電腦上播放。Footage is uploaded while recording and verified with SHA-256.
 - 隱私：不需要雲端帳號，影片只在手機和電腦之間的區域網路傳輸，不會上傳到網路。No cloud account; footage stays on the local network.

@@ -1175,6 +1175,40 @@ kbd {
   color: var(--text);
 }
 
+/* 人像設定的開關：方框打勾，下面一行小字說明 */
+.menu-item.toggle {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  align-items: start;
+  row-gap: 2px;
+}
+
+.menu-item.toggle::before {
+  content: '';
+  grid-row: span 2;
+  width: 10px;
+  height: 10px;
+  margin-top: 5px;
+  border: 1.5px solid var(--line-hi);
+  border-radius: 2px;
+}
+
+.menu-item.toggle.on::before {
+  border-color: var(--cyan);
+  background: var(--cyan);
+  box-shadow: inset 0 0 0 2px var(--panel);
+}
+
+.toggle-note {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--faint);
+}
+
+.menu-hint.warn {
+  color: var(--amber);
+}
+
 /* 直拿的手機：監看區改成 9:16，高度和橫拿的一樣，並排時才整齊 */
 .monitor.portrait {
   width: calc(min(100cqi - 32px, 54vh * 16 / 9) * 81 / 256);

@@ -504,14 +504,49 @@ function ProjectControl({ state, open, recording, onToggle, onNew, onEnd, onOpen
   </div>`;
 }
 
+const PORTRAIT_OPTIONS = [
+  { key: 'facePriority', label: '臉部優先', note: '對焦、曝光、白平衡以人臉為準' },
+  { key: 'bokeh', label: '背景虛化', note: '由手機的相機處理，只有部分手機做得到' },
+  { key: 'lockExposure', label: '錄影時鎖定曝光和白平衡', note: '亮度和顏色不會在錄到一半時變動，適合燈光固定的室內' },
+];
+
+// 背景虛化最高能錄到哪個解析度；做不到時是 undefined（解析度由大到小排）
+const bokehLimit = (state, camera) =>
+  camera?.bokehMax ? state.resolutions.find((x) => x.width <= camera.bokehMax[0] && x.height <= camera.bokehMax[1]) : undefined;
+
+// 開著的人像設定有哪幾台做不到。手機會略過做不到的項目，照常錄影。
+function portraitNotes(state) {
+  const s = state.settings;
+  const r = resolutionOf(state);
+  const notes = [];
+  for (const d of state.devices.filter((x) => x.online)) {
+    const c = d.camera;
+    if (!c) {
+      notes.push(`${d.name} 的 App 版本太舊，更新後才能用人像設定`);
+      continue;
+    }
+    const limit = bokehLimit(state, c);
+    if (s.facePriority && !c.facePriority) notes.push(`${d.name} 做不到臉部優先`);
+    if (s.bokeh && !limit) notes.push(`${d.name} 做不到背景虛化`);
+    else if (s.bokeh && limit.width < r.width) notes.push(`${d.name} 的背景虛化最高 ${limit.label}，現在選 ${r.label} 不會虛化`);
+    if (s.lockExposure && !c.lockExposure) notes.push(`${d.name} 做不到鎖定曝光和白平衡`);
+  }
+  return notes;
+}
+
 function SpecControl({ state, open, recording, onToggle, run }) {
   const r = resolutionOf(state);
-  const g = state.settings.guide;
+  const s = state.settings;
+  const g = s.guide;
   const max = state.limits.maxDurationSec;
+  const capable = state.devices
+    .filter((d) => d.online && bokehLimit(state, d.camera))
+    .map((d) => `${d.name}（最高 ${bokehLimit(state, d.camera).label}）`);
+  const noteOf = (o) => (o.key === 'bokeh' && capable.length ? `做得到的手機：${capable.join('、')}` : o.note);
   return html`<div class="readout menu-anchor">
     <span class="label">錄影規格</span>
     <button class="picker" aria-haspopup="menu" aria-expanded=${open} onClick=${onToggle}>
-      <span class="picker-value">${r.label}${g !== 'none' && html`<small>${g} 框</small>`}</span>
+      <span class="picker-value">${r.label}${g !== 'none' && html`<small>${g} 框</small>`}${s.bokeh && html`<small>背景虛化</small>`}${s.lockExposure && html`<small>鎖定曝光</small>`}</span>
       <span class="caret" aria-hidden="true"></span>
     </button>
     <span class="readout-note">
@@ -548,6 +583,20 @@ function SpecControl({ state, open, recording, onToggle, run }) {
       </div>
       <p class="menu-hint">手機橫拿錄 16:9、直拿錄 9:16，開始錄影後方向就固定到停止。裁切框只疊在手機預覽和這裡的播放器上，方便架機時就照最後要出的比例構圖。</p>
       <p class="menu-hint">手機不支援選的解析度時，會改錄它能錄的最大解析度，影片清單上會標出來。</p>
+      <div class="menu-title">人像${recording ? '（錄影中不能改）' : ''}</div>
+      ${PORTRAIT_OPTIONS.map(
+        (o) => html`<button
+          class=${`menu-item toggle ${s[o.key] ? 'on' : ''}`}
+          role="menuitemcheckbox"
+          aria-checked=${s[o.key]}
+          disabled=${recording}
+          onClick=${() => run(() => post('/api/settings', { [o.key]: !s[o.key] }))}
+        >
+          <span>${o.label}</span>
+          <small class="toggle-note">${noteOf(o)}</small>
+        </button>`,
+      )}
+      ${portraitNotes(state).map((n) => html`<p class="menu-hint warn">${n}</p>`)}
     </div>`}
   </div>`;
 }
@@ -693,6 +742,7 @@ function Bay({ state, device, letter, t, compact, onStart, onStop, onRemove, not
   const conn = !device.online ? ['off', '離線'] : st.cameraReady === false ? ['warn', '相機未就緒'] : ['on', '已連線'];
   const bitrate = resolutionOf(state).bitrate;
   const minutesLeft = st.freeBytes != null ? Math.floor(st.freeBytes / (bitrate / 8) / 60) : null;
+  const locked = recording && active.spec.lockExposure && device.camera?.lockExposure;
 
   return html`
     <section class=${`bay ${recording ? 'rec' : ''} ${device.online ? '' : 'offline'}`}>
@@ -753,7 +803,9 @@ function Bay({ state, device, letter, t, compact, onStart, onStop, onRemove, not
                 ${revealLabel(state)}
               </button>
               <button class="btn-link" onClick=${() => setSelectedId(null)}>回到即時畫面</button>`
-          : html`<span>即時畫面${st.orientation ? `・${ORIENTATION_LABEL[st.orientation]}` : ''}</span>`}
+          : html`<span>
+              即時畫面${st.orientation ? `・${ORIENTATION_LABEL[st.orientation]}` : ''}${st.bokeh ? '・背景虛化' : ''}${locked ? '・鎖定曝光' : ''}
+            </span>`}
       </div>
       <${ZoomControl} device=${device} run=${run} />
 
@@ -817,7 +869,8 @@ function ZoomControl({ device, run }) {
   const toPos = (z) => Math.round((Math.log(z / min) / Math.log(max / min)) * 1000);
   const fromPos = (pos) => Math.min(max, Math.max(min, roundZoom(min * Math.pow(max / min, pos / 1000))));
   const send = (z) => run(() => post(`/api/devices/${device.id}/zoom`, { ratio: z }));
-  const current = device.zoom ?? 1;
+  // 手機會把倍率限制在它現在的範圍內（背景虛化時範圍比較小），顯示的是手機實際用的倍率
+  const current = Math.min(max, Math.max(min, device.zoom ?? 1));
   const shown = dragging ?? current;
   return html`<div class="zoom">
     <span class="label">變焦</span>

@@ -17,10 +17,10 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'multicam-smoke-'));
 const dataDir = path.join(tmp, 'data');
 const recDir = path.join(tmp, '錄影資料夾'); // 中文路徑：Windows 上也要能用
 const PROJECT = '測試專案';
-// 一支橫拿、一支直拿一起錄，例如同時錄長影片和短影音
+// 一支橫拿、一支直拿一起錄，例如同時錄長影片和短影音。直拿的那支做得到背景虛化（最高 1080p，和 Pixel 11 Pro 一樣）
 const PHONES = [
-  { model: 'Smoke Phone', orientation: 'landscape' },
-  { model: 'Smoke Portrait', orientation: 'portrait' },
+  { model: 'Smoke Phone', orientation: 'landscape', bokehMax: null },
+  { model: 'Smoke Portrait', orientation: 'portrait', bokehMax: '1920x1080' },
 ];
 const slugOf = (model: string) => model.replace(/\W+/g, '-').toLowerCase(); // 和 fake-phone.ts 存檔的資料夾名稱一樣
 const logs: string[] = [];
@@ -124,9 +124,14 @@ async function main(): Promise<void> {
   step('新增專案、擋下不合規的名稱');
 
   const phones = PHONES.map((p, i) =>
-    start(`phone${i + 1}`, ['tools/fake-phone.ts', '--model', p.model, '--orientation', p.orientation, '--server', BASE, '--encoder', 'libx264'], {
-      RECORDER_DATA_DIR: dataDir,
-    }),
+    start(
+      `phone${i + 1}`,
+      [
+        ...['tools/fake-phone.ts', '--model', p.model, '--orientation', p.orientation, '--server', BASE, '--encoder', 'libx264'],
+        ...(p.bokehMax ? ['--bokeh-max', p.bokehMax] : []),
+      ],
+      { RECORDER_DATA_DIR: dataDir },
+    ),
   );
   const devices = await waitFor('兩支模擬手機上線', async () => {
     const all = (await state()).devices;
@@ -136,6 +141,9 @@ async function main(): Promise<void> {
   for (const [i, d] of devices.entries()) {
     assert(d.features.includes('preview') && d.features.includes('zoom'), `${d.name} 應該回報支援即時畫面和變焦`);
     assert(d.status.orientation === PHONES[i].orientation, `${d.name} 應該回報 ${PHONES[i].orientation}，結果是 ${d.status.orientation}`);
+    const max = PHONES[i].bokehMax?.split('x').map(Number) ?? null;
+    assert(d.camera?.facePriority && d.camera.lockExposure, `${d.name} 應該回報做得到臉部優先和鎖定曝光`);
+    assert(JSON.stringify(d.camera.bokehMax) === JSON.stringify(max), `${d.name} 回報的背景虛化上限不對：${JSON.stringify(d.camera.bokehMax)}`);
   }
   step('兩支模擬手機配對並上線（一支橫拿、一支直拿）');
 
@@ -166,11 +174,34 @@ async function main(): Promise<void> {
   await ok('POST', `/api/devices/${phone.id}/zoom`, { ratio: 1 });
   step('調整變焦倍率');
 
+  // 人像設定：背景虛化只套用在做得到、解析度又沒超過上限的手機，這時變焦範圍變小；關掉後回到原本的倍率
+  s = await state();
+  assert(s.settings.facePriority && !s.settings.bokeh && !s.settings.lockExposure, '人像設定的預設應該是臉部優先開、其他關');
+  const statusOf = async (d: any) => (await state()).devices.find((x: any) => x.id === d.id)?.status;
+  const bokehPhone = devices[1];
+  await ok('POST', `/api/devices/${bokehPhone.id}/zoom`, { ratio: 4 });
+  await ok('POST', '/api/settings', { bokeh: true, lockExposure: true });
+  await waitFor('直拿的手機套用背景虛化，變焦限制在 3×', async () => {
+    const st = await statusOf(bokehPhone);
+    return st?.bokeh === true && st.zoom === 3 && st.zoomRange?.[1] === 3;
+  }, 10_000);
+  assert((await statusOf(phone))?.bokeh === false, '做不到背景虛化的手機不應該套用');
+  await ok('POST', '/api/settings', { resolution: '2160p' });
+  await waitFor('4K 超過上限，不套用背景虛化，變焦回到 4×', async () => {
+    const st = await statusOf(bokehPhone);
+    return st?.bokeh === false && st.zoom === 4;
+  }, 10_000);
+  await ok('POST', '/api/settings', { resolution: '720p' });
+  await waitFor('回到 720p 又套用背景虛化', async () => (await statusOf(bokehPhone))?.bokeh === true, 10_000);
+  await ok('POST', `/api/devices/${bokehPhone.id}/zoom`, { ratio: 1 });
+  step('人像設定：背景虛化只套用在做得到的手機，超過解析度上限就不套用，變焦範圍跟著變');
+
   // 兩支一起錄兩段，第二段緊接著開始（剛停止時不能被當成還在錄影）
   const takes: any[][] = [];
   for (const seconds of [3, 2]) {
     const r = await ok('POST', '/api/record/start', {});
     assert(r.skipped.length === 0, `開始錄影時被跳過：${r.skipped.join('、')}`);
+    if (!takes.length) assert((await api('POST', '/api/settings', { bokeh: false })).status === 409, '錄影中應該不能改人像設定');
     await sleep(seconds * 1000 + 800);
     await ok('POST', '/api/record/stop', {});
     const done = new Set(takes.flat().map((f) => f.id));
@@ -194,9 +225,10 @@ async function main(): Promise<void> {
       assert(f.orientation === PHONES[i].orientation, `${f.name} 應該記成 ${PHONES[i].orientation}，結果是 ${f.orientation}`);
       const local = path.join(dataDir, 'fake-phones', slugOf(PHONES[i].model), f.name);
       assert(sha256(path.join(projectDir, f.name)) === sha256(local), `${f.name} 和手機上的原檔不一樣`);
+      assert(f.spec.facePriority && f.spec.bokeh && f.spec.lockExposure, `${f.name} 應該記著錄影時的人像設定`);
     }
   }
-  step(`兩支一起錄兩段、傳到專案資料夾，和手機原檔的 SHA-256 一致，直式、橫式也記對了（共 ${takes.flat().length} 支）`);
+  step(`兩支一起錄兩段、傳到專案資料夾，和手機原檔的 SHA-256 一致，直式、橫式也記對了（共 ${takes.flat().length} 支），錄影中不能改人像設定`);
 
   await ok('POST', `/api/takes/${takes[0][0].takeId}/mark`, { marked: true });
   s = await state();

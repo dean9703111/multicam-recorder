@@ -9,6 +9,9 @@ export interface Settings {
   storageDir: string; // 新專案會建在這個資料夾底下
   resolution: Resolution;
   guide: Guide;
+  facePriority: boolean; // 人像設定，說明在 protocol.ts 的 RecordingSpec
+  bokeh: boolean;
+  lockExposure: boolean;
   projectId: string | null; // 目前的專案；null 表示還沒建立或已結束
 }
 
@@ -70,7 +73,15 @@ const DB_PATH = path.join(DATA_DIR, 'db.json');
 
 function load(): Db {
   const defaults: Db = {
-    settings: { storageDir: DEFAULT_STORAGE_DIR, resolution: '2160p', guide: 'none', projectId: null },
+    settings: {
+      storageDir: DEFAULT_STORAGE_DIR,
+      resolution: '2160p',
+      guide: 'none',
+      facePriority: true,
+      bokeh: false,
+      lockExposure: false,
+      projectId: null,
+    },
     devices: [],
     projects: [],
     files: [],

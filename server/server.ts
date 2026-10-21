@@ -9,6 +9,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import { HttpError, isLoopback, readJson, sendFile, sendJson } from './http.ts';
 import { GOOD_FORMATS, moveToTrash, powershellArgs, psQuote, TRASH_NAME } from './platform.ts';
 import type {
+  CameraCapabilities,
   DeviceMessage,
   DeviceStatus,
   FinishRequest,
@@ -68,6 +69,7 @@ interface Live {
   alive: boolean;
   previewOn: boolean; // 已經請手機送即時畫面
   features: string[]; // 手機支援的功能，舊版 App 沒有即時畫面和變焦
+  camera: CameraCapabilities | null; // 做得到哪些人像設定；舊版 App 沒有回報
 }
 
 const live = new Map<string, Live>();
@@ -92,7 +94,7 @@ function onDeviceConnection(ws: WebSocket, token: string | null): void {
     return;
   }
   live.get(d.id)?.ws.terminate(); // 同一支手機重連，舊的連線作廢
-  const l: Live = { ws, status: {}, alive: true, previewOn: false, features: [] };
+  const l: Live = { ws, status: {}, alive: true, previewOn: false, features: [], camera: null };
   live.set(d.id, l);
   ws.on('pong', () => {
     l.alive = true;
@@ -115,11 +117,20 @@ function onDeviceConnection(ws: WebSocket, token: string | null): void {
   changed();
 }
 
+// 手機回報的相機能力；格式不對的項目當成做不到
+function cameraOf(c: Partial<CameraCapabilities> | undefined): CameraCapabilities | null {
+  if (!c || typeof c !== 'object') return null;
+  const max = c.bokehMax;
+  const valid = Array.isArray(max) && max.length === 2 && max.every((n) => Number.isFinite(n) && n > 0);
+  return { facePriority: c.facePriority === true, bokehMax: valid ? [max[0], max[1]] : null, lockExposure: c.lockExposure === true };
+}
+
 function onDeviceMessage(d: Device, l: Live, m: DeviceMessage): void {
   const f = 'fileId' in m ? db.files.find((x) => x.id === m.fileId && x.deviceId === d.id) : undefined;
   switch (m.type) {
     case 'hello':
       l.features = Array.isArray(m.features) ? m.features.filter((x) => typeof x === 'string') : [];
+      l.camera = cameraOf(m.camera);
       if (m.model && m.model !== d.model) {
         d.model = m.model;
         save();
@@ -230,6 +241,9 @@ function currentSpec(): RecordingSpec {
     maxDurationSec: MAX_DURATION_SEC,
     warnBeforeSec: WARN_BEFORE_SEC,
     guide: db.settings.guide,
+    facePriority: db.settings.facePriority,
+    bokeh: db.settings.bokeh,
+    lockExposure: db.settings.lockExposure,
   };
 }
 
@@ -523,6 +537,7 @@ function snapshot() {
       zoom: d.zoom ?? 1,
       online: live.has(d.id),
       features: live.get(d.id)?.features ?? [],
+      camera: live.get(d.id)?.camera ?? null,
       status: live.get(d.id)?.status ?? {},
     })),
     // 只送目前專案的影片
@@ -707,7 +722,14 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
       return sendJson(res, 200, await createPairing(b.renew === true));
     }
     if (p === '/api/settings') {
-      const b = await readJson<{ resolution?: Resolution; guide?: Guide; storageDir?: string }>(req);
+      const b = await readJson<{
+        resolution?: Resolution;
+        guide?: Guide;
+        storageDir?: string;
+        facePriority?: boolean;
+        bokeh?: boolean;
+        lockExposure?: boolean;
+      }>(req);
       if (b.resolution !== undefined) {
         if (!RESOLUTIONS.some((r) => r.id === b.resolution)) throw new HttpError(400, '不支援這個解析度');
         if (isRecording()) throw new HttpError(409, '錄影中不能改解析度，停止後再調整');
@@ -717,7 +739,14 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
         if (!GUIDES.includes(b.guide)) throw new HttpError(400, '不支援這種輔助框');
         db.settings.guide = b.guide; // 只影響預覽，錄影中也可以改
       }
-      if (b.resolution !== undefined || b.guide !== undefined) {
+      // 人像設定會改變錄到的畫面，跟解析度一樣錄影中不能改
+      const portrait = (['facePriority', 'bokeh', 'lockExposure'] as const).filter((k) => b[k] !== undefined);
+      for (const k of portrait) {
+        if (typeof b[k] !== 'boolean') throw new HttpError(400, '人像設定只能是開或關');
+        if (isRecording()) throw new HttpError(409, '錄影中不能改人像設定，停止後再調整');
+        db.settings[k] = b[k] === true;
+      }
+      if (b.resolution !== undefined || b.guide !== undefined || portrait.length) {
         for (const id of live.keys()) send(id, { type: 'config', ...currentSpec() });
       }
       if (b.storageDir !== undefined) {
