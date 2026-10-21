@@ -1781,6 +1781,34 @@ kbd {
   font-size: 13px;
 }
 
+/* 介面語言的下拉選單：和輸入框同一個樣子，右邊自己畫箭頭 */
+.field select {
+  width: 100%;
+  padding: 9px 36px 9px 12px;
+  border: 1px solid var(--line-hi);
+  border-radius: 3px;
+  background: var(--bg)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%239aa0a8' stroke-width='1.6'/%3E%3C/svg%3E")
+    right 12px center / 12px 8px no-repeat;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  appearance: none;
+  cursor: pointer;
+}
+
+.field select:hover {
+  border-color: var(--muted);
+}
+
+.field .hint {
+  margin-top: 2px;
+}
+
+.field + .field {
+  margin-top: 20px;
+}
+
 .hint {
   margin: 10px 0 0;
   color: var(--muted);

@@ -4,6 +4,7 @@ import type { IncomingMessage } from 'node:http';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { HttpError } from './http.ts';
+import { m } from './i18n.ts';
 import { CHUNK_SIZE, type VerifyRequest, type VerifyResponse } from './protocol.ts';
 import { checkDir, type FileEntry } from './store.ts';
 
@@ -56,7 +57,7 @@ export async function writeChunk(f: FileEntry, offset: number, req: IncomingMess
   if (dirError) throw new HttpError(503, dirError);
   const file = partPath(f);
   const current = sizeOf(file);
-  if (offset > current) throw new HttpError(409, 'offset 超過已收到的大小', { receivedBytes: current });
+  if (offset > current) throw new HttpError(409, m('upload.offsetTooFar'), { receivedBytes: current });
   fs.closeSync(fs.openSync(file, 'a')); // r+ 不會自己建立檔案
   const out = fs.createWriteStream(file, { flags: 'r+', start: offset });
   try {
@@ -71,7 +72,7 @@ export async function writeChunk(f: FileEntry, offset: number, req: IncomingMess
 export function finish(f: FileEntry, size: number): void {
   const file = partPath(f);
   const current = sizeOf(file);
-  if (current < size) throw new HttpError(409, '檔案還沒傳完', { receivedBytes: current });
+  if (current < size) throw new HttpError(409, m('upload.incomplete'), { receivedBytes: current });
   if (current > size) {
     fs.truncateSync(file, size);
     invalidate(f.id, size, current);
@@ -107,11 +108,11 @@ async function fillHashes(f: FileEntry, h: Hashes): Promise<void> {
 }
 
 export async function verify(f: FileEntry, req: VerifyRequest): Promise<VerifyResponse> {
-  if (f.size === undefined) throw new HttpError(409, '請先呼叫 finish');
-  if (req.chunkSize !== CHUNK_SIZE) throw new HttpError(400, `chunkSize 必須是 ${CHUNK_SIZE}`);
+  if (f.size === undefined) throw new HttpError(409, m('upload.finishFirst'));
+  if (req.chunkSize !== CHUNK_SIZE) throw new HttpError(400, m('upload.chunkSize', { size: CHUNK_SIZE }));
   const count = Math.ceil(f.size / CHUNK_SIZE);
   if (!Array.isArray(req.hashes) || req.hashes.length !== count) {
-    throw new HttpError(400, `hashes 應該有 ${count} 段`);
+    throw new HttpError(400, m('upload.hashCount', { count }));
   }
   const actual = sizeOf(partPath(f));
   if (actual > f.size) {

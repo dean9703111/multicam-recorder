@@ -76,7 +76,9 @@ export interface DeviceStatus {
   freeBytes?: number;
   cameraReady?: boolean;
   recordingFileId?: string | null;
-  audioInput?: string; // 目前用哪支麥克風，例如「外接 USB（DJI Mic）」
+  audioSource?: AudioSource; // 目前用哪支麥克風收音，控制台用自己的語言顯示
+  audioName?: string; // 外接麥克風的產品名稱，例如 DJI Mic
+  audioInput?: string; // 舊版 App 送的說明文字，例如「外接 USB（DJI Mic）」；有 audioSource 時不用
   zoom?: number; // 目前的變焦倍率
   zoomRange?: [number, number]; // 這支手機能用的變焦範圍，例如 [0.5, 10]
   orientation?: Orientation; // 錄影中是開始時鎖住的方向
@@ -84,16 +86,34 @@ export interface DeviceStatus {
 
 export type StopReason = 'user' | 'maxDuration' | 'error';
 
+// 收音來源：手機內建、USB、耳機孔、其他
+export type AudioSource = 'builtin' | 'usb' | 'wired' | 'other';
+
+// 手機回報失敗的代碼（控制台用自己的語言顯示），detail 是系統給的技術訊息：
+// busy 已經在錄影、cameraNotReady 相機還沒準備好、unsupportedResolution 不支援這個解析度、startFailed 開始錄影失敗、
+// cancelled 還沒開始就取消、notFinalized 錄影沒有正常結束、appClosed 錄影中 App 被關閉、recorderError 錄影中發生錯誤
+export type FailureCode =
+  | 'busy'
+  | 'cameraNotReady'
+  | 'unsupportedResolution'
+  | 'startFailed'
+  | 'cancelled'
+  | 'notFinalized'
+  | 'appClosed'
+  | 'recorderError';
+
 // 手機 → 電腦
 export type DeviceMessage =
-  | { type: 'hello'; model: string; appVersion: string; features?: string[]; camera?: CameraCapabilities } // features：'preview'、'zoom'
+  // features：'preview'、'zoom'；lang 是手機的語言（例如 zh-TW、en），電腦送給這支手機的訊息會用這個語言
+  | { type: 'hello'; model: string; appVersion: string; features?: string[]; camera?: CameraCapabilities; lang?: string }
   | { type: 'sync'; t0: number }
   | ({ type: 'status' } & DeviceStatus)
   // startedAt 要換算成電腦時間；width、height 是實際錄的解析度（手機不支援要求的解析度時會降級），
   // 直拿時也是橫的寬高，影片檔裡另外記著播放時要轉 90°
   | { type: 'recordingStarted'; fileId: string; startedAt: number; width?: number; height?: number; orientation?: Orientation }
   | { type: 'recordingStopped'; fileId: string; reason: StopReason; durationMs: number; size: number }
-  | { type: 'recordingFailed'; fileId: string; error: string };
+  // error 是給舊版電腦端看的說明文字；新版看 code 和 detail
+  | { type: 'recordingFailed'; fileId: string; error: string; code?: FailureCode; detail?: string };
 
 // 電腦 → 手機
 export type ServerMessage =

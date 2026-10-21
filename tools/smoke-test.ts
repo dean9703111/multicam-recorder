@@ -48,10 +48,10 @@ async function waitFor<T>(what: string, fn: () => Promise<T | undefined | false>
   }
 }
 
-async function api<T = any>(method: string, urlPath: string, body?: unknown): Promise<{ status: number; data: T }> {
+async function api<T = any>(method: string, urlPath: string, body?: unknown, headers: Record<string, string> = {}): Promise<{ status: number; data: T }> {
   const res = await fetch(BASE + urlPath, {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...headers },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   return { status: res.status, data: (await res.json().catch(() => ({}))) as T };
@@ -122,6 +122,24 @@ async function main(): Promise<void> {
   assert(fs.statSync(projectDir).isDirectory(), '應該建立專案資料夾');
   assert((await api('POST', '/api/projects', { name: PROJECT })).status === 409, '同名專案應該被擋下');
   step('新增專案、擋下不合規的名稱');
+
+  // 中英文：錯誤訊息跟著控制台送的 X-Lang，配對網頁跟著手機瀏覽器的 Accept-Language
+  const en = await api('POST', '/api/projects', { name: 'CON' }, { 'X-Lang': 'en' });
+  const zh = await api('POST', '/api/projects', { name: 'CON' }, { 'X-Lang': 'zh-TW' });
+  assert(en.status === 400 && /reserved name/.test(en.data.error), `英文的錯誤訊息不對：${en.data.error}`);
+  assert(zh.status === 400 && /保留的名稱/.test(zh.data.error), `中文的錯誤訊息不對：${zh.data.error}`);
+  const { link } = await ok('POST', '/api/pairing', {});
+  const pairPage = async (lang: string) =>
+    (await fetch(String(link).replace(/^http:\/\/[^/]+/, BASE), { headers: { 'Accept-Language': lang } })).text();
+  assert((await pairPage('en-US,en;q=0.9')).includes('Pair this phone'), '英文的手機應該看到英文的配對網頁');
+  assert((await pairPage('zh-TW,zh;q=0.9,en;q=0.8')).includes('配對這支手機'), '中文的手機應該看到中文的配對網頁');
+  const trashName = (await api('GET', '/api/state', undefined, { 'X-Lang': 'en' })).data.trashName;
+  assert(trashName === 'Trash' || trashName === 'Recycle Bin', `英文的垃圾桶名稱不對：${trashName}`);
+  assert((await api('POST', '/api/settings', { language: 'fr' })).status === 400, '不支援的語言應該被擋下');
+  await ok('POST', '/api/settings', { language: 'en' });
+  assert((await state()).settings.language === 'en', '介面語言應該存起來');
+  await ok('POST', '/api/settings', { language: 'auto' });
+  step('中英文：錯誤訊息、配對網頁、狀態裡的文字跟著語言，介面語言的設定存得起來');
 
   const phones = PHONES.map((p, i) =>
     start(`phone${i + 1}`, ['tools/fake-phone.ts', '--model', p.model, '--orientation', p.orientation, '--server', BASE, '--encoder', 'libx264'], {

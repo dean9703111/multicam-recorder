@@ -7,7 +7,8 @@ import path from 'node:path';
 import QRCode from 'qrcode';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { HttpError, isLoopback, readJson, sendFile, sendJson } from './http.ts';
-import { GOOD_FORMATS, moveToTrash, powershellArgs, psQuote, TRASH_NAME } from './platform.ts';
+import { currentLang, joinList, LANG_SETTINGS, m, parseLang, PHONE_ERRORS, setDefaultLang, systemLang, withLang, type Lang, type LangSetting } from './i18n.ts';
+import { moveToTrash, powershellArgs, psQuote } from './platform.ts';
 import type {
   CameraCapabilities,
   DeviceMessage,
@@ -58,6 +59,7 @@ const VENDOR_FILE = path.join(NODE_MODULES, 'htm/preact/standalone.module.js');
 const STATIC: Record<string, string> = {
   'index.html': 'text/html; charset=utf-8',
   'app.js': 'text/javascript; charset=utf-8',
+  'i18n.js': 'text/javascript; charset=utf-8',
   'style.css': 'text/css; charset=utf-8',
 };
 
@@ -70,6 +72,7 @@ interface Live {
   previewOn: boolean; // 已經請手機送即時畫面
   features: string[]; // 手機支援的功能，舊版 App 沒有即時畫面和變焦
   camera: CameraCapabilities | null; // 做得到哪些人像設定；舊版 App 沒有回報
+  lang: Lang; // 送給這支手機的訊息用的語言：連線時的 Accept-Language，hello 裡的 lang
 }
 
 const live = new Map<string, Live>();
@@ -85,16 +88,16 @@ function send(deviceId: string, msg: ServerMessage): boolean {
   return true;
 }
 
-function onDeviceConnection(ws: WebSocket, token: string | null): void {
+function onDeviceConnection(ws: WebSocket, token: string | null, lang: Lang): void {
   ws.on('error', () => {});
   const d = db.devices.find((x) => x.token === token);
   if (!d) {
-    sendTo(ws, { type: 'error', code: 'unpaired', message: '這支手機還沒配對，請重新掃 QR Code' });
+    sendTo(ws, { type: 'error', code: 'unpaired', message: m('device.unpaired', {}, lang) });
     ws.close(4001, 'unpaired');
     return;
   }
   live.get(d.id)?.ws.terminate(); // 同一支手機重連，舊的連線作廢
-  const l: Live = { ws, status: {}, alive: true, previewOn: false, features: [], camera: null };
+  const l: Live = { ws, status: {}, alive: true, previewOn: false, features: [], camera: null, lang };
   live.set(d.id, l);
   ws.on('pong', () => {
     l.alive = true;
@@ -129,6 +132,7 @@ function onDeviceMessage(d: Device, l: Live, m: DeviceMessage): void {
     case 'hello':
       l.features = Array.isArray(m.features) ? m.features.filter((x) => typeof x === 'string') : [];
       l.camera = cameraOf(m.camera);
+      l.lang = parseLang(m.lang) ?? l.lang;
       if (m.model && m.model !== d.model) {
         d.model = m.model;
         save();
@@ -148,7 +152,7 @@ function onDeviceMessage(d: Device, l: Live, m: DeviceMessage): void {
       if (f && f.state !== 'ready') {
         f.state = 'recording';
         f.startedAt = m.startedAt;
-        f.error = undefined;
+        clearError(f);
         if (typeof m.width === 'number' && typeof m.height === 'number') {
           f.videoWidth = m.width;
           f.videoHeight = m.height;
@@ -176,7 +180,12 @@ function onDeviceMessage(d: Device, l: Live, m: DeviceMessage): void {
       if (l.status.recordingFileId === m.fileId) l.status.recordingFileId = null;
       if (f && f.state !== 'ready') {
         f.state = 'failed';
-        f.error = m.error;
+        // 新版 App 用代碼回報，控制台才能用自己的語言顯示；舊版 App 直接送中文訊息
+        if (typeof m.code === 'string' && PHONE_ERRORS.includes(m.code)) {
+          setError(f, `fileError.phone.${m.code}`, { detail: typeof m.detail === 'string' ? m.detail : '' });
+        } else {
+          setError(f, undefined, undefined, m.error);
+        }
         save();
       }
       break;
@@ -193,18 +202,18 @@ const isRecording = (): boolean => db.files.some((f) => f.state === 'starting' |
 
 function startRecording(deviceIds?: string[]): { skipped: string[] } {
   const project = currentProject();
-  if (!project) throw new HttpError(409, '請先新增專案', { needProject: true });
+  if (!project) throw new HttpError(409, m('rec.needProject'), { needProject: true });
   const skipped: string[] = [];
   const targets = db.devices.filter((d) => {
     if (deviceIds && !deviceIds.includes(d.id)) return false;
     const l = live.get(d.id);
-    if (!l) skipped.push(`${d.name} 離線`);
-    else if (activeFile(d.id) || l.status.recordingFileId) skipped.push(`${d.name} 已經在錄影`);
-    else if (l.status.cameraReady === false) skipped.push(`${d.name} 相機還沒準備好`);
+    if (!l) skipped.push(m('rec.offline', { name: d.name }));
+    else if (activeFile(d.id) || l.status.recordingFileId) skipped.push(m('rec.busy', { name: d.name }));
+    else if (l.status.cameraReady === false) skipped.push(m('rec.cameraNotReady', { name: d.name }));
     else return true;
     return false;
   });
-  if (!targets.length) throw new HttpError(409, skipped.join('、') || '還沒有配對任何手機');
+  if (!targets.length) throw new HttpError(409, joinList(skipped) || m('rec.noPhones'));
 
   const takeId = crypto.randomUUID();
   const startAt = Date.now() + START_DELAY_MS;
@@ -258,16 +267,16 @@ const samePath = (a: string, b: string): boolean =>
 // 專案名稱就是資料夾名稱，建在目前設定的錄影資料夾底下。規則以 Windows 為準，資料夾搬到哪一台電腦都能用。
 function createProject(rawName: unknown): Project {
   const name = typeof rawName === 'string' ? rawName.trim() : '';
-  if (!name || name.length > 60) throw new HttpError(400, '專案名稱要 1 到 60 個字');
+  if (!name || name.length > 60) throw new HttpError(400, m('project.nameLength'));
   if (/[/\\:*?"<>|\x00-\x1f]/.test(name) || name.startsWith('.') || name.endsWith('.')) {
-    throw new HttpError(400, '專案名稱不能包含 / \\ : * ? " < > |，也不能用 . 開頭或結尾');
+    throw new HttpError(400, m('project.nameChars'));
   }
-  if (RESERVED_NAME.test(name)) throw new HttpError(400, `「${name}」是 Windows 保留的名稱，請換一個`);
-  if (isRecording()) throw new HttpError(409, '錄影中不能切換專案，請先停止');
+  if (RESERVED_NAME.test(name)) throw new HttpError(400, m('project.reserved', { name }));
+  if (isRecording()) throw new HttpError(409, m('project.switchWhileRecording'));
   const rootError = checkDir(db.settings.storageDir);
-  if (rootError) throw new HttpError(400, `錄影資料夾不能用：${rootError}`);
+  if (rootError) throw new HttpError(400, m('project.badRoot', { error: rootError }));
   const dir = path.join(db.settings.storageDir, name);
-  if (db.projects.some((p) => samePath(p.dir, dir))) throw new HttpError(409, '已經有同名的專案，可以從專案清單打開它');
+  if (db.projects.some((p) => samePath(p.dir, dir))) throw new HttpError(409, m('project.exists'));
   fs.mkdirSync(dir, { recursive: true });
   endCurrentProject();
   const project: Project = { id: crypto.randomUUID(), name, dir, createdAt: Date.now() };
@@ -286,8 +295,8 @@ function endCurrentProject(): void {
 
 function openProject(id: string): void {
   const p = db.projects.find((x) => x.id === id);
-  if (!p) throw new HttpError(404, '找不到這個專案');
-  if (isRecording()) throw new HttpError(409, '錄影中不能切換專案，請先停止');
+  if (!p) throw new HttpError(404, m('project.notFound'));
+  if (isRecording()) throw new HttpError(409, m('project.switchWhileRecording'));
   if (p.id === db.settings.projectId) return;
   endCurrentProject();
   p.endedAt = undefined;
@@ -304,9 +313,9 @@ function stopRecording(deviceIds?: string[]): { skipped: string[] } {
     const f = activeFile(d.id);
     if (!f) continue;
     if (send(d.id, { type: 'stop', fileId: f.id })) sent++;
-    else skipped.push(`${d.name} 離線，停止指令送不到`);
+    else skipped.push(m('rec.stopUnreachable', { name: d.name }));
   }
-  if (!sent && !skipped.length) throw new HttpError(409, '沒有正在錄影的手機');
+  if (!sent && !skipped.length) throw new HttpError(409, m('rec.nothingRecording'));
   return { skipped };
 }
 
@@ -375,7 +384,7 @@ function lanAddress(): string | undefined {
 // QR Code 是網址：用手機相機掃，會打開下面 pairPage 的網頁；用 App 內的掃描則直接讀網址裡的配對碼。
 async function createPairing(renew: boolean): Promise<{ qr: string; link: string; payload: QrPayload; expiresAt: number }> {
   const address = lanAddress();
-  if (!address) throw new HttpError(500, '找不到這台電腦的區域網路 IP，請確認電腦已連上網路');
+  if (!address) throw new HttpError(500, m('pair.noIp'));
   if (renew || !pairing || pairing.expiresAt - Date.now() < 60_000) {
     pairing = { token: crypto.randomBytes(16).toString('base64url'), expiresAt: Date.now() + 10 * 60_000 };
   }
@@ -399,29 +408,29 @@ function pairPage(req: IncomingMessage, res: ServerResponse, code: string | null
   const ios = /iPhone|iPad|iPod/.test(req.headers['user-agent'] ?? '');
   let body: string;
   if (ios) {
-    body = `<h1>目前只支援 Android</h1>
-       <p>「多機錄影」的手機 App 目前只有 Android 版，iPhone 還不能當攝影機。</p>`;
+    body = `<h1>${m('pairPage.iosTitle')}</h1>
+       <p>${m('pairPage.iosBody')}</p>`;
   } else if (valid) {
-    body = `<h1>配對這支手機</h1>
-       <p>按下按鈕會打開「多機錄影」App，並自動完成配對。</p>
-       <a class="btn" href="${escapeHtml(intent)}">打開 App 並配對</a>
-       <h2>還沒安裝 App？</h2>
+    body = `<h1>${m('pairPage.heading')}</h1>
+       <p>${m('pairPage.body')}</p>
+       <a class="btn" href="${escapeHtml(intent)}">${m('pairPage.button')}</a>
+       <h2>${m('pairPage.noApp')}</h2>
        <ol>
-         <li>按上面的按鈕，或<a href="${APP_DOWNLOAD_URL}">直接下載 APK</a>。下載完點開安裝，第一次會要你允許瀏覽器安裝應用程式。</li>
-         <li>裝好後回到這一頁，再按一次「打開 App 並配對」。</li>
+         <li>${m('pairPage.step1', { url: APP_DOWNLOAD_URL })}</li>
+         <li>${m('pairPage.step2')}</li>
        </ol>
-       <p class="note">這個 QR Code 10 分鐘內有效。過期的話，請在電腦上按「配對手機」重新產生。</p>`;
+       <p class="note">${m('pairPage.validity')}</p>`;
   } else {
-    body = `<h1>QR Code 已失效</h1>
-       <p>請在電腦上按「配對手機」，再掃一次新的 QR Code。</p>`;
+    body = `<h1>${m('pairPage.expiredTitle')}</h1>
+       <p>${m('pairPage.expiredBody')}</p>`;
   }
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
   res.end(`<!doctype html>
-<html lang="zh-Hant-TW">
+<html lang="${m('html.lang')}">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>配對多機錄影</title>
+<title>${m('pairPage.title')}</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='none' stroke='%23ece8e1' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='8' fill='%23ff3b3b'/%3E%3C/svg%3E" />
 <style>
   body { margin: 0; padding: 40px 20px; background: #0a0b0d; color: #ece8e1; font: 17px/1.6 system-ui, sans-serif; }
@@ -443,13 +452,13 @@ function pairPage(req: IncomingMessage, res: ServerResponse, code: string | null
 async function pair(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const b = await readJson<PairRequest>(req);
   if (!pairing || b.pair !== pairing.token || Date.now() > pairing.expiresAt) {
-    throw new HttpError(403, 'QR Code 已失效，請在電腦上重新產生');
+    throw new HttpError(403, m('pair.expired'));
   }
-  if (typeof b.deviceId !== 'string' || !/^[\w-]{8,64}$/.test(b.deviceId)) throw new HttpError(400, 'deviceId 格式不正確');
+  if (typeof b.deviceId !== 'string' || !/^[\w-]{8,64}$/.test(b.deviceId)) throw new HttpError(400, m('pair.badDeviceId'));
   const model = typeof b.model === 'string' && b.model.trim() ? b.model.trim() : 'Android';
   let d = db.devices.find((x) => x.id === b.deviceId);
   if (!d && db.devices.length >= MAX_DEVICES) {
-    throw new HttpError(409, `最多只能配對 ${MAX_DEVICES} 支手機，請先在電腦上移除不用的手機`);
+    throw new HttpError(409, m('pair.tooMany', { max: MAX_DEVICES }));
   }
   if (!d) {
     d = { id: b.deviceId, token: '', model, name: defaultName(model), pairedAt: Date.now() };
@@ -467,16 +476,33 @@ async function pair(req: IncomingMessage, res: ServerResponse): Promise<void> {
 
 // 每個控制台分頁，和它正在看即時畫面的手機
 const uiClients = new Map<WebSocket, Set<string>>();
+const uiLangs = new Map<WebSocket, Lang>(); // 每個分頁用的語言
 let broadcastTimer: NodeJS.Timeout | undefined;
+
+// 沒有請求可以參考時用的語言：使用者選的，自動時看這台電腦的系統語言
+const defaultLang = (): Lang => (db.settings.language === 'zh-TW' || db.settings.language === 'en' ? db.settings.language : systemLang());
+setDefaultLang(defaultLang);
+
+const stateMessage = (lang: Lang): string => withLang(lang, () => JSON.stringify(snapshot()));
 
 function changed(): void {
   broadcastTimer ??= setTimeout(() => {
     broadcastTimer = undefined;
-    if (!uiClients.size) return;
-    const msg = JSON.stringify(snapshot());
-    for (const c of uiClients.keys()) c.send(msg);
+    const messages = new Map<Lang, string>();
+    for (const [c, lang] of uiLangs) {
+      if (!messages.has(lang)) messages.set(lang, stateMessage(lang));
+      c.send(messages.get(lang)!);
+    }
   }, 250);
 }
+
+// 影片失敗的原因存代碼，送給控制台時才換成那個分頁的語言；舊版 App 送來的訊息照原樣存在 error
+function setError(f: FileEntry, code?: string, params?: Record<string, string>, text?: string): void {
+  f.errorCode = code;
+  f.errorParams = params;
+  f.error = text;
+}
+const clearError = (f: FileEntry): void => setError(f);
 
 // ---------- 即時畫面 ----------
 
@@ -502,14 +528,15 @@ function relayPreview(deviceId: string, jpeg: Buffer): void {
   }
 }
 
-let storageCache: { at: number; info: StorageInfo } | undefined;
+const storageCache = new Map<Lang, { at: number; info: StorageInfo }>(); // 說明文字跟著語言，所以各存一份
 
 function currentStorage(): StorageInfo {
   const dir = db.settings.storageDir;
-  if (!storageCache || storageCache.info.dir !== dir || Date.now() - storageCache.at > 3000) {
-    storageCache = { at: Date.now(), info: storageInfo(dir) };
-  }
-  return storageCache.info;
+  const cached = storageCache.get(currentLang());
+  if (cached && cached.info.dir === dir && Date.now() - cached.at < 3000) return cached.info;
+  const info = storageInfo(dir);
+  storageCache.set(currentLang(), { at: Date.now(), info });
+  return info;
 }
 
 function snapshot() {
@@ -528,9 +555,9 @@ function snapshot() {
     serverTime: Date.now(),
     platform: process.platform, // 網頁依系統顯示 Finder 或檔案總管
     sep: path.sep, // 顯示路徑用：Windows 是反斜線
-    trashName: TRASH_NAME,
+    trashName: m('trash.name'),
     ffmpeg: ffmpegReady, // 有 ffmpeg 才能裁剪
-    diskFormats: GOOD_FORMATS,
+    diskFormats: m('disk.goodFormats'),
     settings: db.settings,
     storage: currentStorage(),
     limits: { maxDurationSec: MAX_DURATION_SEC, warnBeforeSec: WARN_BEFORE_SEC, maxDevices: MAX_DEVICES },
@@ -553,7 +580,11 @@ function snapshot() {
     // 只送目前專案的影片
     files: db.files
       .filter((f) => f.projectId === db.settings.projectId)
-      .map((f) => ({ ...f, receivedBytes: f.state === 'ready' ? f.size : receivedBytes(f) })),
+      .map(({ errorCode, errorParams, ...f }) => ({
+        ...f,
+        error: errorCode ? m(errorCode, errorParams) : f.error,
+        receivedBytes: f.state === 'ready' ? f.size : receivedBytes(f),
+      })),
   };
 }
 
@@ -569,7 +600,7 @@ function folderPicker(start: string): [string, string[], (code: number | null, s
     const quoted = `"${start.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
     const script = [
       'activate',
-      `set f to choose folder with prompt "選擇錄影資料夾（建議選外接 SSD）" default location (POSIX file ${quoted})`,
+      `set f to choose folder with prompt "${m('folder.prompt')}" default location (POSIX file ${quoted})`,
       'POSIX path of f',
     ];
     return ['osascript', script.flatMap((line) => ['-e', line]), (_, stderr) => /-128/.test(stderr)];
@@ -579,7 +610,7 @@ function folderPicker(start: string): [string, string[], (code: number | null, s
       'Add-Type -AssemblyName System.Windows.Forms',
       '$owner = New-Object System.Windows.Forms.Form -Property @{ TopMost = $true }',
       '$d = New-Object System.Windows.Forms.FolderBrowserDialog',
-      "$d.Description = '選擇錄影資料夾（建議選外接 SSD）'",
+      `$d.Description = ${psQuote(m('folder.prompt'))}`,
       `$d.SelectedPath = ${psQuote(start)}`,
       "if ($d.ShowDialog($owner) -eq 'OK') { $d.SelectedPath } else { exit 2 }",
     ].join('\n');
@@ -589,11 +620,11 @@ function folderPicker(start: string): [string, string[], (code: number | null, s
 }
 
 async function chooseFolder(): Promise<{ path?: string; canceled?: boolean }> {
-  if (choosing) throw new HttpError(409, '選擇資料夾的視窗已經開著了');
+  if (choosing) throw new HttpError(409, m('folder.busy'));
   const current = db.settings.storageDir;
   const start = fs.existsSync(current) ? current : process.platform === 'darwin' ? '/Volumes' : os.homedir();
   const picker = folderPicker(start);
-  if (!picker) throw new HttpError(501, '這個系統沒有選擇資料夾的視窗，請直接貼上路徑');
+  if (!picker) throw new HttpError(501, m('folder.unsupported'));
   const [command, args, canceled] = picker;
   choosing = true;
   try {
@@ -601,7 +632,7 @@ async function chooseFolder(): Promise<{ path?: string; canceled?: boolean }> {
       execFile(command, args, { timeout: 10 * 60_000 }, (err, stdout, stderr) => {
         if (!err) return resolve({ path: stdout.trim().replace(/(.)[\\/]$/, '$1') });
         if (canceled(typeof err.code === 'number' ? err.code : null, stderr)) return resolve({ canceled: true });
-        reject(new HttpError(500, `打不開選擇資料夾的視窗：${stderr.trim() || err.message}`));
+        reject(new HttpError(500, m('folder.failed', { error: stderr.trim() || err.message })));
       });
     });
   } finally {
@@ -611,11 +642,11 @@ async function chooseFolder(): Promise<{ path?: string; canceled?: boolean }> {
 
 // 把影片移到系統的垃圾桶（Windows 是資源回收筒），之後還救得回來。錄影中、傳輸中的不能刪。
 async function trashFiles(ids: unknown): Promise<{ trashed: number }> {
-  if (!Array.isArray(ids) || !ids.length) throw new HttpError(400, '沒有選要刪除的影片');
+  if (!Array.isArray(ids) || !ids.length) throw new HttpError(400, m('files.noneSelected'));
   const targets = [...new Set(ids)].map((id) => {
     const f = db.files.find((x) => x.id === id);
-    if (!f) throw new HttpError(404, '找不到要刪除的影片，清單可能已經更新了');
-    if (f.state !== 'ready' && f.state !== 'failed') throw new HttpError(409, `${f.name} 還在錄影或傳輸，不能刪除`);
+    if (!f) throw new HttpError(404, m('files.missing'));
+    if (f.state !== 'ready' && f.state !== 'failed') throw new HttpError(409, m('files.busy', { name: f.name }));
     return f;
   });
   // 失敗的影片可能只留下傳到一半的 .part
@@ -632,8 +663,8 @@ async function trashFiles(ids: unknown): Promise<{ trashed: number }> {
   save();
   changed();
   if (gone.size < targets.length) {
-    const reason = error instanceof Error ? `：${error.message}` : '';
-    throw new HttpError(500, `有 ${targets.length - gone.size} 支影片沒有移到${TRASH_NAME}${reason}`);
+    const reason = error instanceof Error ? `${m('punct.colon')}${error.message}` : '';
+    throw new HttpError(500, m('files.trashFailed', { count: targets.length - gone.size, trash: m('trash.name'), reason }));
   }
   return { trashed: gone.size };
 }
@@ -681,15 +712,15 @@ async function keyframeBefore(file: string, time: number): Promise<number> {
 // start、end 是在 fileId 那支影片上的秒數，其他手機用開始時間差換算，裁的是同一段時間。
 async function trimTake(takeId: string, b: { fileId?: unknown; start?: unknown; end?: unknown }) {
   if (!ffmpegReady) {
-    throw new HttpError(409, '裁剪要用到 ffmpeg：macOS 執行 brew install ffmpeg，Windows 執行 winget install Gyan.FFmpeg，裝好後重新 npm start');
+    throw new HttpError(409, m('trim.needFfmpeg'));
   }
   const files = db.files.filter((f) => f.takeId === takeId && f.state === 'ready');
   const ref = files.find((f) => f.id === b.fileId);
-  if (!ref) throw new HttpError(404, '找不到這支影片，清單可能已經更新了');
+  if (!ref) throw new HttpError(404, m('trim.clipMissing'));
   const start = Number(b.start);
   const end = Number(b.end);
-  if (!(start >= 0 && end - start >= 1 && end <= (ref.durationMs ?? 0) / 1000 + 0.5)) throw new HttpError(400, '裁剪的範圍不對，至少要留 1 秒');
-  if (trimming.has(takeId)) throw new HttpError(409, '這一段正在裁剪，請稍等');
+  if (!(start >= 0 && end - start >= 1 && end <= (ref.durationMs ?? 0) / 1000 + 0.5)) throw new HttpError(400, m('trim.badRange'));
+  if (trimming.has(takeId)) throw new HttpError(409, m('trim.busy'));
   trimming.add(takeId);
   try {
     const newTake = crypto.randomUUID();
@@ -700,7 +731,7 @@ async function trimTake(takeId: string, b: { fileId?: unknown; start?: unknown; 
       const from = Math.max(0, start - offset);
       const to = Math.min((f.durationMs ?? 0) / 1000, end - offset);
       if (to - from < 0.5) {
-        skipped.push(`${db.devices.find((d) => d.id === f.deviceId)?.name ?? f.name} 沒有錄到這段時間`);
+        skipped.push(m('trim.notCovered', { name: db.devices.find((d) => d.id === f.deviceId)?.name ?? f.name }));
         continue;
       }
       const src = finalPath(f);
@@ -715,7 +746,7 @@ async function trimTake(takeId: string, b: { fileId?: unknown; start?: unknown; 
         fs.renameSync(out + '.part', out);
       } catch (e) {
         fs.unlink(out + '.part', () => {});
-        throw new HttpError(500, `裁剪 ${f.name} 失敗：${(e as Error).message}`);
+        throw new HttpError(500, m('trim.failed', { name: f.name, error: (e as Error).message }));
       }
       const probed = Number(await runTool('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', out]));
       const entry: FileEntry = {
@@ -752,14 +783,14 @@ function openFolder(fileId?: string): void {
   let target: string;
   if (fileId) {
     const f = db.files.find((x) => x.id === fileId && x.state === 'ready');
-    if (!f) throw new HttpError(404, '找不到這支影片');
+    if (!f) throw new HttpError(404, m('file.notFound'));
     target = finalPath(f);
   } else {
     const p = currentProject();
-    if (!p) throw new HttpError(409, '還沒有專案');
+    if (!p) throw new HttpError(409, m('project.none'));
     target = p.dir;
   }
-  if (!fs.existsSync(target)) throw new HttpError(404, `找不到 ${target}`);
+  if (!fs.existsSync(target)) throw new HttpError(404, m('path.notFound', { path: target }));
   const folder = fileId ? path.dirname(target) : target;
   const [command, args] =
     process.platform === 'darwin'
@@ -780,11 +811,11 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
   // 手機用的 API：區網可以連，靠配對碼和 token 驗證
   if (method === 'GET' && p === '/pair') return pairPage(req, res, url.searchParams.get('code'));
   if (method === 'POST' && p === '/api/pair') return pair(req, res);
-  let m = /^\/api\/upload\/([\w-]+)(\/finish|\/verify)?$/.exec(p);
-  if (m) return upload(req, res, m[1], m[2], url);
+  let match = /^\/api\/upload\/([\w-]+)(\/finish|\/verify)?$/.exec(p);
+  if (match) return upload(req, res, match[1], match[2], url);
 
   // 其他都只允許執行伺服器的這台電腦本機
-  if (!isLoopback(req)) throw new HttpError(403, '只能在執行伺服器的這台電腦上操作');
+  if (!isLoopback(req)) throw new HttpError(403, m('http.localOnly'));
 
   if (method === 'GET') {
     const name = p === '/' ? 'index.html' : p.slice(1);
@@ -794,13 +825,13 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
       return;
     }
     if (p === '/vendor/preact-htm.js') return sendFile(req, res, VENDOR_FILE, 'text/javascript; charset=utf-8');
-    m = /^\/fonts\/((barlow-condensed|barlow|martian-mono)-latin-\d{3}-normal\.woff2)$/.exec(p);
-    if (m) return sendFile(req, res, path.join(NODE_MODULES, '@fontsource', m[2], 'files', m[1]), 'font/woff2');
+    match = /^\/fonts\/((barlow-condensed|barlow|martian-mono)-latin-\d{3}-normal\.woff2)$/.exec(p);
+    if (match) return sendFile(req, res, path.join(NODE_MODULES, '@fontsource', match[2], 'files', match[1]), 'font/woff2');
     if (p === '/api/state') return sendJson(res, 200, snapshot());
-    m = /^\/media\/([\w-]+)$/.exec(p);
-    if (m) {
-      const f = db.files.find((x) => x.id === m![1]);
-      if (!f || f.state !== 'ready') throw new HttpError(404, '影片還沒傳完');
+    match = /^\/media\/([\w-]+)$/.exec(p);
+    if (match) {
+      const f = db.files.find((x) => x.id === match![1]);
+      if (!f || f.state !== 'ready') throw new HttpError(404, m('file.notReady'));
       return sendFile(req, res, finalPath(f), 'video/mp4');
     }
   }
@@ -825,15 +856,15 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
       return sendJson(res, 200, createProject(b.name));
     }
     if (p === '/api/projects/end') {
-      if (isRecording()) throw new HttpError(409, '錄影中不能結束專案，請先停止');
+      if (isRecording()) throw new HttpError(409, m('project.endWhileRecording'));
       endCurrentProject();
       save();
       changed();
       return sendJson(res, 200, { ok: true });
     }
-    m = /^\/api\/projects\/([\w-]+)\/open$/.exec(p);
-    if (m) {
-      openProject(m[1]);
+    match = /^\/api\/projects\/([\w-]+)\/open$/.exec(p);
+    if (match) {
+      openProject(match[1]);
       return sendJson(res, 200, { ok: true });
     }
     if (p === '/api/pairing') {
@@ -847,25 +878,31 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
         storageDir?: string;
         facePriority?: boolean;
         lockExposure?: boolean;
+        language?: LangSetting;
       }>(req);
       if (b.resolution !== undefined) {
-        if (!RESOLUTIONS.some((r) => r.id === b.resolution)) throw new HttpError(400, '不支援這個解析度');
-        if (isRecording()) throw new HttpError(409, '錄影中不能改解析度，停止後再調整');
+        if (!RESOLUTIONS.some((r) => r.id === b.resolution)) throw new HttpError(400, m('settings.badResolution'));
+        if (isRecording()) throw new HttpError(409, m('settings.resolutionWhileRecording'));
         db.settings.resolution = b.resolution;
       }
       if (b.guide !== undefined) {
-        if (!GUIDES.includes(b.guide)) throw new HttpError(400, '不支援這種輔助框');
+        if (!GUIDES.includes(b.guide)) throw new HttpError(400, m('settings.badGuide'));
         db.settings.guide = b.guide; // 只影響預覽，錄影中也可以改
       }
       // 人像設定會改變錄到的畫面，跟解析度一樣錄影中不能改
       const portrait = (['facePriority', 'lockExposure'] as const).filter((k) => b[k] !== undefined);
       for (const k of portrait) {
-        if (typeof b[k] !== 'boolean') throw new HttpError(400, '人像設定只能是開或關');
-        if (isRecording()) throw new HttpError(409, '錄影中不能改人像設定，停止後再調整');
+        if (typeof b[k] !== 'boolean') throw new HttpError(400, m('settings.portraitBool'));
+        if (isRecording()) throw new HttpError(409, m('settings.portraitWhileRecording'));
         db.settings[k] = b[k] === true;
       }
       if (b.resolution !== undefined || b.guide !== undefined || portrait.length) {
         for (const id of live.keys()) send(id, { type: 'config', ...currentSpec() });
+      }
+      // 介面語言：auto 時控制台跟著瀏覽器；伺服器沒有請求可以參考時（終端機、計時器）也用這個
+      if (b.language !== undefined) {
+        if (!LANG_SETTINGS.includes(b.language)) throw new HttpError(400, m('settings.badLanguage'));
+        db.settings.language = b.language;
       }
       if (b.storageDir !== undefined) {
         const dir = path.resolve(b.storageDir.trim().replace(/^~(?=$|[\\/])/, os.homedir()));
@@ -877,20 +914,20 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
       changed();
       return sendJson(res, 200, { ok: true });
     }
-    m = /^\/api\/devices\/([\w-]+)\/remove$/.exec(p);
-    if (m) {
-      const d = db.devices.find((x) => x.id === m![1]);
-      if (!d) throw new HttpError(404, '找不到這支手機');
+    match = /^\/api\/devices\/([\w-]+)\/remove$/.exec(p);
+    if (match) {
+      const d = db.devices.find((x) => x.id === match![1]);
+      if (!d) throw new HttpError(404, m('device.notFound'));
       const active = activeFile(d.id);
       const l = live.get(d.id);
-      if (active && l) throw new HttpError(409, '這支手機正在錄影，停止後才能移除');
+      if (active && l) throw new HttpError(409, m('device.removeWhileRecording'));
       // 錄影中斷線、一直沒連回來的手機（例如沒電了）也要能移除，不然整個控制台會一直停在錄影中
       if (active) {
         active.state = 'failed';
-        active.error = '手機已從電腦上移除，影片留在手機上';
+        setError(active, 'fileError.removed');
       }
       if (l) {
-        sendTo(l.ws, { type: 'error', code: 'unpaired', message: '這支手機已經從電腦上移除，要再使用請重新掃 QR Code' });
+        sendTo(l.ws, { type: 'error', code: 'unpaired', message: m('device.removedByComputer', {}, l.lang) });
         l.ws.close(4001, 'removed');
       }
       db.devices = db.devices.filter((x) => x !== d);
@@ -898,12 +935,12 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
       changed();
       return sendJson(res, 200, { ok: true });
     }
-    m = /^\/api\/devices\/([\w-]+)\/zoom$/.exec(p);
-    if (m) {
-      const d = db.devices.find((x) => x.id === m![1]);
-      if (!d) throw new HttpError(404, '找不到這支手機');
+    match = /^\/api\/devices\/([\w-]+)\/zoom$/.exec(p);
+    if (match) {
+      const d = db.devices.find((x) => x.id === match![1]);
+      if (!d) throw new HttpError(404, m('device.notFound'));
       const b = await readJson<{ ratio?: number }>(req);
-      if (typeof b.ratio !== 'number' || !(b.ratio > 0 && b.ratio <= 100)) throw new HttpError(400, '變焦倍率不正確');
+      if (typeof b.ratio !== 'number' || !(b.ratio > 0 && b.ratio <= 100)) throw new HttpError(400, m('device.badZoom'));
       // 手機會自己限制在它能用的範圍內，再回報實際的倍率
       d.zoom = Math.round(b.ratio * 100) / 100;
       send(d.id, { type: 'zoom', ratio: d.zoom });
@@ -911,32 +948,32 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
       changed();
       return sendJson(res, 200, { ok: true });
     }
-    m = /^\/api\/takes\/([\w-]+)\/mark$/.exec(p);
-    if (m) {
+    match = /^\/api\/takes\/([\w-]+)\/mark$/.exec(p);
+    if (match) {
       const b = await readJson<{ marked?: boolean }>(req);
-      const files = db.files.filter((f) => f.takeId === m![1]);
-      if (!files.length) throw new HttpError(404, '找不到這一段');
+      const files = db.files.filter((f) => f.takeId === match![1]);
+      if (!files.length) throw new HttpError(404, m('take.notFound'));
       for (const f of files) f.marked = b.marked === true;
       save();
       changed();
       return sendJson(res, 200, { ok: true });
     }
-    m = /^\/api\/takes\/([\w-]+)\/trim$/.exec(p);
-    if (m) {
+    match = /^\/api\/takes\/([\w-]+)\/trim$/.exec(p);
+    if (match) {
       const b = await readJson<{ fileId?: unknown; start?: unknown; end?: unknown }>(req);
-      return sendJson(res, 200, await trimTake(m[1], b));
+      return sendJson(res, 200, await trimTake(match[1], b));
     }
     if (p === '/api/files/trash') {
       const b = await readJson<{ fileIds?: unknown }>(req);
       return sendJson(res, 200, await trashFiles(b.fileIds));
     }
-    m = /^\/api\/devices\/([\w-]+)\/rename$/.exec(p);
-    if (m) {
-      const d = db.devices.find((x) => x.id === m![1]);
-      if (!d) throw new HttpError(404, '找不到這支手機');
+    match = /^\/api\/devices\/([\w-]+)\/rename$/.exec(p);
+    if (match) {
+      const d = db.devices.find((x) => x.id === match![1]);
+      if (!d) throw new HttpError(404, m('device.notFound'));
       const b = await readJson<{ name?: string }>(req);
       const name = (b.name ?? '').trim();
-      if (!name || name.length > 40) throw new HttpError(400, '名稱要 1 到 40 個字');
+      if (!name || name.length > 40) throw new HttpError(400, m('device.nameLength'));
       d.name = name;
       send(d.id, { type: 'rename', name });
       save();
@@ -944,38 +981,38 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
       return sendJson(res, 200, { ok: true });
     }
   }
-  throw new HttpError(404, '找不到這個網址');
+  throw new HttpError(404, m('http.notFound'));
 }
 
 async function upload(req: IncomingMessage, res: ServerResponse, fileId: string, action: string | undefined, url: URL): Promise<void> {
   const f = db.files.find((x) => x.id === fileId);
-  if (!f) throw new HttpError(404, '找不到這個檔案');
+  if (!f) throw new HttpError(404, m('upload.fileNotFound'));
   const d = db.devices.find((x) => x.id === f.deviceId);
-  if (!d || req.headers['x-device-token'] !== d.token) throw new HttpError(401, '裝置驗證失敗');
+  if (!d || req.headers['x-device-token'] !== d.token) throw new HttpError(401, m('upload.auth'));
 
   if (action === '/verify' && req.method === 'POST') {
     if (f.state === 'ready') return sendJson(res, 200, { ok: true });
     const result = await verify(f, await readJson<VerifyRequest>(req));
     if (result.ok) {
       f.state = 'ready';
-      f.error = undefined;
+      clearError(f);
       save();
       changed();
     }
     return sendJson(res, 200, result);
   }
-  if (f.state === 'ready') throw new HttpError(409, '這個檔案已經傳完了');
+  if (f.state === 'ready') throw new HttpError(409, m('upload.done'));
   if (!action && req.method === 'GET') return sendJson(res, 200, { receivedBytes: receivedBytes(f) });
   if (!action && req.method === 'PUT') {
     const offset = Number(url.searchParams.get('offset'));
-    if (!Number.isSafeInteger(offset) || offset < 0) throw new HttpError(400, 'offset 格式不正確');
+    if (!Number.isSafeInteger(offset) || offset < 0) throw new HttpError(400, m('upload.badOffset'));
     const n = await writeChunk(f, offset, req);
     changed();
     return sendJson(res, 200, { receivedBytes: n });
   }
   if (action === '/finish' && req.method === 'POST') {
     const b = await readJson<FinishRequest>(req);
-    if (!Number.isSafeInteger(b.size) || b.size < 0) throw new HttpError(400, 'size 格式不正確');
+    if (!Number.isSafeInteger(b.size) || b.size < 0) throw new HttpError(400, m('upload.badSize'));
     finish(f, b.size);
     f.durationMs = b.durationMs;
     f.state = 'finishing';
@@ -983,11 +1020,14 @@ async function upload(req: IncomingMessage, res: ServerResponse, fileId: string,
     changed();
     return sendJson(res, 200, { ok: true });
   }
-  throw new HttpError(405, '不支援這個操作');
+  throw new HttpError(405, m('http.unsupported'));
 }
 
+const requestLang = (req: IncomingMessage): Lang =>
+  parseLang(req.headers['x-lang']) ?? parseLang(req.headers['accept-language']) ?? defaultLang();
+
 const server = http.createServer((req, res) => {
-  route(req, res).catch((e: unknown) => {
+  withLang(requestLang(req), () => route(req, res)).catch((e: unknown) => {
     const err = e instanceof HttpError ? e : new HttpError(500, (e as Error).message);
     if (err.status >= 500) console.error(`${req.method} ${req.url}:`, (e as Error).message);
     if (res.headersSent) res.destroy();
@@ -1002,16 +1042,22 @@ const uiWss = new WebSocketServer({ noServer: true });
 server.on('upgrade', (req, socket, head) => {
   const url = new URL(req.url ?? '/', 'http://localhost');
   if (url.pathname === '/ws/device') {
-    deviceWss.handleUpgrade(req, socket, head, (ws) => onDeviceConnection(ws, url.searchParams.get('token')));
+    deviceWss.handleUpgrade(req, socket, head, (ws) => onDeviceConnection(ws, url.searchParams.get('token'), requestLang(req)));
   } else if (url.pathname === '/ws/ui' && isLoopback(req)) {
     uiWss.handleUpgrade(req, socket, head, (ws) => {
       ws.on('error', () => {});
       uiClients.set(ws, new Set());
+      uiLangs.set(ws, parseLang(url.searchParams.get('lang') ?? undefined) ?? requestLang(req));
       ws.on('message', (raw) => {
         try {
-          const m = JSON.parse(String(raw)) as { type?: string; deviceIds?: unknown };
-          if (m.type !== 'watch' || !Array.isArray(m.deviceIds)) return;
-          uiClients.set(ws, new Set(m.deviceIds.filter((x): x is string => typeof x === 'string')));
+          const msg = JSON.parse(String(raw)) as { type?: string; deviceIds?: unknown; lang?: string };
+          if (msg.type === 'lang') {
+            uiLangs.set(ws, parseLang(msg.lang) ?? defaultLang());
+            ws.send(stateMessage(uiLangs.get(ws)!));
+            return;
+          }
+          if (msg.type !== 'watch' || !Array.isArray(msg.deviceIds)) return;
+          uiClients.set(ws, new Set(msg.deviceIds.filter((x): x is string => typeof x === 'string')));
           updatePreviewRequests();
         } catch {
           // 看不懂的訊息就不理
@@ -1019,9 +1065,10 @@ server.on('upgrade', (req, socket, head) => {
       });
       ws.on('close', () => {
         uiClients.delete(ws);
+        uiLangs.delete(ws);
         updatePreviewRequests();
       });
-      ws.send(JSON.stringify(snapshot()));
+      ws.send(stateMessage(uiLangs.get(ws)!));
     });
   } else {
     socket.destroy();
@@ -1052,7 +1099,7 @@ setInterval(() => {
   for (const f of db.files) {
     if (f.state === 'starting' && now - f.createdAt > START_DELAY_MS + START_TIMEOUT_MS) {
       f.state = 'failed';
-      f.error = '手機沒有回應開始錄影';
+      setError(f, 'fileError.noStart');
       save();
       changed();
     }
@@ -1065,7 +1112,7 @@ setInterval(() => {
     // 手機之後連回來的話，照樣會把影片傳完。
     if (f.state === 'recording' && f.startedAt && !live.has(f.deviceId) && now - f.startedAt > (f.spec.maxDurationSec + 60) * 1000) {
       f.state = 'failed';
-      f.error = '手機斷線後一直沒有連回來，影片還在手機上';
+      setError(f, 'fileError.lost');
       save();
       changed();
     }
@@ -1096,7 +1143,7 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
 }
 
 server.on('error', (e: NodeJS.ErrnoException) => {
-  console.error(e.code === 'EADDRINUSE' ? `連接埠 ${PORT} 已被占用，伺服器可能已經在執行` : e.message);
+  console.error(e.code === 'EADDRINUSE' ? m('log.portInUse', { port: PORT }) : e.message);
   process.exit(1);
 });
 
@@ -1111,7 +1158,7 @@ if (db.settings.storageDir === DEFAULT_STORAGE_DIR) fs.mkdirSync(DEFAULT_STORAGE
 
 server.listen(PORT, '0.0.0.0', () => {
   const ip = lanAddress();
-  console.log(`控制台：http://localhost:${PORT}`);
-  console.log(ip ? `手機連線位址：http://${ip}:${PORT}` : '找不到區域網路 IP，手機會連不到');
-  console.log(`錄影資料夾：${db.settings.storageDir}`);
+  console.log(m('log.dashboard', { url: `http://localhost:${PORT}` }));
+  console.log(ip ? m('log.phones', { url: `http://${ip}:${PORT}` }) : m('log.noIp'));
+  console.log(m('log.folder', { dir: db.settings.storageDir }));
 });

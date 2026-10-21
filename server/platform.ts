@@ -3,14 +3,9 @@ import { execFile, execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { m } from './i18n.ts';
 
 const run = promisify(execFile);
-
-// 介面上「垃圾桶」的說法：Windows 叫資源回收筒
-export const TRASH_NAME = process.platform === 'win32' ? '資源回收筒' : '垃圾桶';
-
-// 適合存大型影片檔的硬碟格式
-export const GOOD_FORMATS = process.platform === 'darwin' ? 'APFS 或 exFAT' : process.platform === 'win32' ? 'NTFS 或 exFAT' : 'exFAT 或 ext4';
 
 // PowerShell 指令用 -EncodedCommand 傳，路徑裡有引號、中文都不用另外跳脫；輸出固定用 UTF-8
 export function powershellArgs(script: string, sta = false): string[] {
@@ -67,7 +62,7 @@ export const isFat32 = (format: string | undefined): boolean => ['msdos', 'vfat'
 export function formatLabel(format: string | undefined): string | undefined {
   if (!format) return undefined;
   if (isFat32(format)) return 'FAT32';
-  const known: Record<string, string> = { apfs: 'APFS', exfat: 'exFAT', ntfs: 'NTFS', hfs: 'Mac OS 擴充格式' };
+  const known: Record<string, string> = { apfs: 'APFS', exfat: 'exFAT', ntfs: 'NTFS', hfs: m('disk.hfs') };
   return known[format.toLowerCase()] ?? format;
 }
 
@@ -109,7 +104,7 @@ export async function moveToTrash(files: string[]): Promise<void> {
     // 命令列有長度上限，分批送
     for (let i = 0; i < files.length; i += 40) {
       const batch = files.slice(i, i + 40).map(psQuote).join(', ');
-      const script = `$ErrorActionPreference = 'Stop'\n${RECYCLE_TYPE}\n$code = [MulticamRecycle]::Send(@(${batch}))\nif ($code -ne 0) { throw "SHFileOperation 回傳 $code" }`;
+      const script = `$ErrorActionPreference = 'Stop'\n${RECYCLE_TYPE}\n$code = [MulticamRecycle]::Send(@(${batch}))\nif ($code -ne 0) { throw "SHFileOperation error $code" }`;
       await run('powershell.exe', powershellArgs(script), { timeout: 10 * 60_000 });
     }
     return;
@@ -117,7 +112,7 @@ export async function moveToTrash(files: string[]): Promise<void> {
   try {
     await run('gio', ['trash', '--', ...files]);
   } catch (e) {
-    if ((e as NodeJS.ErrnoException).code === 'ENOENT') throw new Error('這台電腦沒有 gio 指令，沒辦法移到垃圾桶');
+    if ((e as NodeJS.ErrnoException).code === 'ENOENT') throw new Error(m('trash.noGio'));
     throw e;
   }
 }

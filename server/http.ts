@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { m } from './i18n.ts';
 
 export class HttpError extends Error {
   status: number;
@@ -27,13 +28,13 @@ export async function readJson<T>(req: IncomingMessage): Promise<T> {
   let size = 0;
   for await (const chunk of req as AsyncIterable<Buffer>) {
     size += chunk.length;
-    if (size > 1024 * 1024) throw new HttpError(413, 'JSON 太大');
+    if (size > 1024 * 1024) throw new HttpError(413, m('http.tooLarge'));
     chunks.push(chunk);
   }
   try {
     return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}') as T;
   } catch {
-    throw new HttpError(400, 'JSON 格式錯誤');
+    throw new HttpError(400, m('http.badJson'));
   }
 }
 
@@ -43,7 +44,7 @@ export function sendFile(req: IncomingMessage, res: ServerResponse, file: string
   try {
     size = fs.statSync(file).size;
   } catch {
-    throw new HttpError(404, '找不到檔案');
+    throw new HttpError(404, m('http.fileNotFound'));
   }
   const headers = { 'Content-Type': type, 'Accept-Ranges': 'bytes', 'Cache-Control': 'no-cache' };
   const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range ?? '');

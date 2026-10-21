@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- 直拿時螢幕比較窄，下排的清除按鈕用短一點的字 -->
 <resources>
-    <string name="clean">清除已傳完</string>
-    <string name="clean_count">清除已傳完（%d）</string>
+    <string name="clean">Clear uploaded</string>
+    <string name="clean_count">Clear uploaded (%d)</string>
 </resources>

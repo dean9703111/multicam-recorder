@@ -1,10 +1,67 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 英文是預設（手機是其他語言時也用英文）；繁體中文在 values-zh。直拿時比較窄的字在 values-port、values-zh-port。 -->
 <resources>
-    <string name="app_name">多機錄影</string>
-    <string name="scan">掃描 QR Code</string>
-    <string name="dim">調暗螢幕</string>
-    <string name="undim">恢復亮度</string>
-    <string name="clean">清除已傳完的影片</string>
-    <string name="clean_count">清除已傳完的影片（%d）</string>
-    <string name="need_permission">需要相機和麥克風權限才能錄影</string>
+    <string name="app_name">MultiCam</string>
+    <string name="scan">Scan QR code</string>
+    <string name="dim">Dim screen</string>
+    <string name="undim">Restore brightness</string>
+    <string name="clean">Clear uploaded videos</string>
+    <string name="clean_count">Clear uploaded videos (%d)</string>
+    <string name="need_permission">Camera and microphone access are needed to record</string>
+
+    <string name="status_need_permission">Camera and microphone access are needed to record. Tap here to open settings</string>
+    <string name="status_unpaired">Not paired: tap “Scan QR code” to pair with the computer</string>
+    <string name="status_connected">Connected to the computer</string>
+    <string name="status_unreachable">Can\'t reach the computer. Make sure the server is running and the phone and computer are on the same Wi-Fi</string>
+    <string name="status_connecting">Connecting…</string>
+
+    <string name="mic_line">Mic: %1$s</string>
+    <string name="zoom_line">Zoom: %1$s×</string>
+    <string name="mic_builtin">Built-in</string>
+    <string name="mic_usb">USB (%1$s)</string>
+    <string name="mic_wired">Headset jack (%1$s)</string>
+    <string name="mic_other">Other (%1$s)</string>
+    <string name="mic_unknown">Unknown</string>
+
+    <string name="timer_starting">Starting…</string>
+    <string name="timer_rec">● REC %1$s / %2$s</string>
+    <string name="timer_rec_warn">● REC %1$s / %2$s · %3$s left</string>
+    <string name="resolution_fallback">This phone can\'t record %1$d×%2$d, so it records %3$d×%4$d instead</string>
+
+    <!-- 錄影失敗：手機上顯示，同時用代碼回報給電腦 -->
+    <string name="fail_busy">This phone is already recording</string>
+    <string name="fail_camera_not_ready">The camera isn\'t ready</string>
+    <string name="fail_unsupported_resolution">Unsupported resolution</string>
+    <string name="fail_start">Couldn\'t start recording: %1$s</string>
+    <string name="fail_cancelled">Canceled before it started</string>
+    <string name="fail_not_finalized">The recording didn\'t finish properly: %1$s</string>
+    <string name="fail_app_closed">The app was closed while recording, so this video wasn\'t finalized</string>
+
+    <string name="camera_lost">The camera was interrupted by the system or another app</string>
+    <string name="camera_error">Camera error (%1$s)</string>
+    <string name="camera_unsupported_config">The camera doesn\'t support this setting (%1$s)</string>
+    <string name="recorder_error">Recording error (%1$s)</string>
+
+    <string name="scan_failed">Can\'t scan: %1$s</string>
+    <string name="pair_link_incomplete">The pairing link is incomplete</string>
+    <string name="not_pairing_qr">This isn\'t a pairing QR code</string>
+    <string name="paired">Paired: %1$s</string>
+    <string name="pair_failed">Pairing failed: %1$s</string>
+
+    <string name="clean_nothing">No uploaded videos to clear</string>
+    <plurals name="clean_confirm">
+        <item quantity="one">Delete %1$d video that has been uploaded to the computer and verified (%2$s)?\nThe copy on the computer is not affected.</item>
+        <item quantity="other">Delete %1$d videos that have been uploaded to the computer and verified (%2$s in total)?\nThe copies on the computer are not affected.</item>
+    </plurals>
+    <string name="delete">Delete</string>
+    <string name="cancel">Cancel</string>
+    <string name="cleared">Cleared</string>
+
+    <string name="upload_done">All videos are on the computer</string>
+    <string name="upload_streaming">Uploading while recording</string>
+    <plurals name="upload_finishing">
+        <item quantity="one">%1$d video finishing (%2$s left)</item>
+        <item quantity="other">%1$d videos finishing (%2$s left)</item>
+    </plurals>
+    <string name="upload_separator">", "</string>
 </resources>

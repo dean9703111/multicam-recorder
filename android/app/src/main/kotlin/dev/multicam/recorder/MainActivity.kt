@@ -102,7 +102,7 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
             requestedOrientation =
                 if (value != null) ActivityInfo.SCREEN_ORIENTATION_LOCKED else ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
         }
-    private var recordingMic: String? = null
+    private var recordingMic: AudioDeviceInfo? = null // 錄影中實際用的麥克風
     private var dimmed = false
     private var wifiLock: WifiManager.WifiLock? = null
     private var tick = 0
@@ -133,11 +133,11 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
             (natural.height * scale).roundToInt(),
             Bitmap.Config.ARGB_8888,
         )
-        uploader = Uploader(store) { main.post { render() } }
+        uploader = Uploader(store, ::languageTag) { main.post { render() } }
         val capabilities = JSONObject()
             .put("facePriority", camera.facePrioritySupported)
             .put("lockExposure", camera.lockSupported)
-        link = ServerLink(store, this, capabilities)
+        link = ServerLink(store, this, capabilities, ::languageTag)
 
         guideView = findViewById(R.id.guide)
         bindOverlay()
@@ -173,7 +173,7 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
         }, main)
 
         for (job in uploader.interrupted) {
-            reportFailed(job.fileId, "App 在錄影中被關閉，這支影片沒有正常收尾", toast = false)
+            reportFailed(job.fileId, "appClosed", toast = false)
         }
         uploader.start()
         if (!hasPermissions()) requestPermissions(arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO), 1)
@@ -329,11 +329,13 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
     private fun startRecording(msg: JSONObject) {
         val fileId = msg.getString("fileId")
         guideView.setGuide(msg.optString("guide", "none"))
-        if (recording != null) return reportFailed(fileId, "這支手機已經在錄影")
-        if (!cameraReady) return reportFailed(fileId, "相機還沒準備好")
-        val requested = sizeOf(msg.getString("resolution")) ?: return reportFailed(fileId, "不支援這個解析度")
+        if (recording != null) return reportFailed(fileId, "busy")
+        if (!cameraReady) return reportFailed(fileId, "cameraNotReady")
+        val requested = sizeOf(msg.getString("resolution")) ?: return reportFailed(fileId, "unsupportedResolution")
         videoSize = camera.videoSize(requested.width, requested.height)
-        if (videoSize != requested) toast("這支手機不支援 ${requested.width}×${requested.height}，改用 ${videoSize.width}×${videoSize.height}")
+        if (videoSize != requested) {
+            toast(getString(R.string.resolution_fallback, requested.width, requested.height, videoSize.width, videoSize.height))
+        }
 
         val spec = CameraRecorder.Spec(
             videoSize, msg.getInt("fps"), msg.getInt("bitrate"), msg.getInt("maxDurationSec"), msg.optBoolean("lockExposure"),
@@ -358,7 +360,7 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
             }.onFailure { e ->
                 if (recording === rec) recording = null
                 file.delete()
-                reportFailed(fileId, "開始錄影失敗：${e.message}")
+                if (e is CameraRecorder.StartFailure) reportFailed(fileId, e.code) else reportFailed(fileId, "startFailed", e.message)
             }
             sendStatus()
             render()
@@ -373,7 +375,7 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
         if (rec.startedAt == 0L) {
             camera.cancelPending()
             recording = null
-            reportFailed(fileId, "還沒開始就取消了", toast = false)
+            reportFailed(fileId, "cancelled", toast = false)
             render()
             return
         }
@@ -384,7 +386,7 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
             val size = rec.file.length()
             if (result.isFailure || size == 0L) {
                 uploader.drop(fileId)
-                reportFailed(fileId, "錄影沒有正常結束：${result.exceptionOrNull()?.message}")
+                reportFailed(fileId, "notFinalized", result.exceptionOrNull()?.message)
             } else {
                 val durationMs = durationOf(rec.file) ?: (System.currentTimeMillis() - rec.startedAt)
                 // 先送停止訊息再讓上傳收尾，電腦才會記到停止原因
@@ -400,9 +402,25 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
         }
     }
 
-    private fun reportFailed(fileId: String, message: String, toast: Boolean = true) {
-        link.send(JSONObject().put("type", "recordingFailed").put("fileId", fileId).put("error", message), queueIfOffline = true)
+    // 用代碼回報（protocol.ts 的 FailureCode），電腦用自己的語言顯示；error 是給舊版電腦端看的
+    private fun reportFailed(fileId: String, code: String, detail: String? = null, toast: Boolean = true) {
+        val message = failureText(code, detail ?: "")
+        link.send(
+            JSONObject().put("type", "recordingFailed").put("fileId", fileId).put("error", message)
+                .put("code", code).put("detail", detail ?: ""),
+            queueIfOffline = true,
+        )
         if (toast) toast(message)
+    }
+
+    private fun failureText(code: String, detail: String) = when (code) {
+        "busy" -> getString(R.string.fail_busy)
+        "cameraNotReady" -> getString(R.string.fail_camera_not_ready)
+        "unsupportedResolution" -> getString(R.string.fail_unsupported_resolution)
+        "cancelled" -> getString(R.string.fail_cancelled)
+        "notFinalized" -> getString(R.string.fail_not_finalized, detail)
+        "appClosed" -> getString(R.string.fail_app_closed)
+        else -> getString(R.string.fail_start, detail)
     }
 
     // ---------- 相機的事件 ----------
@@ -422,8 +440,8 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
         recording?.let { stopRecording(it.fileId, "error") }
     }
 
-    override fun onRecordingMic(label: String) {
-        recordingMic = label
+    override fun onRecordingMic(mic: AudioDeviceInfo) {
+        recordingMic = mic
         sendStatus()
         render()
     }
@@ -434,7 +452,7 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
         val options = GmsBarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()
         GmsBarcodeScanning.getClient(this, options).startScan()
             .addOnSuccessListener { barcode -> barcode.rawValue?.let(::pairFromQr) }
-            .addOnFailureListener { e -> toast("沒辦法掃描：${e.message}") }
+            .addOnFailureListener { e -> toast(getString(R.string.scan_failed, e.message)) }
     }
 
     // 用手機相機掃 QR Code 時，網頁上的按鈕會用 multicam://pair?server=…&code=… 打開 App。
@@ -446,7 +464,7 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
         if (data?.scheme == "multicam" && data.host == "pair") {
             val server = data.getQueryParameter("server")
             val code = data.getQueryParameter("code")
-            if (server.isNullOrEmpty() || code.isNullOrEmpty()) toast("配對連結不完整") else pair(server, code)
+            if (server.isNullOrEmpty() || code.isNullOrEmpty()) toast(getString(R.string.pair_link_incomplete)) else pair(server, code)
             return
         }
         val debuggable = applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
@@ -457,7 +475,7 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
     private fun pairFromQr(raw: String) {
         val uri = Uri.parse(raw)
         val code = runCatching { uri.getQueryParameter("code") }.getOrNull()
-        if (uri.scheme != "http" || uri.path != "/pair" || code.isNullOrEmpty()) return toast("這不是配對用的 QR Code")
+        if (uri.scheme != "http" || uri.path != "/pair" || code.isNullOrEmpty()) return toast(getString(R.string.not_pairing_qr))
         pair("http://${uri.encodedAuthority}", code)
     }
 
@@ -466,7 +484,8 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
             val result = runCatching {
                 val body = JSONObject().put("pair", code).put("deviceId", store.deviceId).put("model", Build.MODEL)
                     .toString().toRequestBody("application/json; charset=utf-8".toMediaType())
-                OkHttpClient().newCall(Request.Builder().url("$url/api/pair").post(body).build()).execute().use { res ->
+                val request = Request.Builder().url("$url/api/pair").header("Accept-Language", languageTag()).post(body).build()
+                OkHttpClient().newCall(request).execute().use { res ->
                     val json = JSONObject(res.body.string())
                     if (!res.isSuccessful) error(json.optString("error", "HTTP ${res.code}"))
                     json
@@ -478,8 +497,8 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
                     store.token = json.getString("deviceToken")
                     store.name = json.getString("name")
                     link.connect()
-                    toast("配對完成：${store.name}")
-                }.onFailure { e -> toast("配對失敗：${e.message}") }
+                    toast(getString(R.string.paired, store.name))
+                }.onFailure { e -> toast(getString(R.string.pair_failed, e.message)) }
                 render()
             }
         }
@@ -511,7 +530,9 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
                 .put("freeBytes", StatFs(moviesDir.path).availableBytes)
                 .put("cameraReady", cameraReady)
                 .put("recordingFileId", recording?.fileId ?: JSONObject.NULL)
-                .put("audioInput", micLabel())
+                .put("audioSource", micDevice()?.let(camera::audioSource) ?: "builtin")
+                .put("audioName", micDevice()?.takeIf { camera.audioSource(it) != "builtin" }?.productName?.toString() ?: JSONObject.NULL)
+                .put("audioInput", micLabel()) // 舊版電腦端顯示的說明文字
                 .put("zoom", camera.zoom.toDouble())
                 .put("zoomRange", JSONArray().put(camera.zoomRange.lower.toDouble()).put(camera.zoomRange.upper.toDouble()))
                 .put("orientation", orientationName()),
@@ -522,7 +543,13 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
     private fun orientationName() =
         if (resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT) "portrait" else "landscape"
 
-    private fun micLabel(): String = recordingMic ?: camera.externalMic()?.let(camera::describe) ?: "手機內建"
+    // 錄影中是實際用的那支；沒在錄時，有外接麥克風就是它，沒有就是手機內建
+    private fun micDevice(): AudioDeviceInfo? = recordingMic ?: camera.externalMic()
+
+    private fun micLabel(): String = micDevice()?.let(camera::describe) ?: getString(R.string.mic_builtin)
+
+    // 手機（或在系統設定替這個 App 選）的語言，例如 zh-TW、en-US
+    private fun languageTag(): String = resources.configuration.locales[0].toLanguageTag()
 
     // 狀態列的版面直拿、橫拿各一份（layout-port/overlay.xml），換版面後重新接上
     private fun bindOverlay() {
@@ -560,13 +587,15 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
     private fun render() {
         nameView.text = store.name ?: Build.MODEL
         val unpaired = store.token == null
-        connectionView.text = when {
-            !hasPermissions() -> "需要相機和麥克風權限才能錄影，點這裡打開設定"
-            unpaired -> "尚未配對：請點右下角「掃描 QR Code」"
-            link.connected -> "已連線到電腦"
-            SystemClock.elapsedRealtime() - disconnectedSince > 10_000 -> "連不到電腦：請確認電腦上的伺服器開著，手機和電腦連同一個 Wi-Fi"
-            else -> "連線中…"
-        }
+        connectionView.setText(
+            when {
+                !hasPermissions() -> R.string.status_need_permission
+                unpaired -> R.string.status_unpaired
+                link.connected -> R.string.status_connected
+                SystemClock.elapsedRealtime() - disconnectedSince > 10_000 -> R.string.status_unreachable
+                else -> R.string.status_connecting
+            },
+        )
         connectionView.setTextColor(
             when {
                 !hasPermissions() -> AMBER
@@ -578,14 +607,15 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
         val background = if (unpaired) scanHighlight ?: scanBackground else scanBackground
         if (scanButton.background !== background) scanButton.background = background
         val zoomable = camera.zoomRange.upper > camera.zoomRange.lower
-        micView.text = "收音：${micLabel()}" + if (zoomable) "\n變焦：${"%.1f".format(camera.zoom)}×" else ""
-        uploadView.text = uploader.summary()
+        micView.text = getString(R.string.mic_line, micLabel()) +
+            if (zoomable) "\n" + getString(R.string.zoom_line, "%.1f".format(camera.zoom)) else ""
+        uploadView.text = uploader.summary(resources)
 
         val rec = recording
         when {
             rec == null -> timerView.visibility = View.GONE
             rec.startedAt == 0L -> {
-                timerView.text = "準備開始…"
+                timerView.setText(R.string.timer_starting)
                 timerView.setTextColor(TEXT)
                 timerView.visibility = View.VISIBLE
             }
@@ -593,7 +623,9 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
                 val elapsed = System.currentTimeMillis() - rec.startedAt
                 val left = rec.maxDurationSec * 1000L - elapsed
                 val warn = left <= rec.warnBeforeSec * 1000L
-                timerView.text = "● REC ${clock(elapsed)} / ${clock(rec.maxDurationSec * 1000L)}" + if (warn) "　剩 ${clock(left)}" else ""
+                val max = clock(rec.maxDurationSec * 1000L)
+                timerView.text =
+                    if (warn) getString(R.string.timer_rec_warn, clock(elapsed), max, clock(left)) else getString(R.string.timer_rec, clock(elapsed), max)
                 timerView.setTextColor(if (warn) AMBER else RED)
                 timerView.visibility = View.VISIBLE
             }
@@ -615,17 +647,17 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
 
     private fun confirmClean() {
         val files = store.transferred.map(::File).filter { it.exists() }
-        if (files.isEmpty()) return toast("沒有已傳完的影片可以清除")
+        if (files.isEmpty()) return toast(getString(R.string.clean_nothing))
         AlertDialog.Builder(this)
             .setTitle(R.string.clean)
-            .setMessage("刪除 ${files.size} 支已傳到電腦並驗證過的影片，共 ${formatBytes(files.sumOf { it.length() })}？\n電腦上的檔案不受影響。")
-            .setPositiveButton("刪除") { _, _ ->
+            .setMessage(resources.getQuantityString(R.plurals.clean_confirm, files.size, files.size, formatBytes(files.sumOf { it.length() })))
+            .setPositiveButton(R.string.delete) { _, _ ->
                 files.forEach { it.delete() }
                 store.transferred = emptySet()
                 sendStatus()
-                toast("已清除")
+                toast(getString(R.string.cleared))
             }
-            .setNegativeButton("取消", null)
+            .setNegativeButton(R.string.cancel, null)
             .show()
     }
 

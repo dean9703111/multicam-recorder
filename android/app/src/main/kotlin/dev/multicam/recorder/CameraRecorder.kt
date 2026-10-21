@@ -40,12 +40,15 @@ class CameraRecorder(private val context: Context, private val listener: Listene
         fun onReadyChanged(ready: Boolean)
         fun onMaxDurationReached()
         fun onCameraError(message: String)
-        fun onRecordingMic(label: String)
+        fun onRecordingMic(mic: AudioDeviceInfo)
     }
 
     class Spec(val size: Size, val fps: Int, val bitrate: Int, val maxDurationSec: Int, val lockExposure: Boolean)
 
-    class Started(val wallClockMs: Long, val mic: String)
+    class Started(val wallClockMs: Long, val mic: AudioDeviceInfo?)
+
+    // 開始錄影失敗：code 照 server/protocol.ts 的 FailureCode，電腦會用自己的語言顯示
+    class StartFailure(val code: String, message: String) : Exception(message)
 
     private val thread = HandlerThread("camera").apply { start() }
     private val handler = Handler(thread.looper)
@@ -117,12 +120,22 @@ class CameraRecorder(private val context: Context, private val listener: Listene
     fun externalMic(): AudioDeviceInfo? =
         audio.getDevices(AudioManager.GET_DEVICES_INPUTS).firstOrNull { it.type in EXTERNAL_MIC_TYPES }
 
-    fun describe(mic: AudioDeviceInfo?): String = when (mic?.type) {
-        null -> "未知"
-        AudioDeviceInfo.TYPE_BUILTIN_MIC -> "手機內建"
-        AudioDeviceInfo.TYPE_USB_DEVICE, AudioDeviceInfo.TYPE_USB_HEADSET -> "外接 USB（${mic.productName}）"
-        AudioDeviceInfo.TYPE_WIRED_HEADSET -> "耳機孔外接（${mic.productName}）"
-        else -> "其他（${mic.productName}）"
+    // App 上顯示的收音來源（跟著手機的語言）
+    fun describe(mic: AudioDeviceInfo?): String = when (audioSource(mic)) {
+        "builtin" -> context.getString(R.string.mic_builtin)
+        "usb" -> context.getString(R.string.mic_usb, mic!!.productName)
+        "wired" -> context.getString(R.string.mic_wired, mic!!.productName)
+        "other" -> context.getString(R.string.mic_other, mic!!.productName)
+        else -> context.getString(R.string.mic_unknown)
+    }
+
+    // 回報給電腦的收音來源（protocol.ts 的 AudioSource），電腦用自己的語言顯示
+    fun audioSource(mic: AudioDeviceInfo?): String? = when (mic?.type) {
+        null -> null
+        AudioDeviceInfo.TYPE_BUILTIN_MIC -> "builtin"
+        AudioDeviceInfo.TYPE_USB_DEVICE, AudioDeviceInfo.TYPE_USB_HEADSET -> "usb"
+        AudioDeviceInfo.TYPE_WIRED_HEADSET -> "wired"
+        else -> "other"
     }
 
     fun open(surface: Surface, size: Size) = handler.post {
@@ -154,13 +167,13 @@ class CameraRecorder(private val context: Context, private val listener: Listene
     // 在 atUptimeMs（SystemClock.uptimeMillis）開始錄影
     fun start(file: File, spec: Spec, facePriority: Boolean, orientationHint: Int, atUptimeMs: Long, done: (Result<Started>) -> Unit) = handler.post {
         if (recorder != null || prepared != null || pendingStart != null) {
-            main.post { done(Result.failure(IllegalStateException("已經在錄影"))) }
+            main.post { done(Result.failure(StartFailure("busy", "already recording"))) }
             return@post
         }
         val prepare: () -> Unit = {
             try {
                 // 相機太久沒準備好就放棄，免得很晚才突然開始錄
-                check(SystemClock.uptimeMillis() - atUptimeMs < 5000) { "相機太久沒準備好" }
+                if (SystemClock.uptimeMillis() - atUptimeMs >= 5000) throw StartFailure("cameraNotReady", "camera took too long to get ready")
                 val r = buildRecorder(file, spec, orientationHint)
                 prepared = r
                 handler.postAtTime({ begin(r, done) }, startToken, atUptimeMs) // 時間已過就馬上開始
@@ -201,7 +214,7 @@ class CameraRecorder(private val context: Context, private val listener: Listene
     fun stop(done: (Result<Unit>) -> Unit) = handler.post {
         val r = recorder
         if (r == null) {
-            main.post { done(Result.failure(IllegalStateException("沒有在錄影"))) }
+            main.post { done(Result.failure(IllegalStateException("not recording"))) }
             return@post
         }
         recorder = null
@@ -247,9 +260,9 @@ class CameraRecorder(private val context: Context, private val listener: Listene
             createSession()
         }
 
-        override fun onDisconnected(camera: CameraDevice) = lost(camera, "相機被系統或其他 App 中斷")
+        override fun onDisconnected(camera: CameraDevice) = lost(camera, context.getString(R.string.camera_lost))
 
-        override fun onError(camera: CameraDevice, error: Int) = lost(camera, "相機發生錯誤（$error）")
+        override fun onError(camera: CameraDevice, error: Int) = lost(camera, context.getString(R.string.camera_error, error.toString()))
     }
 
     private fun lost(camera: CameraDevice, message: String) {
@@ -299,7 +312,7 @@ class CameraRecorder(private val context: Context, private val listener: Listene
             override fun onConfigureFailed(s: CameraCaptureSession) {
                 if (device !== camera || generation != sessionGeneration) return
                 setReady(false)
-                main.post { listener.onCameraError("相機不支援這個設定（${size.width}×${size.height}）") }
+                main.post { listener.onCameraError(context.getString(R.string.camera_unsupported_config, "${size.width}×${size.height}")) }
             }
         }
         val config = SessionConfiguration(SessionConfiguration.SESSION_REGULAR, outputs, executor, callback)
@@ -379,22 +392,22 @@ class CameraRecorder(private val context: Context, private val listener: Listene
             setOnInfoListener { _, what, _ ->
                 if (what == MediaRecorder.MEDIA_RECORDER_INFO_MAX_DURATION_REACHED) main.post { listener.onMaxDurationReached() }
             }
-            setOnErrorListener { _, what, extra -> main.post { listener.onCameraError("錄影發生錯誤（$what/$extra）") } }
+            setOnErrorListener { _, what, extra -> main.post { listener.onCameraError(context.getString(R.string.recorder_error, "$what/$extra")) } }
             prepare()
         }
     }
 
     private fun begin(r: MediaRecorder, done: (Result<Started>) -> Unit) {
         try {
-            val s = session ?: throw IllegalStateException("相機還沒準備好")
+            val s = session ?: throw StartFailure("cameraNotReady", "camera not ready")
             s.setRepeatingRequest(request(record = true), null, handler)
             r.start()
             recorder = r
             prepared = null
-            val started = Started(System.currentTimeMillis(), describe(r.routedDevice))
+            val started = Started(System.currentTimeMillis(), r.routedDevice)
             main.post { done(Result.success(started)) }
             // 實際用哪支麥克風，開始後才確定
-            handler.postDelayed({ recorder?.routedDevice?.let { mic -> main.post { listener.onRecordingMic(describe(mic)) } } }, 1000)
+            handler.postDelayed({ recorder?.routedDevice?.let { mic -> main.post { listener.onRecordingMic(mic) } } }, 1000)
         } catch (e: Exception) {
             prepared = null
             r.release()

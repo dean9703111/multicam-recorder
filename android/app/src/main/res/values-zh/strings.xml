@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 繁體中文；手機是任何一種中文（台灣、香港、中國）都用這份 -->
+<resources>
+    <string name="app_name">多機錄影</string>
+    <string name="scan">掃描 QR Code</string>
+    <string name="dim">調暗螢幕</string>
+    <string name="undim">恢復亮度</string>
+    <string name="clean">清除已傳完的影片</string>
+    <string name="clean_count">清除已傳完的影片（%d）</string>
+    <string name="need_permission">需要相機和麥克風權限才能錄影</string>
+
+    <string name="status_need_permission">需要相機和麥克風權限才能錄影，點這裡打開設定</string>
+    <string name="status_unpaired">尚未配對：請點右下角「掃描 QR Code」</string>
+    <string name="status_connected">已連線到電腦</string>
+    <string name="status_unreachable">連不到電腦：請確認電腦上的伺服器開著，手機和電腦連同一個 Wi-Fi</string>
+    <string name="status_connecting">連線中…</string>
+
+    <string name="mic_line">收音：%1$s</string>
+    <string name="zoom_line">變焦：%1$s×</string>
+    <string name="mic_builtin">手機內建</string>
+    <string name="mic_usb">外接 USB（%1$s）</string>
+    <string name="mic_wired">耳機孔外接（%1$s）</string>
+    <string name="mic_other">其他（%1$s）</string>
+    <string name="mic_unknown">未知</string>
+
+    <string name="timer_starting">準備開始…</string>
+    <string name="timer_rec">● REC %1$s / %2$s</string>
+    <string name="timer_rec_warn">● REC %1$s / %2$s　剩 %3$s</string>
+    <string name="resolution_fallback">這支手機不支援 %1$d×%2$d，改用 %3$d×%4$d</string>
+
+    <string name="fail_busy">這支手機已經在錄影</string>
+    <string name="fail_camera_not_ready">相機還沒準備好</string>
+    <string name="fail_unsupported_resolution">不支援這個解析度</string>
+    <string name="fail_start">開始錄影失敗：%1$s</string>
+    <string name="fail_cancelled">還沒開始就取消了</string>
+    <string name="fail_not_finalized">錄影沒有正常結束：%1$s</string>
+    <string name="fail_app_closed">App 在錄影中被關閉，這支影片沒有正常收尾</string>
+
+    <string name="camera_lost">相機被系統或其他 App 中斷</string>
+    <string name="camera_error">相機發生錯誤（%1$s）</string>
+    <string name="camera_unsupported_config">相機不支援這個設定（%1$s）</string>
+    <string name="recorder_error">錄影發生錯誤（%1$s）</string>
+
+    <string name="scan_failed">沒辦法掃描：%1$s</string>
+    <string name="pair_link_incomplete">配對連結不完整</string>
+    <string name="not_pairing_qr">這不是配對用的 QR Code</string>
+    <string name="paired">配對完成：%1$s</string>
+    <string name="pair_failed">配對失敗：%1$s</string>
+
+    <string name="clean_nothing">沒有已傳完的影片可以清除</string>
+    <plurals name="clean_confirm">
+        <item quantity="other">刪除 %1$d 支已傳到電腦並驗證過的影片，共 %2$s？\n電腦上的檔案不受影響。</item>
+    </plurals>
+    <string name="delete">刪除</string>
+    <string name="cancel">取消</string>
+    <string name="cleared">已清除</string>
+
+    <string name="upload_done">影片都已傳到電腦</string>
+    <string name="upload_streaming">邊錄邊傳中</string>
+    <plurals name="upload_finishing">
+        <item quantity="other">還有 %1$d 支在收尾（剩 %2$s）</item>
+    </plurals>
+    <string name="upload_separator">，</string>
+</resources>

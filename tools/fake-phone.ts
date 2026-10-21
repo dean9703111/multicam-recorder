@@ -1,7 +1,7 @@
 // 模擬一支手機，在沒有實機的情況下測試電腦端：配對 → 連線 → 收到指令就用 ffmpeg
 // 產生測試影片（漸層動畫加嗶聲），並照 server/protocol.ts 的流程邊錄邊傳、停止後驗證。
 //
-// 用法：node tools/fake-phone.ts --model "Pixel 11 Pro" [--tone 660] [--mic "手機內建"] [--server http://127.0.0.1:8787]
+// 用法：node tools/fake-phone.ts --model "Pixel 11 Pro" [--tone 660] [--mic usb --mic-name "DJI Mic"] [--server http://127.0.0.1:8787]
 //                              [--encoder libx264]（預設 macOS 用硬體編碼 h264_videotoolbox，其他系統用 libx264）
 //                              [--orientation portrait]（模擬直拿的手機，預設是橫拿）
 
@@ -13,6 +13,7 @@ import { parseArgs } from 'node:util';
 import WebSocket from 'ws';
 import {
   CHUNK_SIZE,
+  type AudioSource,
   type DeviceMessage,
   type Orientation,
   type PairResponse,
@@ -27,7 +28,9 @@ const { values: args } = parseArgs({
   options: {
     model: { type: 'string', default: 'Pixel 11 Pro' },
     tone: { type: 'string', default: '440' },
-    mic: { type: 'string', default: '模擬麥克風' }, // 回報給電腦的收音來源
+    mic: { type: 'string', default: 'builtin' }, // 回報給電腦的收音來源：builtin、usb、wired、other
+    'mic-name': { type: 'string', default: 'Fake Mic' }, // 外接麥克風的名稱
+    lang: { type: 'string', default: 'zh-TW' }, // 手機的語言，電腦送來的訊息會用這個語言
     server: { type: 'string', default: 'http://127.0.0.1:8787' },
     encoder: { type: 'string', default: process.platform === 'darwin' ? 'h264_videotoolbox' : 'libx264' },
     orientation: { type: 'string', default: 'landscape' },
@@ -102,7 +105,9 @@ function connect(): void {
   socket.on('open', () => {
     log('已連線');
     const camera = { facePriority: true, lockExposure: true };
-    socket.send(JSON.stringify({ type: 'hello', model, appVersion: 'fake-1', features: ['preview', 'zoom'], camera } satisfies DeviceMessage));
+    socket.send(
+      JSON.stringify({ type: 'hello', model, appVersion: 'fake-1', features: ['preview', 'zoom'], camera, lang: args.lang } satisfies DeviceMessage),
+    );
     for (const m of outbox.splice(0)) socket.send(JSON.stringify(m));
     bestRtt = Infinity;
     for (let i = 0; i < 5; i++) setTimeout(() => sendMsg({ type: 'sync', t0: Date.now() }), i * 200);
@@ -183,7 +188,8 @@ function sendStatus(): void {
     freeBytes: 180e9 - used,
     cameraReady: true,
     recordingFileId: rec?.fileId ?? null,
-    audioInput: args.mic,
+    audioSource: args.mic as AudioSource,
+    audioName: args.mic === 'builtin' ? undefined : args['mic-name'],
     zoom,
     zoomRange: ZOOM_RANGE,
     orientation,
@@ -314,7 +320,7 @@ const EOI = Buffer.from([0xff, 0xd9]);
 
 function startRecording(m: Extract<ServerMessage, { type: 'start' }>): void {
   if (rec) {
-    sendMsg({ type: 'recordingFailed', fileId: m.fileId, error: '這支手機已經在錄影' });
+    sendMsg({ type: 'recordingFailed', fileId: m.fileId, error: '這支手機已經在錄影', code: 'busy' });
     return;
   }
   const r: Rec = { fileId: m.fileId, file: path.join(home, m.fileName) };
@@ -348,7 +354,7 @@ function stopRecording(fileId: string): void {
   if (!rec || rec.fileId !== fileId) return;
   if (!rec.proc) {
     clearTimeout(rec.timer);
-    sendMsg({ type: 'recordingFailed', fileId, error: '還沒開始就取消了' });
+    sendMsg({ type: 'recordingFailed', fileId, error: '還沒開始就取消了', code: 'cancelled' });
     rec = undefined;
     return;
   }
@@ -361,7 +367,8 @@ function onRecordingEnded(r: Rec, code: number | null, stderr: string): void {
   sendStatus(); // 和真的 App 一樣，停止後馬上回報
   const job = jobs.find((j) => j.fileId === r.fileId);
   if (code !== 0 || !job) {
-    sendMsg({ type: 'recordingFailed', fileId: r.fileId, error: `ffmpeg 結束代碼 ${code}：${stderr.trim()}` });
+    const detail = `ffmpeg exit code ${code}: ${stderr.trim()}`;
+    sendMsg({ type: 'recordingFailed', fileId: r.fileId, error: detail, code: 'recorderError', detail });
     return;
   }
   const size = sizeOf(r.file);

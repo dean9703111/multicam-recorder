@@ -2,7 +2,8 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { diskFormat, formatLabel, GOOD_FORMATS, isFat32 } from './platform.ts';
+import { m, type LangSetting } from './i18n.ts';
+import { diskFormat, formatLabel, isFat32 } from './platform.ts';
 import type { Guide, Orientation, RecordingSpec, Resolution, StopReason } from './protocol.ts';
 
 export interface Settings {
@@ -11,6 +12,7 @@ export interface Settings {
   guide: Guide;
   facePriority: boolean; // 人像設定，說明在 protocol.ts 的 RecordingSpec
   lockExposure: boolean;
+  language: LangSetting; // 介面語言；auto 是跟著瀏覽器（控制台）或系統（終端機）
   projectId: string | null; // 目前的專案；null 表示還沒建立或已結束
 }
 
@@ -48,7 +50,9 @@ export interface FileEntry {
   size?: number;
   stopReason?: StopReason;
   state: FileState;
-  error?: string;
+  error?: string; // 舊版 App 送來的失敗訊息（原文）
+  errorCode?: string; // 失敗原因的代碼，送給控制台時才換成那個分頁的語言（i18n.ts 的 fileError.*）
+  errorParams?: Record<string, string>;
   spec: RecordingSpec;
   videoWidth?: number; // 手機實際錄的解析度
   videoHeight?: number;
@@ -79,6 +83,7 @@ function load(): Db {
       guide: 'none',
       facePriority: true,
       lockExposure: false,
+      language: 'auto',
       projectId: null,
     },
     devices: [],
@@ -142,7 +147,7 @@ export function storageInfo(dir: string): StorageInfo {
   const s = fs.statfsSync(dir);
   const format = diskFormat(dir);
   const info: StorageInfo = { dir, available: true, freeBytes: s.bavail * s.bsize, format: formatLabel(format) };
-  if (isFat32(format)) info.warning = `這顆硬碟是 FAT32 格式，存不了超過 4 GB 的檔案，請改成 ${GOOD_FORMATS}`;
+  if (isFat32(format)) info.warning = m('disk.fat32', { formats: m('disk.goodFormats') });
   return info;
 }
 
@@ -151,18 +156,18 @@ export function storageInfo(dir: string): StorageInfo {
 export function checkDir(dir: string): string | undefined {
   // macOS 的外接硬碟掛在 /Volumes 底下，Windows 則是另一個磁碟機代號
   const volume = /^\/Volumes\/[^/]+/.exec(dir)?.[0] ?? /^[A-Za-z]:[\\/]/.exec(dir)?.[0];
-  if (volume && !fs.existsSync(volume)) return `找不到 ${volume}，外接硬碟可能沒接上`;
+  if (volume && !fs.existsSync(volume)) return m('dir.volumeMissing', { volume });
   let stat: fs.Stats;
   try {
     stat = fs.statSync(dir);
   } catch {
-    return `找不到這個資料夾：${dir}`;
+    return m('dir.notFound', { dir });
   }
-  if (!stat.isDirectory()) return `這不是資料夾：${dir}`;
+  if (!stat.isDirectory()) return m('dir.notFolder', { dir });
   try {
     fs.accessSync(dir, fs.constants.W_OK);
   } catch {
-    return `沒有權限寫入這個資料夾：${dir}`;
+    return m('dir.notWritable', { dir });
   }
   return undefined;
 }

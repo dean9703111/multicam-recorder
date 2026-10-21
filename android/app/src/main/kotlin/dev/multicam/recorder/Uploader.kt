@@ -1,5 +1,6 @@
 package dev.multicam.recorder
 
+import android.content.res.Resources
 import android.util.Log
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -18,7 +19,8 @@ import java.util.concurrent.TimeUnit
 
 // 照 server/protocol.ts 的流程把影片傳到電腦：錄影中就邊錄邊傳，停止後 finish → 分段雜湊 → verify → 補傳。
 // 跑在自己的執行緒，連不上就每 3 秒重試，App 重開後會從電腦已收到的位置繼續。
-class Uploader(private val store: Store, private val onChange: () -> Unit) {
+// language：送給電腦的 Accept-Language，電腦的錯誤訊息才會用手機的語言
+class Uploader(private val store: Store, private val language: () -> String, private val onChange: () -> Unit) {
     private val client = OkHttpClient.Builder()
         .connectTimeout(5, TimeUnit.SECONDS)
         // 10 秒送不出任何資料就當作這條連線卡住了，換一條新的重來（Wi-Fi 不穩時常見）
@@ -59,14 +61,15 @@ class Uploader(private val store: Store, private val onChange: () -> Unit) {
     }
 
     // 畫面上顯示的傳輸狀態
-    fun summary(): String {
-        if (jobs.isEmpty()) return "影片都已傳到電腦"
+    fun summary(res: Resources): String {
+        if (jobs.isEmpty()) return res.getString(R.string.upload_done)
         val recording = jobs.count { it.size < 0 }
         val left = jobs.filter { it.size >= 0 }.sumOf { (it.size - it.sent).coerceAtLeast(0) }
         val parts = mutableListOf<String>()
-        if (recording > 0) parts += "邊錄邊傳中"
-        if (jobs.size > recording) parts += "還有 ${jobs.size - recording} 支在收尾（剩 ${formatBytes(left)}）"
-        return parts.joinToString("，")
+        if (recording > 0) parts += res.getString(R.string.upload_streaming)
+        val finishing = jobs.size - recording
+        if (finishing > 0) parts += res.getQuantityString(R.plurals.upload_finishing, finishing, finishing, formatBytes(left))
+        return parts.joinToString(res.getString(R.string.upload_separator))
     }
 
     private fun persist() = store.saveJobs(jobs)
@@ -177,10 +180,11 @@ class Uploader(private val store: Store, private val onChange: () -> Unit) {
     }
 
     private fun call(method: String, path: String, body: RequestBody?): JSONObject {
-        val base = store.serverUrl ?: throw IOException("還沒配對")
+        val base = store.serverUrl ?: throw IOException("not paired")
         val request = Request.Builder()
             .url(base + path)
             .header("X-Device-Token", store.token ?: "")
+            .header("Accept-Language", language())
             .method(method, body)
             .build()
         client.newCall(request).execute().use { res ->
