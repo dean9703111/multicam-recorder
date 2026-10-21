@@ -329,7 +329,9 @@ td { color: var(--soft); }
 
 /* 頁尾 */
 .site-footer { margin-top: 96px; padding: 48px 0 56px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14.5px; }
-.site-footer .cols { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 32px; }
+.site-footer .cols { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 32px; }
+.site-footer .social a { display: inline-flex; align-items: center; gap: 9px; }
+.site-footer .social svg { flex: none; width: 16px; height: 16px; }
 .site-footer .foot-title { margin: 0 0 10px; font: 700 14px var(--label); letter-spacing: 0.2em; color: var(--soft); }
 .site-footer ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
 .site-footer a { color: var(--muted); text-decoration: none; }

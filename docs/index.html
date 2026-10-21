@@ -76,7 +76,7 @@
         "裁掉頭尾：每台手機一起裁、另存新檔，不重新壓縮（需要 ffmpeg）",
         "不需要雲端帳號，影片只在區域網路裡傳輸"
       ],
-      "author": { "@type": "Person", "name": "林鼎淵 Dean Lin", "url": "https://deanlin.net/about/" },
+      "author": { "@id": "https://deanlin.net/#person" },
       "sameAs": ["https://github.com/dean9703111/multicam-recorder"]
     },
     {
@@ -85,7 +85,22 @@
       "codeRepository": "https://github.com/dean9703111/multicam-recorder",
       "programmingLanguage": ["TypeScript", "Kotlin"],
       "license": "https://opensource.org/licenses/MIT",
-      "targetProduct": { "@id": "https://deanlin.net/multicam-recorder/#app" }
+      "targetProduct": { "@id": "https://deanlin.net/multicam-recorder/#app" },
+      "author": { "@id": "https://deanlin.net/#person" }
+    },
+    {
+      "@type": "Person",
+      "@id": "https://deanlin.net/#person",
+      "name": "Dean Lin",
+      "alternateName": "林鼎淵",
+      "url": "https://deanlin.net/",
+      "sameAs": [
+        "https://medium.com/@dean-lin",
+        "https://www.facebook.com/deanlinbao",
+        "https://www.threads.com/@deanlin5288",
+        "https://www.youtube.com/@dlcorner",
+        "https://github.com/dean9703111"
+      ]
     },
     {
       "@type": "WebPage",
@@ -712,6 +727,16 @@ npm start</pre></div>
           <li><a href="https://github.com/dean9703111/multicam-recorder/blob/main/server/protocol.ts">通訊格式</a></li>
           <li><a href="llms.txt">llms.txt</a></li>
           <li><a href="en/" hreflang="en" lang="en">English</a></li>
+        </ul>
+      </div>
+      <div>
+        <p class="foot-title">追蹤作者</p>
+        <ul class="social">
+          <li><a href="https://medium.com/@dean-lin"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M13.54 12a6.8 6.8 0 0 1-6.77 6.82A6.8 6.8 0 0 1 0 12a6.8 6.8 0 0 1 6.77-6.82A6.8 6.8 0 0 1 13.54 12zM20.96 12c0 3.54-1.51 6.42-3.38 6.42-1.87 0-3.39-2.88-3.39-6.42s1.52-6.42 3.39-6.42 3.38 2.88 3.38 6.42M24 12c0 3.17-.53 5.75-1.19 5.75-.66 0-1.19-2.58-1.19-5.75s.53-5.75 1.19-5.75C23.47 6.25 24 8.83 24 12z"/></svg>Medium</a></li>
+          <li><a href="https://www.facebook.com/deanlinbao"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>Facebook</a></li>
+          <li><a href="https://www.threads.com/@deanlin5288"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M16.2 8.6c-.9-1.9-2.6-2.9-4.7-2.9-3.4 0-5.6 2.7-5.6 6.4s2.2 6.3 5.7 6.3c2.9 0 4.9-1.6 4.9-4 0-2.2-1.7-3.5-4.1-3.5-1.9 0-3.3.9-3.3 2.3 0 1.2 1 2 2.6 2 2.2 0 3.4-1.7 3.5-4.4"/></svg>Threads</a></li>
+          <li><a href="https://www.youtube.com/@dlcorner"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>YouTube</a></li>
+          <li><a href="https://github.com/dean9703111"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>GitHub</a></li>
         </ul>
       </div>
     </div>

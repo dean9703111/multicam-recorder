@@ -2,6 +2,8 @@
 
 > 多機錄影（MultiCam Recorder）是免費、開源的手機多機位錄影工具：在電腦（macOS 或 Windows）的網頁控制台同步遙控多支 Android 手機錄影，有即時畫面、各別變焦、手機原生 4K、臉部優先、直式＋橫式同時錄，影片邊錄邊傳回電腦。MultiCam Recorder is a free, open-source multi-camera recording tool that turns Android phones into synchronized cameras controlled from a web dashboard on a Mac or Windows PC over local Wi-Fi.
 
+作者：林鼎淵（Dean Lin），https://deanlin.net/about/。
+
 重點（Key facts）：
 
 - 價格：免費，MIT 授權開源。Free, MIT license.
@@ -31,6 +33,15 @@
 ## Download
 
 - [最新版 Android App（MultiCamRecorder.apk）](https://github.com/dean9703111/multicam-recorder/releases/latest)
+
+## 作者（Author）
+
+- [林鼎淵 Dean Lin 的部落格](https://deanlin.net/)
+- [Medium](https://medium.com/@dean-lin)
+- [Facebook](https://www.facebook.com/deanlinbao)
+- [Threads](https://www.threads.com/@deanlin5288)
+- [YouTube](https://www.youtube.com/@dlcorner)
+- [GitHub](https://github.com/dean9703111)
 
 ## Optional
 

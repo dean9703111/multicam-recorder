@@ -155,6 +155,7 @@ llms.txt                   給 AI 工具讀的專案摘要
 - `index.html`、`en/index.html`：中英文頁面，內容和 README 一致；`assets/` 是共用的樣式、字型（Barlow、Martian Mono，OFL 授權）和圖示，圖片直接用 `docs/images/`。
 - 每頁的 `<head>` 有 SEO 標籤（title、description、canonical、hreflang、Open Graph）和 JSON-LD（SoftwareApplication、FAQPage）。**改了頁面上的常見問題，JSON-LD 裡的 FAQPage 也要跟著改**，兩邊的文字要一樣。
 - `sitemap.xml`、`llms.txt`（給 AI 工具讀的摘要）、`404.html`；`.nojekyll` 讓 GitHub Pages 不經過 Jekyll，直接發佈檔案。
+- 作者的社群帳號（Medium、Facebook、Threads、YouTube、GitHub）出現在：兩頁頁尾的「追蹤作者」、兩頁 JSON-LD 的 `Person`（`@id` 是 `https://deanlin.net/#person`，和作者其他專案的網站共用同一個，搜尋引擎才會把它們當成同一個人）、README 的「關於作者」和英文段落、兩份 `llms.txt`。帳號有變動時這幾處要一起改。
 - 頁面上的對比圖（各自按 vs 按一次 R、裁切 vs 直拿、一般自動 vs 臉部優先、不鎖定 vs 鎖定、錄完再傳 vs 邊錄邊傳、串流 vs 在手機上錄）是直接寫在 HTML 裡的 SVG 加 CSS 動畫，不是圖片，所以中英文頁各有一份，**文字要兩頁一起改**。訪談場景的插圖放在頁首的 `<svg class="sprite">`（`#sc-land` 橫、`#sc-port` 直），用 `<use>` 重複使用。
 - 動畫的規則寫在 `assets/site.css` 的「動態效果」和 `assets/site.js`：捲到畫面裡才播（`.viz` 加上 `.is-playing`），播一次就停在最後一格，旁邊有「重播」。`<head>` 的一行程式判斷系統的「減少動態效果」；沒有 JavaScript 或要求減少動態效果時，直接顯示最後一格，所以**元素平常的樣式就要是最後一格的樣子**，動畫只負責從頭播到那裡。
 - 本機預覽：在 `docs/` 執行 `python3 -m http.server`，打開 <http://localhost:8000/>。

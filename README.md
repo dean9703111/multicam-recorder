@@ -24,6 +24,7 @@
   <a href="#功能特色">功能特色</a> ・
   <a href="#規格一覽">規格</a> ・
   <a href="#常見問題">常見問題</a> ・
+  <a href="#關於作者">關於作者</a> ・
   <a href="#english">English</a>
 </p>
 
@@ -422,6 +423,20 @@ App 會先把影片正常收尾再停止，已經錄到的部分會照常傳到�
 
 模擬手機、自動測試、自己編譯 App、檔案結構和傳輸流程，請看 **[開發者文件](docs/development.md)**。歡迎開 issue 或送 pull request。
 
+## 關於作者
+
+林鼎淵（Dean Lin），部落格在 <https://deanlin.net/>，歡迎追蹤與交流：
+
+| 平台 | 連結 |
+| --- | --- |
+| Medium | <https://medium.com/@dean-lin> |
+| Facebook | <https://www.facebook.com/deanlinbao> |
+| Threads | <https://www.threads.com/@deanlin5288> |
+| YouTube | <https://www.youtube.com/@dlcorner> |
+| GitHub | <https://github.com/dean9703111> |
+
+如果這個工具對你有幫助，歡迎給個 ⭐，或在社群上分享使用心得。
+
 ## English
 
 **MultiCam Recorder** is a free, open-source multi-camera recording tool that turns Android phones into synchronized cameras. Open the web dashboard on your Mac or Windows PC, watch every phone's live view, set each phone's zoom, and start or stop all of them with one key. Each phone records phone-native 4K locally and streams the footage to your computer over local Wi-Fi while recording, so you can play it back shortly after you stop. No cloud account is needed and footage never leaves your local network.
@@ -457,6 +472,8 @@ npm start
 Open <http://localhost:8787>, then download `MultiCamRecorder.apk` from [Releases](https://github.com/dean9703111/multicam-recorder/releases/latest) (or scan the pairing QR code and use the download link on the page that opens), pair each phone, create a project and press `R`.
 
 Every push runs an end-to-end test with two simulated phones (one portrait, one landscape) on Windows, macOS and Linux in GitHub Actions; Windows has not been used with real phones yet. The phone protocol is documented in [`server/protocol.ts`](server/protocol.ts), so other phone platforms can be added. Developer notes are in [`docs/development.md`](docs/development.md). The UI is currently in Traditional Chinese. Product site: <https://deanlin.net/multicam-recorder/en/>
+
+Made by Dean Lin: [Medium](https://medium.com/@dean-lin) · [Facebook](https://www.facebook.com/deanlinbao) · [Threads](https://www.threads.com/@deanlin5288) · [YouTube](https://www.youtube.com/@dlcorner) · [GitHub](https://github.com/dean9703111). If MultiCam Recorder helps you, a ⭐ or a share is much appreciated.
 
 ## 授權
 

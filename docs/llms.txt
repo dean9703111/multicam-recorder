@@ -34,3 +34,12 @@
 
 - [最新版 Android App（MultiCamRecorder.apk）](https://github.com/dean9703111/multicam-recorder/releases/latest)
 - [原始碼（GitHub）](https://github.com/dean9703111/multicam-recorder)
+
+## 作者（Author）
+
+- [林鼎淵 Dean Lin 的部落格](https://deanlin.net/)
+- [Medium](https://medium.com/@dean-lin)
+- [Facebook](https://www.facebook.com/deanlinbao)
+- [Threads](https://www.threads.com/@deanlin5288)
+- [YouTube](https://www.youtube.com/@dlcorner)
+- [GitHub](https://github.com/dean9703111)
