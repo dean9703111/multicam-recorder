@@ -8,6 +8,8 @@ import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
+import okio.ByteString.Companion.toByteString
+import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
@@ -68,9 +70,18 @@ class ServerLink(private val store: Store, private val listener: Listener) {
         if (connected) ws?.send(text) else if (queueIfOffline) outbox.addLast(text)
     }
 
+    // 即時畫面的 JPEG。網路塞住（前面還有很多沒送出去）時直接丟掉，不要排隊，免得越來越延遲。
+    fun sendFrame(jpeg: ByteArray) {
+        val socket = ws ?: return
+        if (connected && socket.queueSize() < 128 * 1024) socket.send(jpeg.toByteString())
+    }
+
     private fun opened(socket: WebSocket) {
         connected = true
-        socket.send(JSONObject().put("type", "hello").put("model", Build.MODEL).put("appVersion", APP_VERSION).toString())
+        socket.send(
+            JSONObject().put("type", "hello").put("model", Build.MODEL).put("appVersion", APP_VERSION)
+                .put("features", JSONArray(listOf("preview", "zoom"))).toString(),
+        )
         while (outbox.isNotEmpty()) socket.send(outbox.removeFirst())
         bestRtt = Long.MAX_VALUE
         for (i in 0 until 5) main.postDelayed({ sync() }, i * 200L)
@@ -118,6 +129,6 @@ class ServerLink(private val store: Store, private val listener: Listener) {
     }
 
     companion object {
-        const val APP_VERSION = "0.1.0"
+        const val APP_VERSION = "0.2.0"
     }
 }

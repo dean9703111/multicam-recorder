@@ -2,6 +2,7 @@
 // 產生測試影片（漸層動畫加嗶聲），並照 server/protocol.ts 的流程邊錄邊傳、停止後驗證。
 //
 // 用法：node tools/fake-phone.ts --model "Pixel 11 Pro" [--tone 660] [--mic "手機內建"] [--server http://127.0.0.1:8787]
+//                              [--encoder libx264]（預設 macOS 用硬體編碼 h264_videotoolbox，其他系統用 libx264）
 
 import { spawn, execFileSync, type ChildProcess } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -26,6 +27,7 @@ const { values: args } = parseArgs({
     tone: { type: 'string', default: '440' },
     mic: { type: 'string', default: '模擬麥克風' }, // 回報給電腦的收音來源
     server: { type: 'string', default: 'http://127.0.0.1:8787' },
+    encoder: { type: 'string', default: process.platform === 'darwin' ? 'h264_videotoolbox' : 'libx264' },
   },
 });
 
@@ -37,6 +39,7 @@ const home = path.resolve(dataDir, 'fake-phones', slug);
 const credsFile = path.join(home, `creds-${new URL(args.server).port || '80'}.json`);
 const SIZE: Record<Resolution, string> = { '2160p': '3840x2160', '1440p': '2560x1440', '1080p': '1920x1080', '720p': '1280x720' };
 const PIECE = 4 * 1024 * 1024; // 每次 PUT 的大小
+const ZOOM_RANGE: [number, number] = [1, 4]; // 模擬的變焦只能放大（從畫面中間裁切）
 const TAIL_GUARD = 256 * 1024; // 錄影中最後這段可能還在寫入，先不傳
 
 const log = (...a: unknown[]) => console.log(`[${model}]`, ...a);
@@ -91,7 +94,7 @@ function connect(): void {
   ws = socket;
   socket.on('open', () => {
     log('已連線');
-    socket.send(JSON.stringify({ type: 'hello', model, appVersion: 'fake-1' } satisfies DeviceMessage));
+    socket.send(JSON.stringify({ type: 'hello', model, appVersion: 'fake-1', features: ['preview', 'zoom'] } satisfies DeviceMessage));
     for (const m of outbox.splice(0)) socket.send(JSON.stringify(m));
     bestRtt = Infinity;
     for (let i = 0; i < 5; i++) setTimeout(() => sendMsg({ type: 'sync', t0: Date.now() }), i * 200);
@@ -100,6 +103,7 @@ function connect(): void {
   socket.on('message', (raw) => onMessage(JSON.parse(String(raw)) as ServerMessage));
   socket.on('close', async (code) => {
     ws = undefined;
+    setPreview(false);
     if (code === 4001) {
       log('電腦說這支手機沒有配對，重新配對');
       try {
@@ -132,8 +136,18 @@ function onMessage(m: ServerMessage): void {
       stopRecording(m.fileId);
       break;
     case 'welcome':
+      setZoom(m.zoom);
+      log(`電腦上的名稱：${m.name}`);
+      break;
     case 'rename':
       log(`電腦上的名稱：${m.name}`);
+      break;
+    case 'zoom':
+      setZoom(m.ratio);
+      log(`變焦改成 ${zoom}×`);
+      break;
+    case 'preview':
+      setPreview(m.on);
       break;
     case 'config':
       log(`電腦的錄影設定改成 ${m.resolution}，輔助框 ${m.guide}`);
@@ -162,6 +176,8 @@ function sendStatus(): void {
     cameraReady: true,
     recordingFileId: rec?.fileId ?? null,
     audioInput: args.mic,
+    zoom,
+    zoomRange: ZOOM_RANGE,
   });
 }
 
@@ -198,7 +214,8 @@ const PALETTES = [
   { a: ['140b24', '7c3aed', 'f472b6', '140b24'], b: ['fb923c', '140b24'] }, // 粉紫
 ];
 
-function testPattern(width: number, height: number, fps: number): string[] {
+// zoom 大於 1 時從畫面中間裁切再放大，模擬變焦；即時畫面不需要聲音
+function testPattern(width: number, height: number, fps: number, withAudio = true): string[] {
   const nameSum = [...model].reduce((n, c) => n + c.codePointAt(0)!, 0);
   const { a, b } = PALETTES[nameSum % PALETTES.length];
   const colors = (list: string[]) => list.map((c, i) => `c${i}=0x${c}`).join(':');
@@ -226,15 +243,64 @@ function testPattern(width: number, height: number, fps: number): string[] {
     '-filter_complex',
     [
       '[0:v]format=gbrp[a];[1:v]format=gbrp[b];[a][b]blend=all_mode=screen,vignette=angle=PI/5,format=yuv420p[bg]',
-      // 白點畫在透明的一層上，lagfun 讓它拖出漸淡的尾巴
-      `[5:v][4:v]overlay=x='W/2+${R}*cos(2*PI*t/3-PI/2)-w/2':y='H/2+${R}*sin(2*PI*t/3-PI/2)-h/2':format=rgb,lagfun=decay=0.9[dot]`,
+      // 白點畫在透明的一層上，lagfun 讓它拖出漸淡的尾巴；張數少的時候衰減快一點，尾巴才一樣長
+      `[5:v][4:v]overlay=x='W/2+${R}*cos(2*PI*t/3-PI/2)-w/2':y='H/2+${R}*sin(2*PI*t/3-PI/2)-h/2':format=rgb,lagfun=decay=${(0.9 ** (30 / fps)).toFixed(3)}[dot]`,
       '[bg][3:v]overlay=format=auto[dial];[dial][dot]overlay=format=auto[pic]',
-      `[2:a]asplit=2[a][meter];[meter]showvolume=r=${fps}:w=320:h=6:b=0:t=0:v=0:f=0.8:p=0.18:c=0xe6ffffff[vu]`,
-      `[pic][vu]overlay=x=(W-w)/2:y=H/2+${R + 52}:format=auto,scale=${width}:${height}:flags=fast_bilinear,format=yuv420p[v]`,
+      withAudio ? '[2:a]asplit=2[a][meter]' : '[2:a]anull[meter]',
+      `[meter]showvolume=r=${fps}:w=320:h=6:b=0:t=0:v=0:f=0.8:p=0.18:c=0xe6ffffff[vu]`,
+      `[pic][vu]overlay=x=(W-w)/2:y=H/2+${R + 52}:format=auto,crop=iw/${zoom}:ih/${zoom},scale=${width}:${height}:flags=fast_bilinear,format=yuv420p[v]`,
     ].join(';'),
-    ...['-map', '[v]', '-map', '[a]'],
+    ...['-map', '[v]', ...(withAudio ? ['-map', '[a]'] : [])],
   ];
 }
+
+// ---------- 變焦與即時畫面 ----------
+
+let zoom = 1;
+let preview: ChildProcess | undefined;
+
+function setZoom(ratio: number): void {
+  const next = Math.min(ZOOM_RANGE[1], Math.max(ZOOM_RANGE[0], ratio || 1));
+  if (next === zoom) return;
+  zoom = next;
+  sendStatus();
+  // 即時畫面重新開一次才會套用；錄影中的影片維持開始時的倍率
+  if (preview) {
+    setPreview(false);
+    setPreview(true);
+  }
+}
+
+// 每秒 5 張 640×360 的 JPEG。ffmpeg 輸出的 JPEG 一張接一張，用結尾的 FF D9 切開。
+function setPreview(on: boolean): void {
+  if (!on) {
+    preview?.kill();
+    preview = undefined;
+    return;
+  }
+  if (preview) return;
+  const proc = spawn(
+    'ffmpeg',
+    ['-hide_banner', '-loglevel', 'error', ...testPattern(640, 360, 5, false), '-c:v', 'mjpeg', '-q:v', '6', '-f', 'image2pipe', '-'],
+    { stdio: ['ignore', 'pipe', 'ignore'] },
+  );
+  preview = proc;
+  let pending = Buffer.alloc(0);
+  proc.stdout!.on('data', (chunk: Buffer) => {
+    pending = Buffer.concat([pending, chunk]);
+    for (let end = pending.indexOf(EOI); end >= 0; end = pending.indexOf(EOI)) {
+      const frame = pending.subarray(0, end + 2);
+      pending = pending.subarray(end + 2);
+      // 網路塞住時丟掉，不要排隊
+      if (ws?.readyState === WebSocket.OPEN && ws.bufferedAmount < 256 * 1024) ws.send(frame);
+    }
+  });
+  proc.on('exit', () => {
+    if (preview === proc) preview = undefined;
+  });
+}
+
+const EOI = Buffer.from([0xff, 0xd9]);
 
 function startRecording(m: Extract<ServerMessage, { type: 'start' }>): void {
   if (rec) {
@@ -250,8 +316,8 @@ function startRecording(m: Extract<ServerMessage, { type: 'start' }>): void {
       ...['-hide_banner', '-loglevel', 'error'],
       ...testPattern(width, height, m.fps),
       ...['-t', String(m.maxDurationSec)],
-      // macOS 用硬體編碼比較省 CPU，其他系統用 libx264
-      ...(process.platform === 'darwin' ? ['-c:v', 'h264_videotoolbox'] : ['-c:v', 'libx264', '-preset', 'veryfast']),
+      // macOS 預設用硬體編碼比較省 CPU；CI 的虛擬機沒有硬體編碼，用 --encoder libx264
+      ...['-c:v', args.encoder, ...(args.encoder === 'libx264' ? ['-preset', 'veryfast'] : [])],
       ...['-b:v', String(m.bitrate), '-c:a', 'aac', '-b:a', '128k'],
       ...['-y', r.file],
     ];
@@ -418,6 +484,7 @@ connect();
 void uploadLoop();
 
 process.on('SIGINT', () => {
+  preview?.kill();
   rec?.proc?.stdin?.write('q');
   setTimeout(() => process.exit(0), 300);
 });

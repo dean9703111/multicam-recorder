@@ -59,6 +59,13 @@ class CameraRecorder(private val context: Context, private val listener: Listene
         ?.contains(CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO) == true
     private val fpsRanges = characteristics.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES).orEmpty()
 
+    // 變焦範圍。多鏡頭的手機小於 1 會切到超廣角、放大到一定倍數會切到望遠，由系統自己換鏡頭。
+    val zoomRange: Range<Float> = characteristics.get(CameraCharacteristics.CONTROL_ZOOM_RATIO_RANGE) ?: Range(1f, 1f)
+
+    @Volatile
+    var zoom = 1f
+        private set
+
     // 預覽用不超過 1080p 的 16:9
     val previewSize: Size = streamMap.getOutputSizes(SurfaceHolder::class.java)
         .filter { it.width * 9 == it.height * 16 && it.width <= 1920 }
@@ -138,6 +145,14 @@ class CameraRecorder(private val context: Context, private val listener: Listene
             pendingStart = prepare
             wantedSize = spec.size
             if (sessionSize != spec.size) createSession()
+        }
+    }
+
+    // 預覽和錄影一起套用，錄影中也可以調。倍率馬上更新，相機執行緒再把它套到 request 上。
+    fun setZoom(ratio: Float) {
+        zoom = ratio.coerceIn(zoomRange.lower, zoomRange.upper)
+        handler.post {
+            if (session != null) runCatching { session?.setRepeatingRequest(request(record = recorder != null), null, handler) }
         }
     }
 
@@ -252,6 +267,7 @@ class CameraRecorder(private val context: Context, private val listener: Listene
         builder.addTarget(previewSurface!!)
         if (record) builder.addTarget(recorderSurface!!)
         builder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fpsRange(fps))
+        builder.set(CaptureRequest.CONTROL_ZOOM_RATIO, zoom)
         if (continuousAf) builder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
         return builder.build()
     }

@@ -1,17 +1,18 @@
 # MultiCam Recorder｜多機錄影
 
-用電腦的網頁同時控制多支手機錄影：一鍵同步開始、手機原生 4K 錄影、錄影中就把影片傳回電腦，停止後很快就能在電腦上播放。適合訪談、課程、Podcast、產品拍攝這類需要多機位的場合。
+用電腦的網頁同時控制多支手機錄影：在電腦上即時看每台的畫面、各自調整變焦，一鍵同步開始，手機原生 4K 錄影，錄影中就把影片傳回電腦，停止後很快就能在電腦上播放。適合訪談、課程、Podcast、產品拍攝這類需要多機位的場合。
 
-Turn several phones into synchronized 4K cameras controlled from a web dashboard on your computer (macOS / Windows) over Wi-Fi. Start and stop every phone with one key, stream the footage to the computer while recording, and play it back shortly after you stop.
+Turn several phones into synchronized 4K cameras controlled from a web dashboard on your computer (macOS / Windows) over Wi-Fi. Watch every phone's live view, zoom each one, start and stop them all with one key, stream the footage to the computer while recording, and play it back shortly after you stop.
 
 ![電腦：macOS | Windows](https://img.shields.io/badge/%E9%9B%BB%E8%85%A6-macOS%20%7C%20Windows-000000?logo=nodedotjs&logoColor=white)
 ![手機：Android 12+](https://img.shields.io/badge/%E6%89%8B%E6%A9%9F-Android%2012%2B-3DDC84?logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-Camera2-7F52FF?logo=kotlin&logoColor=white)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue)
+[![CI](https://github.com/dean9703111/multicam-recorder/actions/workflows/ci.yml/badge.svg)](https://github.com/dean9703111/multicam-recorder/actions/workflows/ci.yml)
 
-![多機錄影控制台：兩支手機同時用 4K 錄影，邊錄邊傳回電腦](docs/images/console.png)
+![多機錄影控制台：兩支手機同時用 4K 錄影，監看區顯示即時畫面，邊錄邊傳回電腦](docs/images/console.png)
 
-> 上圖是電腦上的控制台。每支手機一個監看區，錄影中會亮紅燈；下方是這支手機在目前專案錄好的影片，點一下就能播放。（畫面中的漸層動畫來自開發用的模擬手機，實際使用時就是手機拍到的畫面。）
+> 上圖是電腦上的控制台。每支手機一個監看區，平常顯示即時畫面，錄影中會亮紅燈；下方是這支手機在目前專案錄好的影片，點 ▶ 播放，點星號標記好的段落。（畫面中的漸層動畫來自開發用的模擬手機，實際使用時就是手機拍到的畫面。）
 
 ## 目錄
 
@@ -29,8 +30,10 @@ Turn several phones into synchronized 4K cameras controlled from a web dashboard
 
 - **一鍵控制所有手機**：按 `R` 全部開始、`S` 全部停止，也可以單獨控制某一台。開始前電腦會先和每台手機對時，約好同一刻一起開始，影片清單上會顯示各台實際開始的時間差。最多可以接 10 台。
 - **手機原生畫質**：4K、2K、1080p、720p 可選，所有手機一起套用。單支最長 30 分鐘，剩 3 分鐘時網頁和手機都會提醒。
-- **構圖輔助框**：錄影一律是 16:9，可以在手機預覽和電腦的播放器上疊一個 9:16、4:5 或 1:1 的框，架機時就照最後要出的比例構圖。
+- **即時畫面、各別變焦**：手機開著 App 時，控制台上就看得到每台的即時畫面（每秒約 5 張，用來確認構圖）。每台手機可以各自調整變焦倍率，有超廣角或望遠鏡頭的手機會自動切換鏡頭。
+- **構圖輔助框**：錄影一律是 16:9，可以在手機預覽、電腦的即時畫面和播放器上疊一個 9:16、4:5 或 1:1 的框，架機時就照最後要出的比例構圖。
 - **用專案整理影片**：開錄前先選專案，影片會存進「錄影資料夾／專案名稱」。之後可以從選單打開舊專案接著錄。
+- **標記好的段落、一次清掉其他的**：錄完點星號標記好的段落，同一段的每台手機一起標記。之後可以一鍵把沒標記的移到垃圾桶（Windows 是資源回收筒），也可以自己勾選要刪的；刪錯了還救得回來。
 - **錄完馬上看**：錄影中就邊錄邊傳，停止後只要補最後一小段，再用分段雜湊確認和手機上的檔案一模一樣，就能在網頁播放原檔，畫面和聲音都有。短片幾秒內就好，30 分鐘的 4K 大約多等十幾秒。
 - **外接麥克風**：手機接上 USB 或耳機孔麥克風時，會自動改用它收音；App 和網頁都會顯示目前用的是哪支麥克風。
 - **狀態一目瞭然**：每台手機的電量、溫度、剩餘空間、還能錄幾分鐘、傳輸速度。電腦的硬碟快不夠、傳輸停住、手機斷線時都會直接提示。
@@ -43,7 +46,7 @@ Turn several phones into synchronized 4K cameras controlled from a web dashboard
 ![運作方式：電腦當控制台，手機當攝影機，全部走同一個 Wi-Fi](docs/images/how-it-works.png)
 
 - 電腦上跑一個本機伺服器，同時提供網頁控制台。控制台只能在這台電腦上開，同一個網路的其他裝置打不開。
-- 手機 App 用 WebSocket 接收指令、回報狀態，影片則用 HTTP 分段傳回電腦。
+- 手機 App 用 WebSocket 接收指令、回報狀態，也用它傳即時畫面（電腦上有人在看時才傳）；影片則用 HTTP 分段傳回電腦。
 - 錄影是在手機上進行（Camera2 + MediaRecorder），畫質不受 Wi-Fi 影響。Wi-Fi 只負責把檔案傳回來。
 - 手機和電腦之間的通訊格式都寫在 [`server/protocol.ts`](server/protocol.ts)。目前手機端只有 Android App，其他平台照這份格式實作就能接上。
 
@@ -51,7 +54,7 @@ Turn several phones into synchronized 4K cameras controlled from a web dashboard
 
 | 項目 | 說明 |
 | --- | --- |
-| 電腦 | macOS 或 Windows，安裝 [Node.js](https://nodejs.org/) 24 以上。目前在 Apple Silicon 的 Mac 上實際使用，Windows 版還沒實測。 |
+| 電腦 | macOS 或 Windows，安裝 [Node.js](https://nodejs.org/) 24 以上。實際使用的是 Apple Silicon 的 Mac；Windows 還沒有人實際用過，但每次更新都會在 GitHub Actions 的 Windows、macOS、Linux 上用模擬手機跑一次完整流程，詳見[常見問題](#常見問題)。 |
 | 手機 | Android 12 以上，最多 10 台。目前在 ASUS ROG Phone 6D、Google Pixel 11 Pro 實機測試過。 |
 | 網路 | 手機和電腦連同一個 Wi-Fi，不要用訪客網路。最好讓電腦接網路線，詳見[網路設定建議](#網路設定建議)。 |
 | 儲存空間 | 建議用外接 SSD，macOS 用 APFS 或 exFAT，Windows 用 NTFS 或 exFAT（FAT32 存不了超過 4 GB 的檔案）。4K 每台手機錄 30 分鐘大約 9 GB。 |
@@ -125,19 +128,20 @@ Windows 上請改用 `cd android` 再 `gradlew.bat :app:assembleDebug`（`JAVA_H
 
 - **專案**：按上方「專案」選單裡的「新增專案…」，預設名稱是今天的日期。影片會存進「錄影資料夾／專案名稱」。還沒有專案就按開始的話，會先請你新增一個。
 - **錄影規格**：「錄影規格」選單可以選解析度和構圖輔助框，所有手機一起套用。解析度從下一次開始錄影時生效，錄影中不能改；輔助框隨時可以換。手機不支援選的解析度時，會改錄它能錄的最大 16:9，影片清單上會標出實際的大小。
+- **即時畫面與變焦**：監看區平常顯示手機的即時畫面。下面的「變焦」可以按常用倍率或拖滑桿，每台手機各自設定，邊看即時畫面邊調；App 重開也會記得，錄影中也能調。
 - **開始和停止**：按網頁上的「開始錄影」或鍵盤 `R`，所有手機一起開始；「停止」或 `S` 全部停止。每個監看區也有「單獨開始／單獨停止」。快捷鍵只在控制台分頁是目前視窗時有效。
 - 30 分鐘會自動停止。最後 3 分鐘網頁會跳出提示並發出提示音。
 - 錄影時 App 要一直開在前景，螢幕不能關。Android 不允許背景 App 使用相機。
 
-![錄影規格選單：4K、2K、1080p、720p 和構圖輔助框，播放器上疊著 9:16 的框](docs/images/spec-guide.png)
+![錄影規格選單：4K、2K、1080p、720p 和構圖輔助框，即時畫面上疊著 9:16 的框](docs/images/spec-guide.png)
 
 手機上的 App 畫面長這樣：
 
-![手機 App 畫面說明：名稱與連線、錄影計時、收音來源、傳輸狀態、調暗螢幕、掃描與清除、構圖輔助框](docs/images/phone-app.png)
+![手機 App 畫面說明：名稱與連線、錄影計時、收音來源與變焦、傳輸狀態、調暗螢幕、掃描與清除、構圖輔助框](docs/images/phone-app.png)
 
 1. **手機名稱、連線狀態**：名稱可以在電腦網頁上點一下修改。連不上電腦太久時，這裡會提示檢查伺服器和 Wi-Fi。
 2. **錄影計時**：最後 3 分鐘會變成琥珀色，並顯示剩餘時間。
-3. **收音來源**：接上外接麥克風後，請確認這裡顯示「外接 USB」或「耳機孔外接」。
+3. **收音來源、變焦**：接上外接麥克風後，請確認這裡顯示「外接 USB」或「耳機孔外接」。下面一行是目前的變焦倍率。
 4. **傳輸狀態**：「邊錄邊傳中」「還有 1 支在收尾」，或「影片都已傳到電腦」。
 5. **調暗螢幕**：長時間錄影時省電、降溫。
 6. **掃描、清除已傳完的影片**：錄影中會停用，避免誤觸而中斷錄影。還沒配對時，掃描按鈕會變成紅色。
@@ -145,7 +149,11 @@ Windows 上請改用 `cd android` 再 `gradlew.bat :app:assembleDebug`（`JAVA_H
 
 ### 5. 播放與管理影片
 
-- 停止後，影片會自動放進那台手機的播放器，點清單上的 ▶ 可以切換。播放器下方的「在 Finder 中顯示」（Windows 是「在檔案總管中顯示」）會直接打開影片所在的資料夾，「專案」選單裡也有「打開專案資料夾」。
+- 停止後，影片會自動放進那台手機的監看區播放，按「回到即時畫面」回去；點清單上的 ▶ 可以切換。監看區下方的「在 Finder 中顯示」（Windows 是「在檔案總管中顯示」）會直接打開影片所在的資料夾，「專案」選單裡也有「打開專案資料夾」。
+- **標記和清理**：覺得不錯的段落點右邊的星號，同一段的每台手機會一起標記。「專案」選單裡的「把沒標記的移到垃圾桶…」會一次清掉其他段；「選取要刪除的影片…」可以自己勾選（「選取沒標記的」能先幫你勾好）。刪掉的影片會進系統的垃圾桶（Windows 是資源回收筒），之後還救得回來；手機上的原檔不受影響。
+
+  ![選取模式：勾選要刪的影片，標記星號的段落留下，下方工具列可以一起移到垃圾桶](docs/images/select-trash.png)
+
 - 傳輸中的檔案副檔名是 `.part`，驗證通過後才改成 `.mp4`。
 - 清單上會顯示同一次錄影的各台開始時間差幾毫秒，剪輯時可以參考；要精準對齊，建議用剪輯軟體依音訊自動同步。
 - 在 Finder 或檔案總管裡刪掉影片或專案資料夾，清單上也會跟著拿掉。外接硬碟沒接上時紀錄會先保留，接回來就恢復。
@@ -205,6 +213,18 @@ App 會先把影片正常收尾再停止，已經錄到的部分會照常傳到�
 </details>
 
 <details>
+<summary>即時畫面有點延遲、不太順？</summary>
+
+即時畫面是每秒約 5 張、640×360 的預覽，用來確認構圖和變焦，所以會有一點延遲，看起來也不流暢；錄下來的影片是手機原生畫質，不受影響。Wi-Fi 很擠時會自動少送幾張，不會拖慢影片傳輸。只有電腦上的控制台開著、而且正在看那台時，手機才會傳。
+</details>
+
+<details>
+<summary>電腦端在 Windows 上能用嗎？</summary>
+
+每次更新程式，GitHub Actions 都會在 Windows、macOS、Linux 上用模擬手機把整個流程跑一遍（[`tools/smoke-test.ts`](tools/smoke-test.ts)）：配對、即時畫面、變焦、錄影、傳檔和 SHA-256 驗證、中文的資料夾路徑、專案、標記、移到資源回收筒、偵測硬碟格式（NTFS、FAT32）。CI 測不到的是需要桌面的兩個功能：選擇資料夾的視窗和「在檔案總管中顯示」。Windows 上還沒有人用實機錄過，如果遇到問題，歡迎開 issue。
+</details>
+
+<details>
 <summary>有支援 iPhone 嗎？</summary>
 
 目前手機端只有 Android 12 以上的 App。電腦和手機之間的通訊格式是公開的（[`server/protocol.ts`](server/protocol.ts)），其他平台照著實作就能接上。
@@ -214,7 +234,7 @@ App 會先把影片正常收尾再停止，已經錄到的部分會照常傳到�
 
 ### 不用手機也能測試
 
-`tools/fake-phone.ts` 是模擬手機，會用 ffmpeg 產生測試影片：流動的漸層加上一圈刻度，白點每 3 秒繞一圈，下方有音量表，聲音是每秒嗶一聲。兩支模擬手機同時開始時，白點的位置和嗶聲都會對齊；顏色依手機名稱而定，方便分辨。它走的流程和真正的手機完全一樣（需要先安裝 ffmpeg，例如 `brew install ffmpeg`）。啟動電腦端後，另外開兩個終端機：
+`tools/fake-phone.ts` 是模擬手機，會用 ffmpeg 產生測試影片：流動的漸層加上一圈刻度，白點每 3 秒繞一圈，下方有音量表，聲音是每秒嗶一聲。兩支模擬手機同時開始時，白點的位置和嗶聲都會對齊；顏色依手機名稱而定，方便分辨。它也會送即時畫面、支援 1× 到 4× 的變焦，走的流程和真正的手機完全一樣（需要先安裝 ffmpeg，例如 `brew install ffmpeg`）。啟動電腦端後，另外開兩個終端機：
 
 ```sh
 npm run fake-phone -- --model "ASUS_AI2203" --tone 440 --mic "外接 USB（USB Audio）"
@@ -231,6 +251,10 @@ npm run fake-phone -- --model "Pixel 11 Pro" --tone 660 --mic "手機內建"
 | `RECORDER_DATA_DIR` | 配對和影片清單存放的位置，預設 `data/`。測試時指到別處，就不會動到正式資料 |
 
 例如 `RECORDER_MAX_SEC=40 RECORDER_WARN_SEC=15 npm start`，40 秒就會自動停止。型別檢查用 `npm run typecheck`。
+
+### 自動測試
+
+`npm run smoke-test` 會自己開一個伺服器和一支模擬手機，把配對、即時畫面、變焦、錄影、傳檔驗證、專案、標記、移到垃圾桶、刪檔同步、改名、移除手機都跑一遍，大約 15 秒。測試資料放在暫存資料夾，跑完就清掉；只有一支幾秒鐘的測試影片會留在系統的垃圾桶裡。GitHub Actions 每次推送都會在 Windows、macOS、Linux 上各跑一次（[`.github/workflows/ci.yml`](.github/workflows/ci.yml)）。
 
 ### 開發時不用掃 QR Code
 
@@ -254,15 +278,17 @@ server/                    電腦端（Node.js 24 直接執行 TypeScript，不�
   protocol.ts              手機和電腦之間的通訊格式，Android App 照這份實作
   uploads.ts               邊錄邊傳、分段雜湊驗證
   store.ts                 配對、專案、影片清單、設定的存檔（data/db.json）
+  platform.ts              各作業系統不一樣的地方：硬碟格式、垃圾桶、PowerShell
   public/                  網頁控制台（Preact + htm，不用打包）
 android/app/src/main/kotlin/dev/multicam/recorder/
-  CameraRecorder.kt        Camera2 預覽與錄影、選擇麥克風
-  ServerLink.kt            和電腦的 WebSocket 連線、對時
+  CameraRecorder.kt        Camera2 預覽與錄影、變焦、選擇麥克風
+  ServerLink.kt            和電腦的 WebSocket 連線、對時、送即時畫面
   Uploader.kt              邊錄邊傳、驗證、補傳
   GuideOverlay.kt          預覽上的構圖輔助框
-  MainActivity.kt          畫面與整體流程
+  MainActivity.kt          畫面與整體流程、擷取即時畫面
 tools/
   fake-phone.ts            模擬手機，也是通訊格式的參考實作
+  smoke-test.ts            端對端測試，CI 在三種作業系統上跑
   install-android.sh       把 APK 裝到所有接上的手機
 docs/
   images/                  README 的截圖和示意圖
@@ -280,10 +306,10 @@ docs/
 ## 已知限制
 
 - 手機端目前只有 Android App，錄影時 App 必須留在前景。
-- 電腦端的 Windows 版還沒實測；Linux 也沒有測過，而且沒有選擇資料夾的視窗，要直接貼上路徑。
+- 電腦端在 Windows 上還沒有人用實機錄過，選擇資料夾的視窗和「在檔案總管中顯示」也還沒實際試過；其他流程在 CI 上測過。Linux 沒有選擇資料夾的視窗，要直接貼上路徑。
 - 影片存在 App 自己的資料夾（`Android/data/dev.multicam.recorder/files/Movies`），解除安裝 App 會連影片一起刪掉。
 - 外接麥克風能不能被選用，依手機和麥克風而定，請以 App 上顯示的收音來源為準。
-- 錄影中不提供即時監看畫面，錄完後才能在電腦上播放。
+- 即時畫面是每秒約 5 張的低解析度預覽，只用來確認構圖和變焦，不能取代監看螢幕。
 - 還沒有雲端上傳，影片目前存在電腦上。
 - 介面目前只有繁體中文。
 
@@ -293,7 +319,9 @@ docs/
 
 - **One-key control**: press `R` / `S` to start or stop every phone (up to 10) at the same moment. The computer syncs clocks and schedules a common start time, and the dashboard shows the measured start offset between phones.
 - **Native quality**: phones record locally with Camera2 + MediaRecorder at 4K / 2K / 1080p / 720p, so Wi-Fi never limits image quality. Takes are capped at 30 minutes, with a warning 3 minutes before the end.
-- **Framing guides**: footage is always 16:9; optional 9:16, 4:5 or 1:1 guides are overlaid on the phone preview and the dashboard player.
+- **Live view and per-phone zoom**: while the app is open, the dashboard shows each phone's live view (about 5 fps, for framing), and each phone's zoom can be set separately; phones with ultra-wide or telephoto lenses switch lenses automatically.
+- **Framing guides**: footage is always 16:9; optional 9:16, 4:5 or 1:1 guides are overlaid on the phone preview, the live view and the dashboard player.
+- **Mark good takes, trash the rest**: star a take (all angles together), then move every unmarked take to the system Trash / Recycle Bin in one go, or pick clips by hand. Nothing is deleted permanently.
 - **Projects**: every take goes into `<recording folder>/<project name>`.
 - **Instant playback**: footage streams to the computer while recording; after you stop, only the tail is sent and the file is verified chunk by chunk with SHA-256 against the phone's original, so you can play it right away.
 - **External microphones**: USB and headset-jack mics are detected automatically, and the active input is shown on both the phone and the dashboard.
@@ -311,7 +339,7 @@ npm install && npm start            # open http://localhost:8787
 
 Then download `MultiCamRecorder.apk` from [Releases](https://github.com/dean9703111/multicam-recorder/releases/latest) (or scan the pairing QR code and use the download link on the page that opens), pair each phone, create a project and press `R`.
 
-Requirements: macOS or Windows with Node.js 24+ (Windows is not tested yet), Android 12+ phones on the same Wi-Fi. The phone protocol is documented in [`server/protocol.ts`](server/protocol.ts), so other phone platforms can be added. The UI is currently in Traditional Chinese.
+Requirements: macOS or Windows with Node.js 24+, Android 12+ phones on the same Wi-Fi. Every push runs an end-to-end test with a simulated phone on Windows, macOS and Linux in GitHub Actions; Windows has not been used with real phones yet. The phone protocol is documented in [`server/protocol.ts`](server/protocol.ts), so other phone platforms can be added. The UI is currently in Traditional Chinese.
 
 ## 授權
 

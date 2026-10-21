@@ -7,6 +7,7 @@ import path from 'node:path';
 import QRCode from 'qrcode';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { HttpError, isLoopback, readJson, sendFile, sendJson } from './http.ts';
+import { GOOD_FORMATS, moveToTrash, powershellArgs, psQuote, TRASH_NAME } from './platform.ts';
 import type {
   DeviceMessage,
   DeviceStatus,
@@ -24,7 +25,6 @@ import {
   checkDir,
   db,
   DEFAULT_STORAGE_DIR,
-  GOOD_FORMATS,
   save,
   saveNow,
   storageInfo,
@@ -33,7 +33,7 @@ import {
   type Project,
   type StorageInfo,
 } from './store.ts';
-import { finalPath, finish, receivedBytes, verify, writeChunk } from './uploads.ts';
+import { finalPath, finish, partPath, receivedBytes, verify, writeChunk } from './uploads.ts';
 
 const PORT = Number(process.env.PORT ?? 8787);
 // 測試時可以用環境變數縮短
@@ -66,6 +66,8 @@ interface Live {
   ws: WebSocket;
   status: DeviceStatus;
   alive: boolean;
+  previewOn: boolean; // 已經請手機送即時畫面
+  features: string[]; // 手機支援的功能，舊版 App 沒有即時畫面和變焦
 }
 
 const live = new Map<string, Live>();
@@ -90,12 +92,13 @@ function onDeviceConnection(ws: WebSocket, token: string | null): void {
     return;
   }
   live.get(d.id)?.ws.terminate(); // 同一支手機重連，舊的連線作廢
-  const l: Live = { ws, status: {}, alive: true };
+  const l: Live = { ws, status: {}, alive: true, previewOn: false, features: [] };
   live.set(d.id, l);
   ws.on('pong', () => {
     l.alive = true;
   });
-  ws.on('message', (raw) => {
+  ws.on('message', (raw, isBinary) => {
+    if (isBinary) return relayPreview(d.id, raw as Buffer); // 二進位訊息是即時畫面的 JPEG
     let m: DeviceMessage;
     try {
       m = JSON.parse(String(raw)) as DeviceMessage;
@@ -116,11 +119,13 @@ function onDeviceMessage(d: Device, l: Live, m: DeviceMessage): void {
   const f = 'fileId' in m ? db.files.find((x) => x.id === m.fileId && x.deviceId === d.id) : undefined;
   switch (m.type) {
     case 'hello':
+      l.features = Array.isArray(m.features) ? m.features.filter((x) => typeof x === 'string') : [];
       if (m.model && m.model !== d.model) {
         d.model = m.model;
         save();
       }
-      send(d.id, { type: 'welcome', name: d.name, serverTime: Date.now(), spec: currentSpec() });
+      send(d.id, { type: 'welcome', name: d.name, serverTime: Date.now(), spec: currentSpec(), zoom: d.zoom ?? 1 });
+      updatePreviewRequests();
       break;
     case 'sync':
       send(d.id, { type: 'sync', t0: m.t0, t1: Date.now() });
@@ -231,18 +236,26 @@ function currentSpec(): RecordingSpec {
 
 const currentProject = (): Project | undefined => db.projects.find((p) => p.id === db.settings.projectId);
 
-// 專案名稱就是資料夾名稱，建在目前設定的錄影資料夾底下
+// Windows 不能當資料夾名稱的保留字（不分大小寫，加副檔名也不行）
+const RESERVED_NAME = /^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\.|$)/i;
+
+// macOS（APFS 預設）和 Windows 的資料夾名稱不分大小寫
+const samePath = (a: string, b: string): boolean =>
+  process.platform === 'linux' ? a === b : a.toLowerCase() === b.toLowerCase();
+
+// 專案名稱就是資料夾名稱，建在目前設定的錄影資料夾底下。規則以 Windows 為準，資料夾搬到哪一台電腦都能用。
 function createProject(rawName: unknown): Project {
   const name = typeof rawName === 'string' ? rawName.trim() : '';
   if (!name || name.length > 60) throw new HttpError(400, '專案名稱要 1 到 60 個字');
-  if (/[/\\:*?"<>|]/.test(name) || name.startsWith('.')) {
-    throw new HttpError(400, '專案名稱不能包含 / \\ : * ? " < > |，也不能用 . 開頭');
+  if (/[/\\:*?"<>|\x00-\x1f]/.test(name) || name.startsWith('.') || name.endsWith('.')) {
+    throw new HttpError(400, '專案名稱不能包含 / \\ : * ? " < > |，也不能用 . 開頭或結尾');
   }
+  if (RESERVED_NAME.test(name)) throw new HttpError(400, `「${name}」是 Windows 保留的名稱，請換一個`);
   if (isRecording()) throw new HttpError(409, '錄影中不能切換專案，請先停止');
   const rootError = checkDir(db.settings.storageDir);
   if (rootError) throw new HttpError(400, `錄影資料夾不能用：${rootError}`);
   const dir = path.join(db.settings.storageDir, name);
-  if (db.projects.some((p) => p.dir === dir)) throw new HttpError(409, '已經有同名的專案，可以從專案清單打開它');
+  if (db.projects.some((p) => samePath(p.dir, dir))) throw new HttpError(409, '已經有同名的專案，可以從專案清單打開它');
   fs.mkdirSync(dir, { recursive: true });
   endCurrentProject();
   const project: Project = { id: crypto.randomUUID(), name, dir, createdAt: Date.now() };
@@ -292,7 +305,8 @@ function stamp(ms: number): string {
   return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
 }
 
-const fileSafe = (name: string): string => name.replace(/[/\\:*?"<>|\s]+/g, '') || 'phone';
+// 檔名裡不能有的字元（以 Windows 為準）和空白都拿掉
+const fileSafe = (name: string): string => name.replace(/[/\\:*?"<>|\s\x00-\x1f]+/g, '') || 'phone';
 
 function uniqueName(dir: string, name: string): string {
   const ext = path.extname(name);
@@ -427,7 +441,8 @@ async function pair(req: IncomingMessage, res: ServerResponse): Promise<void> {
 
 // ---------- 網頁控制台 ----------
 
-const uiClients = new Set<WebSocket>();
+// 每個控制台分頁，和它正在看即時畫面的手機
+const uiClients = new Map<WebSocket, Set<string>>();
 let broadcastTimer: NodeJS.Timeout | undefined;
 
 function changed(): void {
@@ -435,8 +450,32 @@ function changed(): void {
     broadcastTimer = undefined;
     if (!uiClients.size) return;
     const msg = JSON.stringify(snapshot());
-    for (const c of uiClients) c.send(msg);
+    for (const c of uiClients.keys()) c.send(msg);
   }, 250);
+}
+
+// ---------- 即時畫面 ----------
+
+// 有分頁在看才請手機送，沒人看就停，省手機的電和 Wi-Fi
+function updatePreviewRequests(): void {
+  for (const [id, l] of live) {
+    const wanted = [...uiClients.values()].some((ids) => ids.has(id));
+    if (wanted === l.previewOn) continue;
+    l.previewOn = wanted;
+    sendTo(l.ws, { type: 'preview', on: wanted });
+  }
+}
+
+// 轉給正在看的分頁。格式：1 個位元組的手機 ID 長度、手機 ID、JPEG。
+// 分頁收得慢（還有很多沒送出去）就丟掉這一張，畫面才不會越來越延遲。
+function relayPreview(deviceId: string, jpeg: Buffer): void {
+  const id = Buffer.from(deviceId);
+  let frame: Buffer | undefined;
+  for (const [ws, ids] of uiClients) {
+    if (!ids.has(deviceId) || ws.bufferedAmount > 512 * 1024) continue;
+    frame ??= Buffer.concat([Buffer.from([id.length]), id, jpeg]);
+    ws.send(frame);
+  }
 }
 
 let storageCache: { at: number; info: StorageInfo } | undefined;
@@ -464,6 +503,8 @@ function snapshot() {
     type: 'state',
     serverTime: Date.now(),
     platform: process.platform, // 網頁依系統顯示 Finder 或檔案總管
+    sep: path.sep, // 顯示路徑用：Windows 是反斜線
+    trashName: TRASH_NAME,
     diskFormats: GOOD_FORMATS,
     settings: db.settings,
     storage: currentStorage(),
@@ -478,7 +519,9 @@ function snapshot() {
       id: d.id,
       name: d.name,
       model: d.model,
+      zoom: d.zoom ?? 1,
       online: live.has(d.id),
+      features: live.get(d.id)?.features ?? [],
       status: live.get(d.id)?.status ?? {},
     })),
     // 只送目前專案的影片
@@ -507,15 +550,14 @@ function folderPicker(start: string): [string, string[], (code: number | null, s
   }
   if (process.platform === 'win32') {
     const ps = [
-      '[Console]::OutputEncoding = [System.Text.Encoding]::UTF8',
       'Add-Type -AssemblyName System.Windows.Forms',
       '$owner = New-Object System.Windows.Forms.Form -Property @{ TopMost = $true }',
       '$d = New-Object System.Windows.Forms.FolderBrowserDialog',
       "$d.Description = '選擇錄影資料夾（建議選外接 SSD）'",
-      `$d.SelectedPath = '${start.replace(/'/g, "''")}'`,
+      `$d.SelectedPath = ${psQuote(start)}`,
       "if ($d.ShowDialog($owner) -eq 'OK') { $d.SelectedPath } else { exit 2 }",
-    ].join('; ');
-    return ['powershell.exe', ['-NoProfile', '-STA', '-Command', ps], (code) => code === 2];
+    ].join('\n');
+    return ['powershell.exe', powershellArgs(ps, true), (code) => code === 2];
   }
   return undefined;
 }
@@ -539,6 +581,35 @@ async function chooseFolder(): Promise<{ path?: string; canceled?: boolean }> {
   } finally {
     choosing = false;
   }
+}
+
+// 把影片移到系統的垃圾桶（Windows 是資源回收筒），之後還救得回來。錄影中、傳輸中的不能刪。
+async function trashFiles(ids: unknown): Promise<{ trashed: number }> {
+  if (!Array.isArray(ids) || !ids.length) throw new HttpError(400, '沒有選要刪除的影片');
+  const targets = [...new Set(ids)].map((id) => {
+    const f = db.files.find((x) => x.id === id);
+    if (!f) throw new HttpError(404, '找不到要刪除的影片，清單可能已經更新了');
+    if (f.state !== 'ready' && f.state !== 'failed') throw new HttpError(409, `${f.name} 還在錄影或傳輸，不能刪除`);
+    return f;
+  });
+  // 失敗的影片可能只留下傳到一半的 .part
+  const pathOf = (f: FileEntry) => (f.state === 'ready' ? finalPath(f) : partPath(f));
+  let error: unknown;
+  try {
+    await moveToTrash(targets.map(pathOf).filter((file) => fs.existsSync(file)));
+  } catch (e) {
+    error = e;
+  }
+  // 不管成功幾支，已經不在原處的就從清單拿掉
+  const gone = new Set(targets.filter((f) => !fs.existsSync(pathOf(f))).map((f) => f.id));
+  db.files = db.files.filter((f) => !gone.has(f.id));
+  save();
+  changed();
+  if (gone.size < targets.length) {
+    const reason = error instanceof Error ? `：${error.message}` : '';
+    throw new HttpError(500, `有 ${targets.length - gone.size} 支影片沒有移到${TRASH_NAME}${reason}`);
+  }
+  return { trashed: gone.size };
 }
 
 // 在 Finder／檔案總管打開目前的專案資料夾；有指定影片時，macOS 會直接選取那支影片
@@ -649,7 +720,7 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
         for (const id of live.keys()) send(id, { type: 'config', ...currentSpec() });
       }
       if (b.storageDir !== undefined) {
-        const dir = path.resolve(b.storageDir.trim().replace(/^~(?=$|\/)/, os.homedir()));
+        const dir = path.resolve(b.storageDir.trim().replace(/^~(?=$|[\\/])/, os.homedir()));
         const error = checkDir(dir);
         if (error) throw new HttpError(400, error);
         db.settings.storageDir = dir;
@@ -678,6 +749,33 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
       save();
       changed();
       return sendJson(res, 200, { ok: true });
+    }
+    m = /^\/api\/devices\/([\w-]+)\/zoom$/.exec(p);
+    if (m) {
+      const d = db.devices.find((x) => x.id === m![1]);
+      if (!d) throw new HttpError(404, '找不到這支手機');
+      const b = await readJson<{ ratio?: number }>(req);
+      if (typeof b.ratio !== 'number' || !(b.ratio > 0 && b.ratio <= 100)) throw new HttpError(400, '變焦倍率不正確');
+      // 手機會自己限制在它能用的範圍內，再回報實際的倍率
+      d.zoom = Math.round(b.ratio * 100) / 100;
+      send(d.id, { type: 'zoom', ratio: d.zoom });
+      save();
+      changed();
+      return sendJson(res, 200, { ok: true });
+    }
+    m = /^\/api\/takes\/([\w-]+)\/mark$/.exec(p);
+    if (m) {
+      const b = await readJson<{ marked?: boolean }>(req);
+      const files = db.files.filter((f) => f.takeId === m![1]);
+      if (!files.length) throw new HttpError(404, '找不到這一段');
+      for (const f of files) f.marked = b.marked === true;
+      save();
+      changed();
+      return sendJson(res, 200, { ok: true });
+    }
+    if (p === '/api/files/trash') {
+      const b = await readJson<{ fileIds?: unknown }>(req);
+      return sendJson(res, 200, await trashFiles(b.fileIds));
     }
     m = /^\/api\/devices\/([\w-]+)\/rename$/.exec(p);
     if (m) {
@@ -744,7 +842,8 @@ const server = http.createServer((req, res) => {
   });
 });
 
-const deviceWss = new WebSocketServer({ noServer: true });
+// 手機送的最大是即時畫面的 JPEG，幾十 KB 而已
+const deviceWss = new WebSocketServer({ noServer: true, maxPayload: 2 * 1024 * 1024 });
 const uiWss = new WebSocketServer({ noServer: true });
 
 server.on('upgrade', (req, socket, head) => {
@@ -754,8 +853,21 @@ server.on('upgrade', (req, socket, head) => {
   } else if (url.pathname === '/ws/ui' && isLoopback(req)) {
     uiWss.handleUpgrade(req, socket, head, (ws) => {
       ws.on('error', () => {});
-      uiClients.add(ws);
-      ws.on('close', () => uiClients.delete(ws));
+      uiClients.set(ws, new Set());
+      ws.on('message', (raw) => {
+        try {
+          const m = JSON.parse(String(raw)) as { type?: string; deviceIds?: unknown };
+          if (m.type !== 'watch' || !Array.isArray(m.deviceIds)) return;
+          uiClients.set(ws, new Set(m.deviceIds.filter((x): x is string => typeof x === 'string')));
+          updatePreviewRequests();
+        } catch {
+          // 看不懂的訊息就不理
+        }
+      });
+      ws.on('close', () => {
+        uiClients.delete(ws);
+        updatePreviewRequests();
+      });
       ws.send(JSON.stringify(snapshot()));
     });
   } else {

@@ -1,8 +1,8 @@
-import { execFileSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { diskFormat, formatLabel, GOOD_FORMATS, isFat32 } from './platform.ts';
 import type { Guide, RecordingSpec, Resolution, StopReason } from './protocol.ts';
 
 export interface Settings {
@@ -27,6 +27,7 @@ export interface Device {
   model: string;
   name: string; // 顯示名稱，也用在檔名
   pairedAt: number;
+  zoom?: number; // 變焦倍率，手機連上時套用
 }
 
 export type FileState = 'starting' | 'recording' | 'finishing' | 'ready' | 'failed';
@@ -49,6 +50,7 @@ export interface FileEntry {
   spec: RecordingSpec;
   videoWidth?: number; // 手機實際錄的解析度
   videoHeight?: number;
+  marked?: boolean; // 使用者標記為好的段落；同一段（takeId）的影片一起標
 }
 
 interface Db {
@@ -118,21 +120,18 @@ export interface StorageInfo {
   dir: string;
   available: boolean;
   freeBytes?: number;
+  format?: string; // 硬碟格式，例如 APFS、NTFS
   warning?: string;
   error?: string;
 }
-
-// 適合存大型影片檔的硬碟格式
-export const GOOD_FORMATS = process.platform === 'darwin' ? 'APFS 或 exFAT' : process.platform === 'win32' ? 'NTFS 或 exFAT' : 'exFAT 或 ext4';
 
 export function storageInfo(dir: string): StorageInfo {
   const error = checkDir(dir);
   if (error) return { dir, available: false, error };
   const s = fs.statfsSync(dir);
-  const info: StorageInfo = { dir, available: true, freeBytes: s.bavail * s.bsize };
-  if (['msdos', 'vfat'].includes(fsType(dir) ?? '')) {
-    info.warning = `這顆硬碟是 FAT32 格式，存不了超過 4 GB 的檔案，請改成 ${GOOD_FORMATS}`;
-  }
+  const format = diskFormat(dir);
+  const info: StorageInfo = { dir, available: true, freeBytes: s.bavail * s.bsize, format: formatLabel(format) };
+  if (isFat32(format)) info.warning = `這顆硬碟是 FAT32 格式，存不了超過 4 GB 的檔案，請改成 ${GOOD_FORMATS}`;
   return info;
 }
 
@@ -155,28 +154,4 @@ export function checkDir(dir: string): string | undefined {
     return `沒有權限寫入這個資料夾：${dir}`;
   }
   return undefined;
-}
-
-// 從 mount 的輸出找出資料夾所在磁碟的格式（apfs、exfat、msdos、vfat…）。
-// macOS 的格式是「/dev/x on /Volumes/SSD (exfat, local)」，Linux 是「/dev/x on /media/SSD type vfat (rw)」。
-// Windows 沒有 mount 指令，就不檢查。
-function fsType(dir: string): string | undefined {
-  if (process.platform === 'win32') return undefined;
-  let output: string;
-  try {
-    output = execFileSync('mount', { encoding: 'utf8' });
-  } catch {
-    return undefined;
-  }
-  let best = { mountPoint: '', type: undefined as string | undefined };
-  for (const line of output.split('\n')) {
-    const m = /^.+? on (.+?) (?:type (\S+) )?\(([^,)]+)/.exec(line);
-    if (!m) continue;
-    const mountPoint = m[1];
-    const type = m[2] ?? m[3];
-    const prefix = mountPoint.endsWith('/') ? mountPoint : mountPoint + '/';
-    const inside = dir === mountPoint || dir.startsWith(prefix);
-    if (inside && mountPoint.length > best.mountPoint.length) best = { mountPoint, type };
-  }
-  return best.type;
 }

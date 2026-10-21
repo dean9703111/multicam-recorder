@@ -17,6 +17,9 @@
 // - 錄到 maxDurationSec 時手機自己停止，reason 用 'maxDuration'。
 // - 還沒到 startAt 就收到 stop：取消這次錄影，回 recordingFailed。
 // - WebSocket 斷線時照常錄影和上傳；recordingStarted、recordingStopped 等訊息先排隊，連回來再送。
+// - 即時畫面：收到 preview on 之後，大約每秒 5 張，把目前的預覽畫面壓成 JPEG（640×360 左右），
+//   用 WebSocket 的二進位訊息送出；收到 preview off 就停。網路塞住時寧可丟掉，不要排隊。
+// - 變焦：收到 zoom 就把倍率套到預覽和錄影（超出範圍時取最接近的值），在 status 回報實際倍率和可用範圍。
 //   完整的參考實作在 tools/fake-phone.ts。
 
 export type Resolution = '2160p' | '1440p' | '1080p' | '720p';
@@ -59,13 +62,15 @@ export interface DeviceStatus {
   cameraReady?: boolean;
   recordingFileId?: string | null;
   audioInput?: string; // 目前用哪支麥克風，例如「外接 USB（DJI Mic）」
+  zoom?: number; // 目前的變焦倍率
+  zoomRange?: [number, number]; // 這支手機能用的變焦範圍，例如 [0.5, 10]
 }
 
 export type StopReason = 'user' | 'maxDuration' | 'error';
 
 // 手機 → 電腦
 export type DeviceMessage =
-  | { type: 'hello'; model: string; appVersion: string }
+  | { type: 'hello'; model: string; appVersion: string; features?: string[] } // features：'preview'、'zoom'
   | { type: 'sync'; t0: number }
   | ({ type: 'status' } & DeviceStatus)
   // startedAt 要換算成電腦時間；width、height 是實際錄的解析度（手機不支援要求的解析度時會降級）
@@ -75,12 +80,14 @@ export type DeviceMessage =
 
 // 電腦 → 手機
 export type ServerMessage =
-  | { type: 'welcome'; name: string; serverTime: number; spec: RecordingSpec }
+  | { type: 'welcome'; name: string; serverTime: number; spec: RecordingSpec; zoom: number }
   | ({ type: 'config' } & RecordingSpec) // 電腦改了錄影設定，手機可以先把相機準備好
   | { type: 'sync'; t0: number; t1: number }
   | ({ type: 'start'; fileId: string; takeId: string; fileName: string; startAt: number } & RecordingSpec)
   | { type: 'stop'; fileId: string }
   | { type: 'rename'; name: string }
+  | { type: 'zoom'; ratio: number }
+  | { type: 'preview'; on: boolean } // 電腦上有人在看這支手機的即時畫面時才開
   | { type: 'error'; code: 'unpaired'; message: string };
 
 export const CHUNK_SIZE = 16 * 1024 * 1024;

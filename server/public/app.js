@@ -61,6 +61,13 @@ const resolutionOf = (state) => state.resolutions.find((r) => r.id === state.set
 const bytesPerTake = (state, r) => (r.bitrate / 8) * state.limits.maxDurationSec;
 // 實際尺寸對應到選項名稱，例如 3840×2160 → 4K
 const sizeLabel = (state, w, h) => state.resolutions.find((r) => r.width === w && r.height === h)?.label ?? `${w}×${h}`;
+// 顯示用的路徑，用伺服器那台電腦的分隔符號（Windows 是 \）
+const joinPath = (state, ...parts) => parts.join(state.sep);
+// 可以移到垃圾桶的影片：傳完的和失敗的。錄影中、傳輸中的不能刪。
+const canTrash = (f) => f.state === 'ready' || f.state === 'failed';
+// 段數：同一次按開始錄的算一段
+const countTakes = (files) => new Set(files.map((f) => f.takeId)).size;
+const sumBytes = (files) => files.reduce((n, f) => n + ((f.state === 'ready' ? f.size : f.receivedBytes) ?? 0), 0);
 
 // 把資料夾或檔案拖進瀏覽器時，Chrome 會直接打開它、蓋掉控制台，所以一律攔下來
 for (const type of ['dragover', 'drop']) window.addEventListener(type, (e) => e.preventDefault());
@@ -92,6 +99,31 @@ function beep() {
   }
 }
 
+// ---------- 即時畫面 ----------
+
+// 收到的 JPEG 直接換到 <img> 上，不經過 Preact，一秒好幾張也不會整頁重畫
+const liveViews = new Map(); // 手機 ID → { img, url, at, onFrame }
+let uiSocket = null;
+
+// 告訴伺服器目前畫面上要看哪幾台的即時畫面，沒在看的手機就不用傳
+function sendWatchList() {
+  if (uiSocket?.readyState === WebSocket.OPEN) uiSocket.send(JSON.stringify({ type: 'watch', deviceIds: [...liveViews.keys()] }));
+}
+
+// 格式：1 個位元組的手機 ID 長度、手機 ID、JPEG
+function onPreviewFrame(buffer) {
+  const bytes = new Uint8Array(buffer);
+  const id = new TextDecoder().decode(bytes.subarray(1, 1 + bytes[0]));
+  const view = liveViews.get(id);
+  if (!view?.img) return;
+  const old = view.url;
+  view.url = URL.createObjectURL(new Blob([bytes.subarray(1 + bytes[0])], { type: 'image/jpeg' }));
+  view.img.src = view.url;
+  view.at = Date.now();
+  if (old) URL.revokeObjectURL(old);
+  view.onFrame();
+}
+
 // ---------- 資料 ----------
 
 function useServerState() {
@@ -103,8 +135,14 @@ function useServerState() {
     let closed = false;
     const connect = () => {
       ws = new WebSocket(`ws://${location.host}/ws/ui`);
-      ws.onopen = () => setConnected(true);
+      ws.binaryType = 'arraybuffer';
+      uiSocket = ws;
+      ws.onopen = () => {
+        setConnected(true);
+        sendWatchList(); // 重新連上後要再說一次
+      };
       ws.onmessage = (e) => {
+        if (typeof e.data !== 'string') return onPreviewFrame(e.data);
         const m = JSON.parse(e.data);
         if (m.type === 'state') setState({ ...m, clockOffset: m.serverTime - Date.now() });
       };
@@ -137,8 +175,9 @@ function useNow(interval) {
 function App() {
   const [state, connected] = useServerState();
   const now = useNow(250);
-  const [modal, setModal] = useState(null); // { kind: 'pair' | 'settings' | 'newProject' | 'endProject' | 'removeDevice', device? }
+  const [modal, setModal] = useState(null); // { kind: 'pair' | 'settings' | 'newProject' | 'endProject' | 'removeDevice' | 'trash', … }
   const [menu, setMenu] = useState(null); // 'project' | 'spec'
+  const [selection, setSelection] = useState(null); // 選取模式中勾選的影片 ID；null 表示不在選取模式
   const [toast, setToast] = useState(null);
   const warnedTakes = useRef(new Set());
 
@@ -164,6 +203,24 @@ function App() {
   };
   const stop = (deviceIds) => run(() => post('/api/record/stop', { deviceIds }));
   const closeModal = () => setModal(null);
+  // 先把正在播放的影片關掉再搬，Windows 上檔案開著時可能搬不動
+  const trash = async (ids) => {
+    for (const v of document.querySelectorAll('video')) {
+      if (!ids.includes(v.dataset.fileId)) continue;
+      v.pause();
+      v.removeAttribute('src');
+      v.load();
+    }
+    const r = await post('/api/files/trash', { fileIds: ids });
+    notify(`已把 ${r.trashed} 支影片移到${state.trashName}`);
+    setSelection(null);
+  };
+  const toggleSelected = (id) =>
+    setSelection((cur) => {
+      const next = new Set(cur);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
 
   useEffect(() => {
     if (!toast) return;
@@ -183,8 +240,11 @@ function App() {
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === 'Escape') {
-        setMenu(null);
-        setModal(null);
+        // 先關對話框和選單，沒有的話才離開選取模式
+        if (modal || menu) {
+          setMenu(null);
+          setModal(null);
+        } else setSelection(null);
         return;
       }
       if (modal || menu || e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
@@ -245,6 +305,10 @@ function App() {
           onEnd=${fromMenu(() => setModal({ kind: 'endProject' }))}
           onOpen=${(id) => fromMenu(() => run(() => post(`/api/projects/${id}/open`)))()}
           onShowFolder=${fromMenu(() => run(() => post('/api/open-folder')))}
+          onTrashUnmarked=${fromMenu(() =>
+            setModal({ kind: 'trash', unmarked: true, ids: state.files.filter((f) => canTrash(f) && !f.marked).map((f) => f.id) }),
+          )}
+          onSelect=${fromMenu(() => setSelection(new Set()))}
         />
         <div class="readout">
           <span class="label">連線</span>
@@ -280,7 +344,7 @@ function App() {
       onNewProject=${() => setModal({ kind: 'newProject' })}
     />
 
-    <main class=${`bays ${compact ? 'compact' : ''}`}>
+    <main class=${`bays ${compact ? 'compact' : ''} ${selection ? 'selecting' : ''}`}>
       ${state.devices.length
         ? state.devices.map(
             (d, i) => html`<${Bay}
@@ -295,6 +359,8 @@ function App() {
               onRemove=${() => setModal({ kind: 'removeDevice', device: d })}
               notify=${notify}
               run=${run}
+              selection=${selection}
+              onToggleSelected=${toggleSelected}
             />`,
           )
         : html`<${Setup} state=${state} onModal=${(kind) => setModal({ kind })} />`}
@@ -329,14 +395,70 @@ function App() {
       ${state.files.some((f) => f.deviceId === modal.device.id && (f.state === 'finishing' || isActive(f))) &&
       html`<p class="hint warn">這支手機還有影片沒傳完，移除後就傳不過來了，影片會留在手機上。</p>`}
     <//>`}
-    ${toast && html`<div class=${`toast ${toast.kind}`} key=${toast.id} role="status">${toast.text}</div>`}
+    ${modal?.kind === 'trash' &&
+    html`<${TrashModal} state=${state} ids=${modal.ids} unmarked=${modal.unmarked} onClose=${closeModal} onConfirm=${() => trash(modal.ids)} />`}
+    ${selection &&
+    html`<${SelectionBar}
+      state=${state}
+      selection=${selection}
+      setSelection=${setSelection}
+      onTrash=${(ids) => setModal({ kind: 'trash', unmarked: false, ids })}
+    />`}
+    ${toast && html`<div class=${`toast ${toast.kind} ${selection ? 'raised' : ''}`} key=${toast.id} role="status">${toast.text}</div>`}
   `;
 }
 
-function ProjectControl({ state, open, recording, onToggle, onNew, onEnd, onOpen, onShowFolder }) {
+// 選取模式：點影片勾選，再一起移到垃圾桶
+function SelectionBar({ state, selection, setSelection, onTrash }) {
+  // 清單更新後，已經不在或不能刪的就不算
+  const picked = state.files.filter((f) => selection.has(f.id) && canTrash(f));
+  const unmarked = state.files.filter((f) => canTrash(f) && !f.marked);
+  return html`<div class="selection-bar" role="toolbar" aria-label="選取要刪除的影片">
+    <span class="selection-count">
+      ${picked.length ? `已選 ${picked.length} 支・${fmtBytes(sumBytes(picked))}` : '點清單上的影片來選取要刪除的'}
+    </span>
+    <button class="btn-ghost btn-small" disabled=${!unmarked.length} onClick=${() => setSelection(new Set(unmarked.map((f) => f.id)))}>
+      選取沒標記的
+    </button>
+    <button class="btn-ghost btn-small" onClick=${() => setSelection(null)}>取消</button>
+    <button class="btn-danger btn-small" disabled=${!picked.length} onClick=${() => onTrash(picked.map((f) => f.id))}>
+      移到${state.trashName}…
+    </button>
+  </div>`;
+}
+
+function TrashModal({ state, ids, unmarked, onClose, onConfirm }) {
+  const files = state.files.filter((f) => ids.includes(f.id));
+  const kept = countTakes(state.files.filter((f) => f.marked));
+  const markedPicked = files.filter((f) => f.marked).length;
+  const what = unmarked ? `沒標記的 ${countTakes(files)} 段（${files.length} 支影片）` : ` ${files.length} 支影片`;
+  return html`<${ConfirmModal}
+    title=${`移到${state.trashName}`}
+    confirmLabel=${`移到${state.trashName}`}
+    danger
+    onClose=${onClose}
+    onConfirm=${onConfirm}
+  >
+    <p>要把${what}移到${state.trashName}嗎？共 ${fmtBytes(sumBytes(files))}。</p>
+    <ul class="trash-list">
+      ${files.slice(0, 8).map((f) => html`<li>${f.name}</li>`)}
+      ${files.length > 8 && html`<li class="more">還有 ${files.length - 8} 支</li>`}
+    </ul>
+    ${unmarked &&
+    (kept
+      ? html`<p class="hint">標記為好的 ${kept} 段會留下。</p>`
+      : html`<p class="hint warn">這個專案還沒有標記任何一段，會把全部的影片都移到${state.trashName}。</p>`)}
+    ${!unmarked && markedPicked > 0 && html`<p class="hint warn">其中 ${markedPicked} 支屬於標記為好的段落。</p>`}
+    <p class="hint">之後還可以從${state.trashName}救回來。手機上的原檔不受影響。</p>
+  <//>`;
+}
+
+function ProjectControl({ state, open, recording, onToggle, onNew, onEnd, onOpen, onShowFolder, onTrashUnmarked, onSelect }) {
   const p = state.project;
   const current = p && state.projects.find((x) => x.id === p.id);
   const others = state.projects.filter((x) => x.id !== p?.id);
+  const markedTakes = countTakes(state.files.filter((f) => f.marked));
+  const unmarkedTakes = countTakes(state.files.filter((f) => canTrash(f) && !f.marked));
   return html`<div class="readout menu-anchor">
     <span class="label">專案</span>
     <button class=${`picker ${p ? '' : 'unset'}`} aria-haspopup="menu" aria-expanded=${open} onClick=${onToggle}>
@@ -344,13 +466,25 @@ function ProjectControl({ state, open, recording, onToggle, onNew, onEnd, onOpen
       <span class="caret" aria-hidden="true"></span>
     </button>
     <span class="readout-note">
-      ${!current ? '錄影前請先新增專案' : current.files ? `${current.files} 支影片・${fmtBytes(current.bytes)}` : '還沒有影片'}
+      ${!current
+        ? '錄影前請先新增專案'
+        : current.files
+          ? `${current.files} 支影片・${fmtBytes(current.bytes)}${markedTakes ? `・★ ${markedTakes} 段` : ''}`
+          : '還沒有影片'}
     </span>
     ${open &&
     html`<div class="menu" role="menu">
       ${recording && html`<div class="menu-hint">錄影中不能切換專案</div>`}
       <button class="menu-item strong" role="menuitem" disabled=${recording} onClick=${onNew}>＋ 新增專案…</button>
       ${p && html`<button class="menu-item" role="menuitem" onClick=${onShowFolder}>打開專案資料夾</button>`}
+      ${p &&
+      html`<button class="menu-item" role="menuitem" disabled=${!unmarkedTakes} onClick=${onTrashUnmarked}>
+        把沒標記的移到${state.trashName}…${unmarkedTakes ? `（${unmarkedTakes} 段）` : ''}
+      </button>`}
+      ${p &&
+      html`<button class="menu-item" role="menuitem" disabled=${!state.files.some(canTrash)} onClick=${onSelect}>
+        選取要刪除的影片…
+      </button>`}
       ${p && html`<button class="menu-item" role="menuitem" disabled=${recording} onClick=${onEnd}>結束「${p.name}」</button>`}
       ${others.length > 0 && html`<div class="menu-title">之前的專案</div>`}
       ${others.map(
@@ -441,7 +575,7 @@ function Alerts({ state, connected, t, onSettings, onNewProject }) {
   if (!state.project && state.devices.length) {
     items.push([
       'info',
-      html`還沒有專案。影片會存進 <code>${state.settings.storageDir}/專案名稱</code>。<button class="btn-link" onClick=${onNewProject}>新增專案</button>`,
+      html`還沒有專案。影片會存進 <code>${joinPath(state, state.settings.storageDir, '專案名稱')}</code>。<button class="btn-link" onClick=${onNewProject}>新增專案</button>`,
     ]);
   }
 
@@ -517,7 +651,7 @@ function Setup({ state, onModal }) {
   </section>`;
 }
 
-function Bay({ state, device, letter, t, compact, onStart, onStop, onRemove, notify, run }) {
+function Bay({ state, device, letter, t, compact, onStart, onStop, onRemove, notify, run, selection, onToggleSelected }) {
   const files = state.files.filter((f) => f.deviceId === device.id).sort((a, b) => b.createdAt - a.createdAt);
   const active = files.find(isActive);
   const recording = active?.state === 'recording' && active.startedAt;
@@ -527,18 +661,23 @@ function Bay({ state, device, letter, t, compact, onStart, onStop, onRemove, not
   const st = device.status;
   const guide = state.settings.guide;
 
-  // 播放器：有新影片傳完就自動放上去（正在播別支、或選了別支時不打斷）。手機多時改成點了才打開。
-  const [selectedId, setSelectedId] = useState(null);
+  // 監看區平常顯示即時畫面。錄完的影片傳完後會自動放上來播放（正在播別支時不打斷，手機多時不自動切換），
+  // 按「即時畫面」回去；開始錄影時也會切回即時畫面。
+  const [selectedId, setSelectedId] = useState(null); // null 表示看即時畫面
   const videoRef = useRef(null);
-  const prevLatest = useRef(null);
+  const prevLatest = useRef(undefined); // 第一次載入時不切換，先看即時畫面
   const latestReady = files.find((f) => f.state === 'ready')?.id ?? null;
   const selected = files.find((f) => f.id === selectedId && f.state === 'ready');
   useEffect(() => {
     const idle = videoRef.current?.paused ?? true;
+    const fresh = prevLatest.current !== undefined && latestReady && latestReady !== prevLatest.current;
     // 選的影片不在清單上了（例如換了專案）也算沒有選
-    if (!compact && latestReady && idle && (!selected || selectedId === prevLatest.current)) setSelectedId(latestReady);
+    if (!compact && fresh && idle && (!selected || selectedId === prevLatest.current)) setSelectedId(latestReady);
     prevLatest.current = latestReady;
   }, [latestReady]);
+  useEffect(() => {
+    if (active && (videoRef.current?.paused ?? true)) setSelectedId(null);
+  }, [active?.id]);
 
   const tally = recording ? 'on' : device.online && st.cameraReady !== false ? 'ready' : '';
   // 連得上但相機沒開：通常是 App 被切到背景，或還沒允許相機權限
@@ -583,23 +722,31 @@ function Bay({ state, device, letter, t, compact, onStart, onStop, onRemove, not
         <${Meter} label="還能錄" value=${minutesLeft != null ? `${minutesLeft} 分` : '—'} level=${minutesLeft != null && minutesLeft < 35 ? 'warn' : ''} />
       </div>
 
-      ${(!compact || selected) &&
-      html`<div class="monitor">
+      <div class="monitor">
         ${selected
-          ? html`<video ref=${videoRef} key=${selected.id} src=${`/media/${selected.id}`} controls preload="metadata" playsinline></video>`
-          : html`<div class="monitor-empty">錄完的影片傳到電腦之後，會出現在這裡</div>`}
-        ${selected &&
-        guide !== 'none' &&
+          ? html`<video
+              ref=${videoRef}
+              key=${selected.id}
+              data-file-id=${selected.id}
+              src=${`/media/${selected.id}`}
+              controls
+              preload="metadata"
+              playsinline
+            ></video>`
+          : html`<${LiveView} device=${device} />`}
+        ${guide !== 'none' &&
         html`<div class="guide" style=${{ width: `${(GUIDE_RATIO[guide] / (16 / 9)) * 100}%` }}><span>${guide}</span></div>`}
-      </div>`}
-      ${selected &&
-      html`<div class="monitor-caption">
-        <span>${selected.name}</span>
-        <button class="btn-link" onClick=${() => run(() => post('/api/open-folder', { fileId: selected.id }))}>
-          ${revealLabel(state)}
-        </button>
-        ${compact && html`<button class="btn-link" onClick=${() => setSelectedId(null)}>收起</button>`}
-      </div>`}
+      </div>
+      <div class="monitor-caption">
+        ${selected
+          ? html`<span>${selected.name}</span>
+              <button class="btn-link" onClick=${() => run(() => post('/api/open-folder', { fileId: selected.id }))}>
+                ${revealLabel(state)}
+              </button>
+              <button class="btn-link" onClick=${() => setSelectedId(null)}>回到即時畫面</button>`
+          : html`<span>即時畫面</span>`}
+      </div>
+      <${ZoomControl} device=${device} run=${run} />
 
       <ul class="clips">
         ${files.length
@@ -611,12 +758,90 @@ function Bay({ state, device, letter, t, compact, onStart, onStop, onRemove, not
                   state=${state}
                   selected=${f.id === selected?.id}
                   onPlay=${() => setSelectedId(f.id)}
+                  selecting=${!!selection}
+                  picked=${!!selection?.has(f.id)}
+                  onPick=${() => onToggleSelected(f.id)}
+                  run=${run}
                 />`,
             )
           : html`<li class="clips-empty">${state.project ? '這個專案還沒有錄影' : '新增專案後就可以開始錄影'}</li>`}
       </ul>
     </section>
   `;
+}
+
+// 即時畫面：<img> 由 onPreviewFrame 直接換圖。3 秒沒有新畫面就顯示原因。
+function LiveView({ device }) {
+  const imgRef = useRef(null);
+  const [fresh, setFresh] = useState(false);
+  useEffect(() => {
+    const view = { img: imgRef.current, url: null, at: 0, onFrame: () => setFresh(true) };
+    liveViews.set(device.id, view);
+    sendWatchList();
+    const timer = setInterval(() => setFresh(Date.now() - view.at < 3000), 1000);
+    return () => {
+      clearInterval(timer);
+      if (liveViews.get(device.id) === view) liveViews.delete(device.id);
+      if (view.url) URL.revokeObjectURL(view.url);
+      sendWatchList();
+    };
+  }, [device.id]);
+  let reason = '等待即時畫面…';
+  if (!device.online) reason = '手機離線';
+  else if (!device.features.includes('preview')) reason = '這支手機的 App 版本太舊，更新後就能看即時畫面';
+  else if (device.status.cameraReady === false) reason = '相機未就緒：請把手機上的 App 開在前景';
+  return html`<img ref=${imgRef} class="live" alt=${`${device.name} 的即時畫面`} />
+    ${fresh ? html`<span class="live-badge">即時</span>` : html`<div class="monitor-empty">${reason}</div>`}`;
+}
+
+const roundZoom = (z) => Math.round(z * 10) / 10;
+const fmtZoom = (z) => `${Number.isInteger(z) ? z : z.toFixed(1)}×`;
+
+// 變焦：常用倍率的按鈕加上滑桿（對數刻度，放大一倍的距離都一樣）。範圍由手機回報，有廣角鏡頭的手機可以小於 1×。
+function ZoomControl({ device, run }) {
+  const [dragging, setDragging] = useState(null); // 拖曳中的倍率
+  const lastSent = useRef(0);
+  const range = device.features.includes('zoom') ? device.status.zoomRange : null;
+  if (!range || !(range[1] > range[0])) return null;
+  const [min, max] = range;
+  const presets = [...new Set([min < 1 ? roundZoom(min) : null, 1, 2, 3, 5, 10])].filter((z) => z && z >= min && z <= max);
+  const toPos = (z) => Math.round((Math.log(z / min) / Math.log(max / min)) * 1000);
+  const fromPos = (pos) => Math.min(max, Math.max(min, roundZoom(min * Math.pow(max / min, pos / 1000))));
+  const send = (z) => run(() => post(`/api/devices/${device.id}/zoom`, { ratio: z }));
+  const current = device.zoom ?? 1;
+  const shown = dragging ?? current;
+  return html`<div class="zoom">
+    <span class="label">變焦</span>
+    <div class="zoom-presets">
+      ${presets.map(
+        (z) => html`<button class=${`zoom-chip ${Math.abs(z - current) < 0.05 ? 'on' : ''}`} disabled=${!device.online} onClick=${() => send(z)}>
+          ${fmtZoom(z)}
+        </button>`,
+      )}
+    </div>
+    <input
+      type="range"
+      min="0"
+      max="1000"
+      value=${toPos(shown)}
+      disabled=${!device.online}
+      aria-label=${`${device.name} 的變焦倍率`}
+      onInput=${(e) => {
+        const z = fromPos(Number(e.target.value));
+        setDragging(z);
+        // 拖曳中也送，配合即時畫面邊看邊調；太密的就略過
+        if (Date.now() - lastSent.current > 150) {
+          lastSent.current = Date.now();
+          send(z);
+        }
+      }}
+      onChange=${(e) => {
+        setDragging(null);
+        send(fromPos(Number(e.target.value)));
+      }}
+    />
+    <span class="zoom-value">${fmtZoom(shown)}</span>
+  </div>`;
 }
 
 function Meter({ label, value, level }) {
@@ -639,7 +864,7 @@ function useTransferRate(bytes) {
   return { rate, idleMs: now - last.at };
 }
 
-function Clip({ f, state, selected, onPlay }) {
+function Clip({ f, state, selected, onPlay, selecting, picked, onPick, run }) {
   const progress = f.size ? Math.min(1, f.receivedBytes / f.size) : null;
   const { rate, idleMs } = useTransferRate(f.receivedBytes);
   const sending = f.state === 'recording' || (f.state === 'finishing' && progress < 1);
@@ -667,10 +892,18 @@ function Clip({ f, state, selected, onPlay }) {
     sync = ms === 0 ? `和 ${peerName} 同時開始` : `比 ${peerName} ${diff > 0 ? '晚' : '早'} ${ms} ms`;
   }
 
-  return html`<li class=${`clip ${selected ? 'selected' : ''}`}>
-    <button class="clip-play" disabled=${f.state !== 'ready'} onClick=${onPlay} aria-label=${`播放 ${f.name}`}></button>
+  // 選取模式：整列都可以點；錄影中、傳輸中的不能選
+  const pickable = selecting && canTrash(f);
+  const pick = (e) => {
+    e.stopPropagation();
+    onPick();
+  };
+  return html`<li class=${`clip ${selected ? 'selected' : ''} ${pickable ? 'pickable' : ''} ${picked ? 'picked' : ''}`} onClick=${pickable ? onPick : undefined}>
+    ${selecting
+      ? html`<button class="clip-check" role="checkbox" aria-checked=${picked} disabled=${!pickable} onClick=${pick} aria-label=${`選取 ${f.name}`}></button>`
+      : html`<button class="clip-play" disabled=${f.state !== 'ready'} onClick=${onPlay} aria-label=${`播放 ${f.name}`}></button>`}
     <div>
-      <div class="clip-name" title=${`${f.dir}/${f.name}`}>${f.name}</div>
+      <div class="clip-name" title=${joinPath(state, f.dir, f.name)}>${f.name}</div>
       <div class="clip-meta">
         <span class=${`chip ${f.state}`}>${STATE_LABEL[f.state]}</span>
         <span>${detail}</span>
@@ -679,6 +912,18 @@ function Clip({ f, state, selected, onPlay }) {
         ${sync && html`<span class="clip-sync">${sync}</span>`}
       </div>
     </div>
+    ${f.state !== 'failed' &&
+    html`<button
+      class=${`clip-mark ${f.marked ? 'on' : ''}`}
+      aria-pressed=${!!f.marked}
+      title=${f.marked ? '取消標記這一段' : '標記這一段是好的（同一段的每台手機一起標記）'}
+      onClick=${(e) => {
+        e.stopPropagation();
+        run(() => post(`/api/takes/${f.takeId}/mark`, { marked: !f.marked }));
+      }}
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.5 1.2 6.4L12 17.3l-5.7 3.1 1.2-6.4-4.7-4.5 6.4-.8z" /></svg>
+    </button>`}
     ${f.state === 'recording' && html`<div class="clip-progress"><span class="streaming"></span></div>`}
     ${f.state === 'finishing' && html`<div class="clip-progress"><span style=${{ width: `${(progress ?? 0) * 100}%` }}></span></div>`}
   </li>`;
@@ -809,7 +1054,7 @@ function NewProjectModal({ state, onClose, notify }) {
       />
     </div>
     ${error && html`<p class="hint bad" role="alert">${error}</p>`}
-    <p class="hint">影片會存進 <code>${state.settings.storageDir}/${name.trim() || '專案名稱'}</code></p>
+    <p class="hint">影片會存進 <code>${joinPath(state, state.settings.storageDir, name.trim() || '專案名稱')}</code></p>
     ${state.project && html`<p class="hint">目前的專案「${state.project.name}」會自動結束，之後還可以從選單打開。</p>`}
     <div class="modal-foot">
       <button class="btn-ghost" onClick=${onClose}>取消</button>
@@ -917,7 +1162,7 @@ function SettingsModal({ state, onClose, notify }) {
     <p class="hint">新增專案時，會在這個資料夾底下建立同名的子資料夾。建議選外接 SSD 上的資料夾，硬碟格式要是 ${state.diskFormats}。</p>
     ${s.available
       ? html`<p class=${`hint ${s.warning ? 'warn' : ''}`}>
-          目前資料夾剩 ${fmtBytes(s.freeBytes)}${s.warning ? `。${s.warning}` : ''}
+          目前資料夾剩 ${fmtBytes(s.freeBytes)}${s.format ? `・${s.format}` : ''}${s.warning ? `。${s.warning}` : ''}
         </p>`
       : html`<p class="hint bad">目前資料夾不能用：${s.error}</p>`}
     <div class="modal-foot">

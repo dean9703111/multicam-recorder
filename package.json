@@ -6,6 +6,7 @@
     "start": "node server/server.ts",
     "fake-phone": "node tools/fake-phone.ts",
     "typecheck": "tsc --noEmit",
+    "smoke-test": "node tools/smoke-test.ts",
     "android:build": "cd android && JAVA_HOME=${JAVA_HOME:-$(brew --prefix openjdk@21)/libexec/openjdk.jdk/Contents/Home} ./gradlew :app:assembleDebug",
     "android:install": "sh tools/install-android.sh"
   },

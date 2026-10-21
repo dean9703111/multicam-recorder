@@ -59,9 +59,10 @@
   --amber-glow: rgba(255, 176, 0, 0.35);
   --green: #3ddc84;
   --cyan: #59c2ff;
-  --label: 'Barlow Condensed', 'PingFang TC', 'Heiti TC', sans-serif;
-  --body: 'Barlow', 'PingFang TC', 'Heiti TC', sans-serif;
-  --mono: 'Martian Mono', 'SF Mono', Menlo, monospace;
+  /* 中文：macOS 用蘋方，Windows 用微軟正黑體 */
+  --label: 'Barlow Condensed', 'PingFang TC', 'Heiti TC', 'Microsoft JhengHei', sans-serif;
+  --body: 'Barlow', 'PingFang TC', 'Heiti TC', 'Microsoft JhengHei', sans-serif;
+  --mono: 'Martian Mono', 'SF Mono', Menlo, Consolas, monospace;
 }
 
 * {
@@ -384,6 +385,7 @@ kbd {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  container-type: inline-size;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: linear-gradient(180deg, var(--panel-hi), var(--panel) 160px);
@@ -485,6 +487,13 @@ kbd {
   color: var(--faint);
   font-size: 13px;
   white-space: nowrap;
+}
+
+/* 監看區窄的時候（例如三台並排）先藏型號，名稱和收音來源才放得下 */
+@container (max-width: 560px) {
+  .model {
+    display: none;
+  }
 }
 
 .mic {
@@ -676,7 +685,7 @@ kbd {
 .clip {
   position: relative;
   display: grid;
-  grid-template-columns: 34px 1fr;
+  grid-template-columns: 34px 1fr auto;
   gap: 12px;
   align-items: center;
   padding: 10px 16px;
@@ -794,6 +803,196 @@ kbd {
   width: 100%;
   background: repeating-linear-gradient(90deg, var(--red) 0 14px, transparent 14px 28px);
   animation: stream 0.9s linear infinite;
+}
+
+/* 標記好的段落 */
+.clip-mark {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.clip-mark svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: var(--faint);
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+
+.clip-mark:hover svg {
+  stroke: var(--amber);
+}
+
+.clip-mark.on svg {
+  fill: var(--amber);
+  stroke: var(--amber);
+  filter: drop-shadow(0 0 6px var(--amber-glow));
+}
+
+/* 選取模式 */
+.clip.pickable {
+  cursor: pointer;
+}
+
+.clip.pickable:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.clip.picked {
+  background: rgba(255, 59, 59, 0.08);
+  box-shadow: inset 3px 0 0 var(--red);
+}
+
+.clip-check {
+  justify-self: center;
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid var(--line-hi);
+  border-radius: 4px;
+  background: var(--bg);
+}
+
+.clip-check[aria-checked='true'] {
+  border-color: var(--red);
+  background: var(--red) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M5 10.5l3.2 3.2L15 7' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 18px no-repeat;
+}
+
+.clip-check:disabled {
+  opacity: 0.3;
+}
+
+.selection-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  z-index: 25;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  max-width: calc(100vw - 32px);
+  padding: 10px 12px 10px 18px;
+  border: 1px solid rgba(255, 59, 59, 0.55);
+  border-radius: 6px;
+  background: #1a1d22;
+  box-shadow: 0 18px 50px -12px rgba(0, 0, 0, 0.9);
+  transform: translateX(-50%);
+  animation: toast 0.2s ease both;
+}
+
+.bays.selecting {
+  padding-bottom: 110px; /* 捲到最下面時，最後一列不會被選取工具列蓋住 */
+}
+
+.selection-count {
+  margin-right: 8px;
+  font-size: 14px;
+}
+
+.toast.raised {
+  bottom: 86px;
+}
+
+.trash-list {
+  max-height: 200px;
+  margin: 12px 0 0;
+  padding: 8px 12px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--bg);
+  list-style: none;
+  font: 12px/1.8 var(--mono);
+  color: var(--muted);
+}
+
+.trash-list .more {
+  font-family: var(--body);
+  color: var(--faint);
+}
+
+/* ---------- 即時畫面、變焦 ---------- */
+
+.monitor .live {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+
+.live-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  padding: 1px 7px 1px 16px;
+  border-radius: 2px;
+  background: rgba(10, 11, 13, 0.7);
+  font: 600 11px var(--label);
+  letter-spacing: 0.16em;
+  color: var(--text);
+}
+
+.live-badge::before {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin-top: -3px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+}
+
+.zoom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin: 0 16px 12px;
+}
+
+.zoom-presets {
+  display: flex;
+  gap: 4px;
+}
+
+.zoom-chip {
+  min-width: 38px;
+  padding: 2px 8px;
+  border: 1px solid var(--line-hi);
+  border-radius: 12px;
+  background: transparent;
+  font: 500 12px var(--mono);
+  color: var(--muted);
+}
+
+.zoom-chip.on {
+  border-color: var(--cyan);
+  background: rgba(89, 194, 255, 0.14);
+  color: var(--text);
+}
+
+.zoom input[type='range'] {
+  flex: 1 1 80px;
+  min-width: 60px;
+  accent-color: var(--cyan);
+}
+
+.zoom-value {
+  flex: none;
+  min-width: 44px;
+  font: 500 13px var(--mono);
+  text-align: right;
 }
 
 /* ---------- 專案、錄影規格選單 ---------- */
@@ -1042,6 +1241,16 @@ kbd {
   letter-spacing: 0.06em;
 }
 
+.btn-danger.btn-small {
+  height: 28px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.btn-danger:disabled {
+  opacity: 0.4;
+}
+
 /* ---------- 手機多時：緊湊排列 ---------- */
 
 .bays.compact {
@@ -1112,7 +1321,16 @@ kbd {
 }
 
 .bays.compact .clips {
-  max-height: 200px;
+  max-height: 160px;
+}
+
+.bays.compact .zoom {
+  margin: 0 12px 8px;
+}
+
+.bays.compact .zoom-chip {
+  min-width: 32px;
+  padding: 1px 6px;
 }
 
 .bays.compact .clip {

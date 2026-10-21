@@ -8,6 +8,7 @@ import android.content.IntentFilter
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
+import android.graphics.Bitmap
 import android.graphics.drawable.Drawable
 import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
@@ -20,11 +21,13 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.os.Handler
+import android.os.HandlerThread
 import android.os.Looper
 import android.os.StatFs
 import android.os.SystemClock
 import android.provider.Settings
 import android.util.Size
+import android.view.PixelCopy
 import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.SurfaceView
@@ -42,7 +45,9 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
 import org.json.JSONObject
+import java.io.ByteArrayOutputStream
 import java.io.File
 import kotlin.concurrent.thread
 
@@ -82,6 +87,14 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
     private var wifiLock: WifiManager.WifiLock? = null
     private var tick = 0
     private var disconnectedSince = SystemClock.elapsedRealtime() // 連不上太久就提示檢查網路
+    private lateinit var previewView: SurfaceView
+
+    // 即時畫面：電腦上有人在看時，大約每秒 5 張把預覽畫面縮成 640×360 的 JPEG 送過去。
+    // 用 PixelCopy 從預覽複製，不必在相機多開一路影像，錄影的設定不受影響。
+    private val previewThread = HandlerThread("preview").apply { start() }
+    private val previewHandler = Handler(previewThread.looper)
+    private val previewBitmap = Bitmap.createBitmap(640, 360, Bitmap.Config.ARGB_8888)
+    private var previewOn = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -114,6 +127,7 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
         }
 
         val preview = findViewById<SurfaceView>(R.id.preview)
+        previewView = preview
         preview.holder.setFixedSize(camera.previewSize.width, camera.previewSize.height)
         preview.holder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceCreated(holder: SurfaceHolder) {
@@ -179,6 +193,8 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
     override fun onDestroy() {
         super.onDestroy()
         main.removeCallbacks(loop)
+        main.removeCallbacks(capture)
+        previewThread.quitSafely()
         camera.release()
     }
 
@@ -200,7 +216,12 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
     // ---------- 電腦的指令 ----------
 
     override fun onConnectionChanged(connected: Boolean) {
-        if (connected) sendStatus() else disconnectedSince = SystemClock.elapsedRealtime()
+        if (connected) {
+            sendStatus()
+        } else {
+            disconnectedSince = SystemClock.elapsedRealtime()
+            setPreview(false) // 連回來時電腦會再說要不要
+        }
         render()
     }
 
@@ -215,14 +236,56 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
             "welcome" -> {
                 store.name = msg.optString("name")
                 msg.optJSONObject("spec")?.let(::applySpec)
+                if (msg.has("zoom")) setZoom(msg.getDouble("zoom"))
             }
             "config" -> applySpec(msg)
             "rename" -> store.name = msg.optString("name")
+            "zoom" -> setZoom(msg.getDouble("ratio"))
+            "preview" -> setPreview(msg.optBoolean("on"))
             "start" -> startRecording(msg)
             "stop" -> stopRecording(msg.getString("fileId"), "user")
             "error" -> toast(msg.optString("message"))
         }
         render()
+    }
+
+    // 超出範圍時相機會取最接近的值，回報實際的倍率
+    private fun setZoom(ratio: Double) {
+        camera.setZoom(ratio.toFloat())
+        sendStatus()
+        render()
+    }
+
+    // ---------- 即時畫面 ----------
+
+    private fun setPreview(on: Boolean) {
+        if (on == previewOn) return
+        previewOn = on
+        main.removeCallbacks(capture)
+        if (on) main.post(capture)
+    }
+
+    // 一次只複製一張，送出後才排下一張
+    private val capture = object : Runnable {
+        override fun run() {
+            if (!previewOn) return
+            if (!cameraReady || surface == null) {
+                main.postDelayed(this, PREVIEW_INTERVAL_MS)
+                return
+            }
+            PixelCopy.request(previewView, previewBitmap, { result ->
+                // 在 preview 執行緒壓縮，不卡畫面
+                val jpeg = if (result == PixelCopy.SUCCESS) {
+                    ByteArrayOutputStream().also { previewBitmap.compress(Bitmap.CompressFormat.JPEG, 60, it) }.toByteArray()
+                } else {
+                    null
+                }
+                main.post {
+                    if (jpeg != null && previewOn) link.sendFrame(jpeg)
+                    if (previewOn) main.postDelayed(this, PREVIEW_INTERVAL_MS)
+                }
+            }, previewHandler)
+        }
     }
 
     private fun applySpec(spec: JSONObject) {
@@ -414,7 +477,9 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
                 .put("freeBytes", StatFs(moviesDir.path).availableBytes)
                 .put("cameraReady", cameraReady)
                 .put("recordingFileId", recording?.fileId ?: JSONObject.NULL)
-                .put("audioInput", micLabel()),
+                .put("audioInput", micLabel())
+                .put("zoom", camera.zoom.toDouble())
+                .put("zoomRange", JSONArray().put(camera.zoomRange.lower.toDouble()).put(camera.zoomRange.upper.toDouble())),
             queueIfOffline = false,
         )
     }
@@ -441,7 +506,8 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
         // 還沒配對時，把掃描按鈕標成紅色，告訴使用者下一步
         val background = if (unpaired) scanHighlight ?: scanBackground else scanBackground
         if (scanButton.background !== background) scanButton.background = background
-        micView.text = "收音：${micLabel()}"
+        val zoomable = camera.zoomRange.upper > camera.zoomRange.lower
+        micView.text = "收音：${micLabel()}" + if (zoomable) "\n變焦：${"%.1f".format(camera.zoom)}×" else ""
         uploadView.text = uploader.summary()
 
         val rec = recording
@@ -532,6 +598,7 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
         private const val GREEN = 0xFF3DDC84.toInt()
         private const val RED = 0xFFFF3B3B.toInt()
         private const val AMBER = 0xFFFFB000.toInt()
+        private const val PREVIEW_INTERVAL_MS = 200L // 每秒 5 張
         private val RED_TINT = ColorStateList.valueOf(RED)
 
         private fun sizeOf(resolution: String) = when (resolution) {

@@ -218,13 +218,13 @@ body { margin: 0; padding: 30px; background: #333; font-family: var(--body); col
     <div class="links">
       <svg viewBox="0 0 500 300" preserveAspectRatio="none" aria-hidden="true">
         <defs>
-          <marker id="ah-cyan" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#59c2ff"/></marker>
+          <marker id="ah-cyan" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#59c2ff"/></marker>
           <marker id="ah-red" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#ff7b7b"/></marker>
         </defs>
-        <path d="M10 118 C 170 70, 330 70, 490 118" fill="none" stroke="#59c2ff" stroke-width="3" stroke-dasharray="2 7" stroke-linecap="round" marker-end="url(#ah-cyan)"/>
+        <path d="M10 118 C 170 70, 330 70, 490 118" fill="none" stroke="#59c2ff" stroke-width="3" stroke-dasharray="2 7" stroke-linecap="round" marker-start="url(#ah-cyan)" marker-end="url(#ah-cyan)"/>
         <path d="M490 182 C 330 230, 170 230, 10 182" fill="none" stroke="#ff7b7b" stroke-width="5" stroke-linecap="round" marker-end="url(#ah-red)"/>
       </svg>
-      <div class="flow-label top">開始／停止指令、對時<small>WebSocket</small></div>
+      <div class="flow-label top">開始／停止、變焦、對時；即時畫面<small>WebSocket</small></div>
       <div class="wifi">
         <div class="icon">
           <svg width="40" height="32" viewBox="0 0 40 32" aria-hidden="true"><path d="M2 10a26 26 0 0 1 36 0M8 16a17 17 0 0 1 24 0M14 22a8 8 0 0 1 12 0" fill="none" stroke="#ece8e1" stroke-width="3.2" stroke-linecap="round"/><circle cx="20" cy="28" r="3" fill="#ece8e1"/></svg>
@@ -331,7 +331,7 @@ body { margin: 0; padding: 30px; background: #333; font-family: var(--body); col
         <div class="preview"><div class="scene"><div class="window"></div><div class="lamp"></div><div class="plant"></div><div class="person"><div class="body"></div><div class="head"></div><div class="hair"></div></div><div class="desk"></div><div class="mic"></div></div><div class="guide"><span>9:16</span></div></div>
         <div class="pill" style="left: 22px; top: 16px;"><b>ROG6D</b><span class="ok">已連線到電腦</span></div>
         <div class="pill timer">● REC 12:34 / 30:00</div>
-        <div class="pill" style="right: 22px; top: 16px;">收音：外接 USB（USB Audio）</div>
+        <div class="pill" style="right: 22px; top: 16px;">收音：外接 USB（USB Audio）<br />變焦：1.4×</div>
         <div class="pill" style="left: 22px; bottom: 16px;">邊錄邊傳中</div>
         <div style="position: absolute; right: 22px; bottom: 16px; display: flex; gap: 8px;">
           <span class="btn off">清除已傳完的影片（3）</span><span class="btn">調暗螢幕</span><span class="btn off">掃描 QR Code</span>
@@ -349,7 +349,7 @@ body { margin: 0; padding: 30px; background: #333; font-family: var(--body); col
   <div class="legend-row">
     <div><span class="badge">1</span><span><b>手機名稱、連線狀態</b>名稱可以在電腦上改，也會用在檔名</span></div>
     <div><span class="badge">2</span><span><b>錄影計時</b>開始和停止都由電腦控制，30 分鐘自動停止</span></div>
-    <div><span class="badge">3</span><span><b>收音來源</b>接上 USB 或耳機孔麥克風會自動改用它</span></div>
+    <div><span class="badge">3</span><span><b>收音來源、變焦</b>接上 USB 或耳機孔麥克風會自動改用它；變焦倍率在電腦上調</span></div>
     <div><span class="badge">4</span><span><b>傳輸狀態</b>邊錄邊傳、收尾中，或「影片都已傳到電腦」</span></div>
     <div><span class="badge">5</span><span><b>調暗螢幕</b>App 要一直開著，長時間錄影時省電降溫</span></div>
     <div><span class="badge">6</span><span><b>掃描、清除檔案</b>錄影中會停用，避免誤觸中斷錄影</span></div>
