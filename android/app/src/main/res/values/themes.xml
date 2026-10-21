@@ -10,4 +10,10 @@
     <style name="Button" parent="android:Widget.DeviceDefault.Button">
         <item name="android:textAllCaps">false</item>
     </style>
+
+    <!-- 直拿時下排的按鈕：字小一點、不限最小寬度，三個才排得進一列 -->
+    <style name="Button.Compact">
+        <item name="android:textSize">13sp</item>
+        <item name="android:minWidth">0dp</item>
+    </style>
 </resources>

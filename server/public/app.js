@@ -667,8 +667,8 @@ function Bay({ state, device, letter, t, compact, onStart, onStop, onRemove, not
   const warn = recording && maxMs - elapsed <= state.limits.warnBeforeSec * 1000;
   const st = device.status;
 
-  // 監看區平常顯示即時畫面。錄完的影片傳完後會自動放上來播放（正在播別支時不打斷，手機多時不自動切換），
-  // 按「即時畫面」回去；開始錄影時也會切回即時畫面。
+  // 監看區平常顯示即時畫面。錄完的影片傳完後會自動放上來播放（錄影中、正在播別支時不打斷，手機多時不自動切換），
+  // 按「回到即時畫面」回去。按下開始錄影就一律切回即時畫面，正在播的影片也會停掉，才看得到現在拍到什麼。
   const [selectedId, setSelectedId] = useState(null); // null 表示看即時畫面
   const videoRef = useRef(null);
   const prevLatest = useRef(undefined); // 第一次載入時不切換，先看即時畫面
@@ -681,11 +681,11 @@ function Bay({ state, device, letter, t, compact, onStart, onStop, onRemove, not
     const idle = videoRef.current?.paused ?? true;
     const fresh = prevLatest.current !== undefined && latestReady && latestReady !== prevLatest.current;
     // 選的影片不在清單上了（例如換了專案）也算沒有選
-    if (!compact && fresh && idle && (!selected || selectedId === prevLatest.current)) setSelectedId(latestReady);
+    if (!compact && !active && fresh && idle && (!selected || selectedId === prevLatest.current)) setSelectedId(latestReady);
     prevLatest.current = latestReady;
   }, [latestReady]);
   useEffect(() => {
-    if (active && (videoRef.current?.paused ?? true)) setSelectedId(null);
+    if (active) setSelectedId(null);
   }, [active?.id]);
 
   const tally = recording ? 'on' : device.online && st.cameraReady !== false ? 'ready' : '';

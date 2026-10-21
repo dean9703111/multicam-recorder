@@ -20,6 +20,7 @@ Turn several phones into synchronized 4K cameras controlled from a web dashboard
 - [運作方式](#運作方式)
 - [需要準備](#需要準備)
 - [快速開始](#快速開始)
+- [使用情境：一次錄好長影片和短影音](#使用情境一次錄好長影片和短影音)
 - [網路設定建議](#網路設定建議)
 - [常見問題](#常見問題)
 - [開發與測試](#開發與測試)
@@ -31,7 +32,7 @@ Turn several phones into synchronized 4K cameras controlled from a web dashboard
 - **一鍵控制所有手機**：按 `R` 全部開始、`S` 全部停止，也可以單獨控制某一台。開始前電腦會先和每台手機對時，約好同一刻一起開始，影片清單上會顯示各台實際開始的時間差。最多可以接 10 台。
 - **手機原生畫質**：4K、2K、1080p、720p 可選，所有手機一起套用。單支最長 30 分鐘，剩 3 分鐘時網頁和手機都會提醒。
 - **即時畫面、各別變焦**：手機開著 App 時，控制台上就看得到每台的即時畫面（每秒約 5 張，用來確認構圖）。每台手機可以各自調整變焦倍率，有超廣角或望遠鏡頭的手機會自動切換鏡頭。
-- **直拿、橫拿都能錄**：手機橫拿錄 16:9、直拿錄 9:16，可以一台錄長影片、一台錄短影音，同時開始。App 會跟著手機的方向轉，控制台也照每台的方向顯示即時畫面和播放影片。
+- **直拿、橫拿都能錄**：手機橫拿錄 16:9、直拿錄 9:16，可以一台錄長影片、一台錄短影音，同時開始。App 會跟著手機的方向轉，控制台也照每台的方向顯示即時畫面和播放影片。做法請看[使用情境](#使用情境一次錄好長影片和短影音)。
 - **構圖輔助框**：可以在手機預覽、電腦的即時畫面和播放器上疊一個 9:16、4:5 或 1:1 的框，架機時就照最後要出的比例構圖，例如從橫的畫面裁出直式短影音。只是輔助，錄下來的照樣是完整的畫面。
 - **用專案整理影片**：開錄前先選專案，影片會存進「錄影資料夾／專案名稱」。之後可以從選單打開舊專案接著錄。
 - **標記好的段落、一次清掉其他的**：錄完點星號標記好的段落，同一段的每台手機一起標記。之後可以一鍵把沒標記的移到垃圾桶（Windows 是資源回收筒），也可以自己勾選要刪的；刪錯了還救得回來。
@@ -130,7 +131,7 @@ Windows 上請改用 `cd android` 再 `gradlew.bat :app:assembleDebug`（`JAVA_H
 - **專案**：按上方「專案」選單裡的「新增專案…」，預設名稱是今天的日期。影片會存進「錄影資料夾／專案名稱」。還沒有專案就按開始的話，會先請你新增一個。
 - **錄影規格**：「錄影規格」選單可以選解析度和構圖輔助框，所有手機一起套用。解析度從下一次開始錄影時生效，錄影中不能改；輔助框隨時可以換。手機不支援選的解析度時，會改錄它能錄的最大解析度，影片清單上會標出實際的大小。
 - **即時畫面與變焦**：監看區平常顯示手機的即時畫面。下面的「變焦」可以按常用倍率或拖滑桿，每台手機各自設定，邊看即時畫面邊調；App 重開也會記得，錄影中也能調。
-- **直拿或橫拿**：手機怎麼放就錄怎麼樣的影片，橫拿 16:9、直拿 9:16，系統的自動旋轉關著也一樣。監看區照每台的方向顯示，直拿錄的影片在清單上會標「直式」。開始錄影後方向就固定到停止，中途碰到手機也不會轉。要從正上方往下拍時，手機平放分不出方向，請先拿成要的方向、等畫面轉好再放平。
+- **直拿或橫拿**：手機怎麼放就錄怎麼樣的影片，橫拿 16:9、直拿 9:16，系統的自動旋轉關著也一樣。一台直、一台橫同時錄的做法和細節，請看[使用情境](#使用情境一次錄好長影片和短影音)。
 - **開始和停止**：按網頁上的「開始錄影」或鍵盤 `R`，所有手機一起開始；「停止」或 `S` 全部停止。每個監看區也有「單獨開始／單獨停止」。快捷鍵只在控制台分頁是目前視窗時有效。
 - 30 分鐘會自動停止。最後 3 分鐘網頁會跳出提示並發出提示音。
 - 錄影時 App 要一直開在前景，螢幕不能關。Android 不允許背景 App 使用相機。
@@ -149,11 +150,11 @@ Windows 上請改用 `cd android` 再 `gradlew.bat :app:assembleDebug`（`JAVA_H
 6. **掃描、清除已傳完的影片**：錄影中會停用，避免誤觸而中斷錄影。還沒配對時，掃描按鈕會變成紅色。
 7. **構圖輔助框**：在電腦上選了 9:16、4:5 或 1:1 時，會疊在預覽上。
 
-手機直拿時，App 的畫面也會轉成直的，內容一樣，只是排列不同：名稱和收音在上面，計時在下一行，上傳狀態和按鈕在最下面。
+手機直拿時，App 的畫面也會轉成直的，內容一樣，只是排列不同：名稱和收音在上面，計時在下一行，上傳狀態在下面，三個按鈕在最下面平均排成一列。直拿時寬度比較窄，「清除已傳完的影片」會簡寫成「清除已傳完」，按下去一樣會先列出要刪的影片讓你確認。
 
 ### 5. 播放與管理影片
 
-- 停止後，影片會自動放進那台手機的監看區播放，按「回到即時畫面」回去；點清單上的 ▶ 可以切換。監看區下方的「在 Finder 中顯示」（Windows 是「在檔案總管中顯示」）會直接打開影片所在的資料夾，「專案」選單裡也有「打開專案資料夾」。
+- 停止後，影片會自動放進那台手機的監看區播放，按「回到即時畫面」回去；點清單上的 ▶ 可以切換。按下開始錄影時，監看區會一律切回即時畫面，原本在播的影片會停掉；錄影中，上一段傳完也不會自動切去播放，一直看得到現在拍到什麼。監看區下方的「在 Finder 中顯示」（Windows 是「在檔案總管中顯示」）會直接打開影片所在的資料夾，「專案」選單裡也有「打開專案資料夾」。
 - **標記和清理**：覺得不錯的段落點右邊的星號，同一段的每台手機會一起標記。「專案」選單裡的「把沒標記的移到垃圾桶…」會一次清掉其他段；「選取要刪除的影片…」可以自己勾選（「選取沒標記的」能先幫你勾好）。刪掉的影片會進系統的垃圾桶（Windows 是資源回收筒），之後還救得回來；手機上的原檔不受影響。
 
   ![選取模式：勾選要刪的影片，標記星號的段落留下，下方工具列可以一起移到垃圾桶](docs/images/select-trash.png)
@@ -162,6 +163,35 @@ Windows 上請改用 `cd android` 再 `gradlew.bat :app:assembleDebug`（`JAVA_H
 - 清單上會顯示同一次錄影的各台開始時間差幾毫秒，剪輯時可以參考；要精準對齊，建議用剪輯軟體依音訊自動同步。
 - 在 Finder 或檔案總管裡刪掉影片或專案資料夾，清單上也會跟著拿掉。外接硬碟沒接上時紀錄會先保留，接回來就恢復。
 - 手機上的原檔不會自動刪除。確認電腦上的檔案沒問題後，可以在 App 按「清除已傳完的影片」，它只會刪掉已經傳到電腦並驗證過的檔案。
+
+## 使用情境：一次錄好長影片和短影音
+
+例如訪談、講座、產品介紹，同一段內容想剪成 YouTube 的橫式長片，也想剪成 Reels、Shorts、TikTok 的直式短片：
+
+- 一支手機橫放，拍 16:9 的畫面，剪長影片用。
+- 另一支直放，拍 9:16 的畫面，剪短影音用。直接錄直的，不用從橫的畫面裁切，解析度比較高：4K 直拿錄的是 2160×3840，從 4K 橫的畫面裁出直的只剩大約 1215×2160。
+- 按一次 `R` 兩支一起開始、按 `S` 一起停止，兩邊錄的是同一段時間，剪輯時很好對齊。
+
+### 架設與錄影
+
+1. **照想要的方向架好手機**：App 會跟著手機轉，直放錄 9:16、橫放錄 16:9，系統的「自動旋轉」關著也一樣。四個方向都可以，倒過來放也行（例如讓麥克風線往下走），錄出來都是正的。
+2. **在控制台確認方向**：直放那台的監看區會變成直的，下方寫著「即時畫面・直式 9:16」；橫放的寫「即時畫面・橫式 16:9」。方向不對的話，把手機轉一下，控制台馬上跟著變。
+3. **看即時畫面構圖**：每台各自調變焦。需要的話，在「錄影規格」選單打開構圖輔助框：
+   - 橫的那台選 9:16，可以看出之後從橫的畫面裁出直式時，主角會不會出框。
+   - 直的那台選 4:5 或 1:1，可以看出 IG 貼文的裁切範圍。9:16 就是直的那台的整個畫面，所以直的那台不會畫框。
+4. **開始錄影**：按 `R` 或「開始錄影」，每台的監看區都會切回即時畫面，原本在播的影片會停掉，可以直接確認現在拍到什麼。錄影中，上一段傳完也不會自動切去播放。
+5. **錄影中方向固定**：從按下開始到停止，方向都不會變，中途碰到手機也不會錄成一半直、一半橫。停止後，App 才會再跟著手機轉。
+6. **停止後馬上檢查**：每台的影片傳完會自動在監看區播放，直式影片會直著播，清單上也會標「直式」。覺得不錯就點星號，同一段的兩支會一起標記。
+
+### 剪輯時
+
+- 直拿的影片和手機內建相機拍的一樣，檔案裡存的是橫的畫面，另外記著播放時要轉 90°。大部分的播放器和剪輯軟體都會自動轉正；遇到不認得的工具，在軟體裡把片段旋轉 90° 就好。
+- 清單上會顯示同一段裡各台的開始時間差幾毫秒；要精準對齊，建議用剪輯軟體依音訊自動同步。
+
+### 小提醒
+
+- 從正上方往下拍時，手機平放分不出直橫，會沿用平放前的方向。請先拿成想要的方向、等畫面轉好，再放平。
+- 直拿時，App 的畫面也會轉成直的，按鈕和狀態的位置不一樣，請看[第 4 步](#4-新增專案開始錄影)最後的手機 App 畫面說明。
 
 ## 網路設定建議
 
@@ -330,7 +360,7 @@ docs/
 
 - **One-key control**: press `R` / `S` to start or stop every phone (up to 10) at the same moment. The computer syncs clocks and schedules a common start time, and the dashboard shows the measured start offset between phones.
 - **Native quality**: phones record locally with Camera2 + MediaRecorder at 4K / 2K / 1080p / 720p, so Wi-Fi never limits image quality. Takes are capped at 30 minutes, with a warning 3 minutes before the end.
-- **Live view and per-phone zoom**: while the app is open, the dashboard shows each phone's live view (about 5 fps, for framing), and each phone's zoom can be set separately; phones with ultra-wide or telephoto lenses switch lenses automatically.
+- **Live view and per-phone zoom**: while the app is open, the dashboard shows each phone's live view (about 5 fps, for framing), and each phone's zoom can be set separately; phones with ultra-wide or telephoto lenses switch lenses automatically. Pressing record always switches every monitor back to the live view.
 - **Portrait or landscape**: hold a phone sideways to record 16:9 or upright to record 9:16, so one phone can shoot the long-form video while another shoots the shorts in the same take. The app follows each phone's orientation, and the dashboard shows every live view and clip the right way up.
 - **Framing guides**: optional 9:16, 4:5 or 1:1 guides are overlaid on the phone preview, the live view and the dashboard player; the full frame is always recorded.
 - **Mark good takes, trash the rest**: star a take (all angles together), then move every unmarked take to the system Trash / Recycle Bin in one go, or pick clips by hand. Nothing is deleted permanently.

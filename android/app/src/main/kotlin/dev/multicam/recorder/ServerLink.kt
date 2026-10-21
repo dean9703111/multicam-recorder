@@ -129,6 +129,6 @@ class ServerLink(private val store: Store, private val listener: Listener) {
     }
 
     companion object {
-        const val APP_VERSION = "0.3.0"
+        const val APP_VERSION = "0.3.1"
     }
 }
