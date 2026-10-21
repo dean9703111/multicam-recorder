@@ -31,8 +31,7 @@ import java.util.concurrent.Executor
 //
 // 人像設定也都交給手機的相機處理，不經過 App 的影像處理，畫質不變：
 // - 臉部優先：場景模式 FACE_PRIORITY，對焦、曝光、白平衡以人臉為準，畫面裡沒有人臉時跟自動一樣。
-// - 背景虛化：Android 11 起的連續背景虛化（BOKEH_CONTINUOUS）。每支手機有自己的解析度上限和變焦範圍，
-//   錄影解析度超過上限就不套用，不會為了虛化降解析度。它和臉部優先都是場景模式，只能二選一，以虛化為準。
+//   部分手機（例如 Pixel）的場景模式是 session 參數，改了要重建 session。
 // - 鎖定曝光和白平衡：開始錄影的那一刻鎖住，停止後恢復自動。
 //
 // 對外的方法都可以從主執行緒呼叫，實際工作在 camera 執行緒做，結果回到主執行緒。
@@ -45,9 +44,6 @@ class CameraRecorder(private val context: Context, private val listener: Listene
     }
 
     class Spec(val size: Size, val fps: Int, val bitrate: Int, val maxDurationSec: Int, val lockExposure: Boolean)
-
-    // 會改場景模式的人像設定，預覽和錄影都套用。改了要重建 session，因為部分手機的場景模式是 session 參數。
-    data class Scene(val facePriority: Boolean = false, val bokeh: Boolean = false)
 
     class Started(val wallClockMs: Long, val mic: String)
 
@@ -68,7 +64,12 @@ class CameraRecorder(private val context: Context, private val listener: Listene
         ?.contains(CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO) == true
     private val fpsRanges = characteristics.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES).orEmpty()
 
-    private val fullZoomRange: Range<Float> = characteristics.get(CameraCharacteristics.CONTROL_ZOOM_RATIO_RANGE) ?: Range(1f, 1f)
+    // 變焦範圍。多鏡頭的手機小於 1 會切到超廣角、放大到一定倍數會切到望遠，由系統自己換鏡頭。
+    val zoomRange: Range<Float> = characteristics.get(CameraCharacteristics.CONTROL_ZOOM_RATIO_RANGE) ?: Range(1f, 1f)
+
+    @Volatile
+    var zoom = 1f
+        private set
 
     // 預覽用不超過 1080p 的 16:9
     val previewSize: Size = streamMap.getOutputSizes(SurfaceHolder::class.java)
@@ -84,28 +85,6 @@ class CameraRecorder(private val context: Context, private val listener: Listene
         ?.contains(CameraCharacteristics.CONTROL_SCENE_MODE_FACE_PRIORITY) == true
     val lockSupported = characteristics.get(CameraCharacteristics.CONTROL_AE_LOCK_AVAILABLE) == true &&
         characteristics.get(CameraCharacteristics.CONTROL_AWB_LOCK_AVAILABLE) == true
-    // 預覽也要在上限內才會虛化，上限比預覽小的手機當成做不到
-    private val bokeh = characteristics.get(CameraCharacteristics.CONTROL_AVAILABLE_EXTENDED_SCENE_MODE_CAPABILITIES)
-        ?.firstOrNull { it.mode == CameraCharacteristics.CONTROL_EXTENDED_SCENE_MODE_BOKEH_CONTINUOUS }
-        ?.takeIf { fits(previewSize, it.maxStreamingSize) }
-    val bokehMaxSize: Size? = bokeh?.maxStreamingSize
-
-    // 背景虛化現在有沒有套用：設定打開、做得到、錄影解析度也在上限內。建 session 時決定。
-    @Volatile
-    var bokehActive = false
-        private set
-
-    // 變焦範圍。多鏡頭的手機小於 1 會切到超廣角、放大到一定倍數會切到望遠，由系統自己換鏡頭。
-    // 背景虛化時範圍比較小（Pixel 11 Pro 是 1–3×）。
-    val zoomRange: Range<Float>
-        get() = bokeh?.takeIf { bokehActive }?.zoomRatioRange ?: fullZoomRange
-
-    @Volatile
-    private var requestedZoom = 1f
-
-    // 實際用的倍率：電腦要的倍率限制在現在的範圍內，背景虛化關掉後就回到原本要的倍率
-    val zoom: Float
-        get() = requestedZoom.coerceIn(zoomRange.lower, zoomRange.upper)
 
     // 以下只在 camera 執行緒存取
     private var device: CameraDevice? = null
@@ -114,10 +93,9 @@ class CameraRecorder(private val context: Context, private val listener: Listene
     private var recorderSurface: Surface? = null
     private var sessionSize: Size? = null // recorderSurface 是用這個大小配置的
     private var wantedSize: Size? = null
-    private var sessionScene = Scene() // 現在的 session 用的場景
-    private var wantedScene = Scene()
+    private var sessionFacePriority = false // 現在的 session 有沒有開臉部優先
+    private var wantedFacePriority = false
     private var lockExposure = false // 這次錄影要不要鎖定曝光和白平衡，開始錄影時才用到
-    private var bokehFailed = false // 開著背景虛化建不起 session 的手機，之後就不開
     private var sessionGeneration = 0 // 每建一次 session 加一，只理會最新那個 session 的回報
     private var fps = 30
     private var prepared: MediaRecorder? = null // 準備好了，等開始時間到
@@ -166,15 +144,15 @@ class CameraRecorder(private val context: Context, private val listener: Listene
 
     private val retryOpen = Runnable { if (device == null && previewSurface != null) openDevice() }
 
-    // 電腦改了解析度或人像設定：沒在錄影就先把 session 準備好，開始時才不用等
-    fun configure(size: Size, scene: Scene) = handler.post {
+    // 電腦改了解析度或臉部優先：沒在錄影就先把 session 準備好，開始時才不用等
+    fun configure(size: Size, facePriority: Boolean) = handler.post {
         wantedSize = size
-        wantedScene = scene
-        if ((sessionSize != size || sessionScene != scene) && recorder == null && prepared == null) createSession()
+        wantedFacePriority = facePriority
+        if ((sessionSize != size || sessionFacePriority != facePriority) && recorder == null && prepared == null) createSession()
     }
 
     // 在 atUptimeMs（SystemClock.uptimeMillis）開始錄影
-    fun start(file: File, spec: Spec, scene: Scene, orientationHint: Int, atUptimeMs: Long, done: (Result<Started>) -> Unit) = handler.post {
+    fun start(file: File, spec: Spec, facePriority: Boolean, orientationHint: Int, atUptimeMs: Long, done: (Result<Started>) -> Unit) = handler.post {
         if (recorder != null || prepared != null || pendingStart != null) {
             main.post { done(Result.failure(IllegalStateException("已經在錄影"))) }
             return@post
@@ -194,19 +172,19 @@ class CameraRecorder(private val context: Context, private val listener: Listene
         }
         fps = spec.fps
         lockExposure = spec.lockExposure
-        wantedScene = scene
-        if (session != null && sessionSize == spec.size && sessionScene == scene) {
+        wantedFacePriority = facePriority
+        if (session != null && sessionSize == spec.size && sessionFacePriority == facePriority) {
             prepare()
         } else {
             pendingStart = prepare
             wantedSize = spec.size
-            if (sessionSize != spec.size || sessionScene != scene) createSession()
+            if (sessionSize != spec.size || sessionFacePriority != facePriority) createSession()
         }
     }
 
     // 預覽和錄影一起套用，錄影中也可以調。倍率馬上更新，相機執行緒再把它套到 request 上。
     fun setZoom(ratio: Float) {
-        requestedZoom = ratio
+        zoom = ratio.coerceIn(zoomRange.lower, zoomRange.upper)
         handler.post {
             if (session != null) runCatching { session?.setRepeatingRequest(request(record = recorder != null), null, handler) }
         }
@@ -230,7 +208,7 @@ class CameraRecorder(private val context: Context, private val listener: Listene
         val result = runCatching { r.stop() } // 錄太短（沒有任何畫面）時會失敗
         r.release()
         runCatching { session?.setRepeatingRequest(request(record = false), null, handler) }
-        if (wantedSize != sessionSize || wantedScene != sessionScene) createSession()
+        if (wantedSize != sessionSize || wantedFacePriority != sessionFacePriority) createSession()
         main.post { done(result) }
     }
 
@@ -295,8 +273,7 @@ class CameraRecorder(private val context: Context, private val listener: Listene
             recorderSurface = persistentSurface(size)
             sessionSize = size
         }
-        sessionScene = wantedScene
-        bokehActive = sessionScene.bokeh && !bokehFailed && bokehMaxSize?.let { fits(size, it) } == true
+        sessionFacePriority = wantedFacePriority
         val generation = ++sessionGeneration
         val outputs = listOf(OutputConfiguration(preview), OutputConfiguration(recorderSurface!!))
         val callback = object : CameraCaptureSession.StateCallback() {
@@ -321,12 +298,6 @@ class CameraRecorder(private val context: Context, private val listener: Listene
 
             override fun onConfigureFailed(s: CameraCaptureSession) {
                 if (device !== camera || generation != sessionGeneration) return
-                // 開著背景虛化建不起來，就關掉虛化再建一次
-                if (bokehActive) {
-                    bokehFailed = true
-                    createSession()
-                    return
-                }
                 setReady(false)
                 main.post { listener.onCameraError("相機不支援這個設定（${size.width}×${size.height}）") }
             }
@@ -348,10 +319,7 @@ class CameraRecorder(private val context: Context, private val listener: Listene
         builder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fpsRange(fps))
         builder.set(CaptureRequest.CONTROL_ZOOM_RATIO, zoom)
         if (continuousAf) builder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
-        if (bokehActive) {
-            builder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_USE_EXTENDED_SCENE_MODE)
-            builder.set(CaptureRequest.CONTROL_EXTENDED_SCENE_MODE, CaptureRequest.CONTROL_EXTENDED_SCENE_MODE_BOKEH_CONTINUOUS)
-        } else if (sessionScene.facePriority && facePrioritySupported) {
+        if (sessionFacePriority && facePrioritySupported) {
             builder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_USE_SCENE_MODE)
             builder.set(CaptureRequest.CONTROL_SCENE_MODE, CaptureRequest.CONTROL_SCENE_MODE_FACE_PRIORITY)
         }
@@ -362,8 +330,6 @@ class CameraRecorder(private val context: Context, private val listener: Listene
         }
         return builder.build()
     }
-
-    private fun fits(size: Size, max: Size) = size.width <= max.width && size.height <= max.height
 
     // 固定幀率最好；沒有的話選上限相同、下限最高的範圍
     private fun fpsRange(fps: Int): Range<Int> =

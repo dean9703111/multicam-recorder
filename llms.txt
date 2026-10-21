@@ -1,6 +1,6 @@
 # MultiCam Recorder（多機錄影）
 
-> 多機錄影（MultiCam Recorder）是免費、開源的手機多機位錄影工具：在電腦（macOS 或 Windows）的網頁控制台同步遙控多支 Android 手機錄影，有即時畫面、各別變焦、手機原生 4K、人像模式、直式＋橫式同時錄，影片邊錄邊傳回電腦。MultiCam Recorder is a free, open-source multi-camera recording tool that turns Android phones into synchronized cameras controlled from a web dashboard on a Mac or Windows PC over local Wi-Fi.
+> 多機錄影（MultiCam Recorder）是免費、開源的手機多機位錄影工具：在電腦（macOS 或 Windows）的網頁控制台同步遙控多支 Android 手機錄影，有即時畫面、各別變焦、手機原生 4K、臉部優先、直式＋橫式同時錄，影片邊錄邊傳回電腦。MultiCam Recorder is a free, open-source multi-camera recording tool that turns Android phones into synchronized cameras controlled from a web dashboard on a Mac or Windows PC over local Wi-Fi.
 
 重點（Key facts）：
 
@@ -9,10 +9,10 @@
 - 手機：Android 12 以上，最多 10 台；目前沒有 iPhone 版。Phones: Android 12+, up to 10; no iPhone app yet.
 - 錄影：4K（3840×2160）、2K、1080p、720p，每秒 30 格，MP4（H.264＋AAC），單段最長 30 分鐘。Video: up to 4K at 30 fps, MP4, up to 30 minutes per take.
 - 方向：手機橫拿錄 16:9、直拿錄 9:16，可以一台錄長影片、一台錄短影音（Reels、Shorts、TikTok）。Portrait 9:16 and landscape 16:9 phones can record in the same take.
-- 人像設定：臉部優先（預設開，對焦、曝光、白平衡以人臉為準）、背景虛化（用 Android 的連續背景虛化，手機做得到才有，例如 Pixel 11 Pro 要 1080p 以下）、錄影時鎖定曝光和白平衡；都由手機的相機處理，解析度和畫質不變。沒有濾鏡和美顏，調色建議在剪輯軟體裡做。Portrait settings: face priority (on by default), background blur on phones that support Android's continuous bokeh mode (e.g. Pixel 11 Pro up to 1080p), and exposure/white-balance lock while recording; no filters.
+- 人像設定：臉部優先（預設開，對焦、曝光、白平衡以人臉為準，大部分手機都能用）、錄影時鎖定曝光和白平衡（預設關）；都由手機的相機處理，解析度和畫質不變。沒有背景虛化（只有少數手機做得到、限制多，已經拿掉）、濾鏡和美顏，調色建議在剪輯軟體裡做。Portrait settings: face priority (on by default) and exposure/white-balance lock; no background blur, filters or beauty effects.
 - 同步：按一個鍵（R），電腦先和每台手機對時，約好同一刻一起開始錄影。One key starts every phone at the same scheduled moment.
 - 傳檔：影片在手機上用原生畫質錄，錄影中就經由區域網路傳回電腦，停止後用 SHA-256 分段驗證，馬上能在電腦上播放。Footage is uploaded while recording and verified with SHA-256.
-- 整理：同一段的每台手機一起標記或刪除（進系統垃圾桶），也能裁掉頭尾，每台一起裁、另存成檔名加 _1 的新檔，不重新壓縮（需要 ffmpeg，開頭對齊關鍵影格）。Organize: star or delete a take across all angles, and trim heads and tails losslessly into new _1 files (requires ffmpeg).
+- 整理：同一段的每台手機一起標記或刪除（進系統垃圾桶），也能在有縮圖的時間軸上拖拉、裁掉頭尾，每台一起裁、另存成檔名加 _1 的新檔，不重新壓縮（需要 ffmpeg，開頭對齊關鍵影格）。Organize: star or delete a take across all angles, and trim heads and tails losslessly into new _1 files (requires ffmpeg).
 - 隱私：不需要雲端帳號，影片只在手機和電腦之間的區域網路傳輸，不會上傳到網路。No cloud account; footage stays on the local network.
 - 不是直播工具：不把畫面即時串流到網路，適合錄完要剪輯的拍攝（訪談、Podcast、課程、講座、產品拍攝）。It is not a live-streaming tool.
 - 其他：外接 USB／耳機孔麥克風、構圖輔助框（9:16、4:5、1:1）、專案資料夾、標記好的段落、一鍵把沒標記的移到垃圾桶。

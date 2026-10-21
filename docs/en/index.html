@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MultiCam Recorder｜Free multi-camera recording with Android phones</title>
-<meta name="description" content="Turn Android phones into a synchronized multi-camera rig. Control every phone from a web dashboard on your Mac or Windows PC: live view, per-phone zoom, phone-native 4K, portrait mode with face priority and background blur, portrait and landscape in the same take, footage uploaded while recording. Free and open source.">
+<meta name="description" content="Turn Android phones into a synchronized multi-camera rig. Control every phone from a web dashboard on your Mac or Windows PC: live view, per-phone zoom, phone-native 4K, face priority, portrait and landscape in the same take, footage uploaded while recording. Free and open source.">
 <link rel="canonical" href="https://deanlin.net/multicam-recorder/en/">
 <link rel="alternate" hreflang="zh-TW" href="https://deanlin.net/multicam-recorder/">
 <link rel="alternate" hreflang="en" href="https://deanlin.net/multicam-recorder/en/">
@@ -42,11 +42,11 @@
       "@id": "https://deanlin.net/multicam-recorder/#app",
       "name": "MultiCam Recorder",
       "alternateName": ["多機錄影"],
-      "description": "A free, open-source multi-camera recording tool that turns Android phones into synchronized cameras controlled from a web dashboard on a Mac or Windows PC over local Wi-Fi, with live view, per-phone zoom, phone-native 4K, portrait mode, and portrait and landscape recording in the same take.",
+      "description": "A free, open-source multi-camera recording tool that turns Android phones into synchronized cameras controlled from a web dashboard on a Mac or Windows PC over local Wi-Fi, with live view, per-phone zoom, phone-native 4K, face priority, and portrait and landscape recording in the same take.",
       "applicationCategory": "MultimediaApplication",
       "applicationSubCategory": "Multi-camera recording",
       "operatingSystem": "macOS, Windows, Android 12+",
-      "softwareVersion": "0.4.1",
+      "softwareVersion": "0.4.2",
       "url": "https://deanlin.net/multicam-recorder/en/",
       "downloadUrl": "https://github.com/dean9703111/multicam-recorder/releases/latest",
       "installUrl": "https://github.com/dean9703111/multicam-recorder/releases/latest",
@@ -67,7 +67,7 @@
         "Per-phone zoom",
         "Phone-native quality up to 4K at 30 fps",
         "Portrait 9:16 and landscape 16:9 phones in the same take",
-        "Portrait settings: face priority (on by default), background blur where the phone supports it, and exposure/white-balance lock, all handled by the phone camera with no quality loss",
+        "Portrait settings: face priority (on by default) and exposure/white-balance lock, both handled by the phone camera with no quality loss",
         "Footage uploaded while recording and verified with SHA-256",
         "USB and headset-jack external microphones",
         "Framing guides (9:16, 4:5, 1:1)",
@@ -101,8 +101,8 @@
         { "@type": "Question", "name": "How is this different from streaming phone cameras into OBS?", "acceptedAnswer": { "@type": "Answer", "text": "Streaming sends a live picture to the computer, so quality depends on the network; it suits live streaming. MultiCam Recorder records full quality on each phone and transfers the files, which suits shoots you edit afterwards. It does not live-stream." } },
         { "@type": "Question", "name": "How many phones can I connect?", "acceptedAnswer": { "@type": "Answer", "text": "Up to 10. More phones need more Wi-Fi bandwidth; two phones recording 4K need about 80 Mbps in total." } },
         { "@type": "Question", "name": "Can I record portrait and landscape at the same time?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. A phone held upright records 9:16 and a phone held sideways records 16:9, and you can mix them in the same take, for example one phone for a long-form video and one for shorts." } },
-        { "@type": "Question", "name": "Is there a portrait mode? Can it blur the background?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Face priority is on by default, so focus, exposure and white balance follow faces; it works on most phones. Background blur needs a phone whose camera supports Android's continuous bokeh mode (for example, Pixel 11 Pro, up to 1080p); the phone does the blur itself, so quality is unaffected, and phones without it record as usual." } },
-        { "@type": "Question", "name": "Can I trim the start and end of a take?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Play the take in a monitor, choose Trim, set the in and out points, and every angle of that take is trimmed together into new files named with _1 (the originals are kept). Nothing is re-encoded, so quality is unchanged; the start snaps back to the previous keyframe, so it may begin slightly earlier. Requires ffmpeg." } },
+        { "@type": "Question", "name": "Is there a portrait mode? Can it blur the background?", "acceptedAnswer": { "@type": "Answer", "text": "Face priority, yes; background blur, no. Face priority is on by default, so focus, exposure and white balance follow faces; it works on most phones. Background blur was tried and removed: only a few phones support Android's continuous bokeh mode, it has resolution limits (1080p on Pixel 11 Pro) and narrows the zoom range, so results were unreliable. For a softer background, keep the subject far from the background." } },
+        { "@type": "Question", "name": "Can I trim the start and end of a take?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Play the take in a monitor, choose Trim, drag the in and out handles on the timeline, and every angle of that take is trimmed together into new files named with _1 (the originals are kept). Nothing is re-encoded, so quality is unchanged; the start snaps back to the previous keyframe, so it may begin slightly earlier. Requires ffmpeg." } },
         { "@type": "Question", "name": "Are there filters or beauty effects?", "acceptedAnswer": { "@type": "Answer", "text": "No, on purpose. Warm, film or pastel looks and skin smoothing can't be done by the phone's camera pipeline; the app would have to process every frame itself, which makes phones hotter and drains the battery, and bakes the look into the footage for good. The same filter also looks different on phones from different brands. MultiCam Recorder records clean, consistent footage instead, so you can apply one grade to every angle in your editor." } },
         { "@type": "Question", "name": "How do I sync the clips from different phones?", "acceptedAnswer": { "@type": "Answer", "text": "The computer syncs clocks with every phone and schedules a common start time, and the dashboard shows the measured start offset between phones. For frame-accurate alignment, use your editor's audio sync." } },
         { "@type": "Question", "name": "Is the app available in English?", "acceptedAnswer": { "@type": "Answer", "text": "The interface is currently in Traditional Chinese only." } }
@@ -143,7 +143,7 @@
         <a class="btn btn-rec" href="https://github.com/dean9703111/multicam-recorder/releases/latest"><span class="dot" aria-hidden="true"></span>Download the Android app</a>
         <a class="btn btn-ghost" href="#start">Get started in 3 steps</a>
       </div>
-      <p class="cta-note">Latest v0.4.1・Computer: macOS or Windows・Phones: Android 12+・Interface in Traditional Chinese</p>
+      <p class="cta-note">Latest v0.4.2・Computer: macOS or Windows・Phones: Android 12+・Interface in Traditional Chinese</p>
       <ul class="chips" aria-label="Highlights">
         <li>Up to 10 phones</li>
         <li>Portrait + landscape in one take</li>
@@ -252,13 +252,13 @@
   <section class="section" id="portrait" aria-labelledby="portrait-title">
     <div class="wrap">
       <span class="kicker">PORTRAIT</span>
-      <h2 id="portrait-title">Portrait settings: face priority, background blur, exposure lock</h2>
+      <h2 id="portrait-title">Portrait settings: face priority and exposure lock</h2>
       <p class="section-lead">For interviews, podcasts and classes, turn them on in the recording spec menu and every phone follows. Everything runs in the phone's own camera pipeline, so <strong>resolution, bitrate and frame rate stay the same</strong>.</p>
-      <div class="figure"><img src="../images/portrait-settings.png" width="1440" height="806" loading="lazy" decoding="async" alt="Dashboard while recording at 1080p with background blur and exposure lock on: the portrait Pixel 11 Pro is labeled background blur and exposure lock, the ROG phone without blur support only exposure lock"></div>
+      <div class="figure small"><img src="../images/portrait-settings.png" width="540" height="280" loading="lazy" decoding="async" alt="Portrait section at the bottom of the recording spec menu: face priority checked (focus, exposure and white balance follow faces), exposure and white-balance lock unchecked (brightness and color stay the same for the whole take, best for steady indoor lighting)"></div>
       <div class="cards three">
         <article class="card"><h3>Face priority (on by default)</h3><p>Focus, exposure and white balance follow faces, so a face in front of a bright window stays bright and focus doesn't drift to the background. In even light with the subject centered it looks the same as normal auto mode.</p></article>
-        <article class="card"><h3>Background blur</h3><p>Uses Android's continuous bokeh mode, so the phone's camera blurs the background itself. Only some phones support it, with a resolution limit, such as 1080p on Pixel 11 Pro; above the limit the phone records as usual without blur instead of lowering the resolution, and the dashboard tells you why.</p></article>
         <article class="card"><h3>Exposure and white-balance lock</h3><p>Locks brightness and color the moment you press start and keeps them until you stop, so someone walking by won't shift the picture. Great for indoor lighting that doesn't change; turn it off outdoors.</p></article>
+        <article class="card"><h3>No blur or filters</h3><p>Background blur only works on a few phones and has resolution limits, so it was removed; filters would bake a look into the footage. The app records clean, consistent footage and leaves grading to your editor.</p></article>
       </div>
     </div>
   </section>
@@ -361,7 +361,7 @@ npm start</pre></div>
             <tr><th scope="row">Phones</th><td>Android 12+, <strong>up to 10</strong>; no iPhone app yet</td></tr>
             <tr><th scope="row">Resolution</th><td>4K (3840×2160), 2K (2560×1440), 1080p, 720p at 30 fps; width and height swap in portrait</td></tr>
             <tr><th scope="row">Format</th><td>MP4 (H.264 video, AAC audio), about 40 Mbps at 4K</td></tr>
-            <tr><th scope="row">Portrait settings</th><td>Face priority (on by default), background blur (on supported phones, e.g. Pixel 11 Pro up to 1080p), exposure and white-balance lock while recording</td></tr>
+            <tr><th scope="row">Portrait settings</th><td>Face priority (on by default) and exposure/white-balance lock while recording (off by default)</td></tr>
             <tr><th scope="row">Take length</th><td>Up to 30 minutes; about 9 GB per phone at 4K</td></tr>
             <tr><th scope="row">Trimming</th><td>Heads and tails only, every angle together, saved as new files without re-encoding (requires ffmpeg)</td></tr>
             <tr><th scope="row">Network</th><td>Phones and computer on the same Wi-Fi; footage stays on your local network</td></tr>
@@ -387,8 +387,8 @@ npm start</pre></div>
         <details><summary>How is this different from streaming phone cameras into OBS?</summary><div class="answer"><p>Streaming sends a live picture to the computer, so quality depends on the network; it suits live streaming. <strong>MultiCam Recorder records full quality on each phone and transfers the files</strong>, which suits shoots you edit afterwards. It does not live-stream.</p></div></details>
         <details><summary>How many phones can I connect?</summary><div class="answer"><p><strong>Up to 10.</strong> More phones need more Wi-Fi bandwidth; two phones recording 4K need about 80 Mbps in total. See <a href="#network">the network tips</a>.</p></div></details>
         <details><summary>Can I record portrait and landscape at the same time?</summary><div class="answer"><p><strong>Yes.</strong> A phone held upright records 9:16 and a phone held sideways records 16:9, and you can mix them in the same take, for example one phone for a long-form video and one for shorts. See <a href="#long-short">how it works</a>.</p></div></details>
-        <details><summary>Is there a portrait mode? Can it blur the background?</summary><div class="answer"><p><strong>Yes.</strong> Face priority is on by default, so focus, exposure and white balance follow faces; it works on most phones. Background blur needs a phone whose camera supports Android's continuous bokeh mode (for example, Pixel 11 Pro, up to 1080p); the phone does the blur itself, so quality is unaffected, and phones without it record as usual. See <a href="#portrait">portrait settings</a>.</p></div></details>
-        <details><summary>Can I trim the start and end of a take?</summary><div class="answer"><p><strong>Yes.</strong> Play the take in a monitor, choose Trim, set the in and out points, and every angle of that take is trimmed together into new files named with <code>_1</code> (the originals are kept). Nothing is re-encoded, so quality is unchanged; the start snaps back to the previous keyframe, so it may begin slightly earlier. Requires ffmpeg.</p></div></details>
+        <details><summary>Is there a portrait mode? Can it blur the background?</summary><div class="answer"><p><strong>Face priority, yes; background blur, no.</strong> Face priority is on by default, so focus, exposure and white balance follow faces; it works on most phones. Background blur was tried and removed: only a few phones support Android's continuous bokeh mode, it has resolution limits (1080p on Pixel 11 Pro) and narrows the zoom range, so results were unreliable. For a softer background, keep the subject far from the background. See <a href="#portrait">portrait settings</a>.</p></div></details>
+        <details><summary>Can I trim the start and end of a take?</summary><div class="answer"><p><strong>Yes.</strong> Play the take in a monitor, choose Trim, drag the in and out handles on the timeline, and every angle of that take is trimmed together into new files named with <code>_1</code> (the originals are kept). Nothing is re-encoded, so quality is unchanged; the start snaps back to the previous keyframe, so it may begin slightly earlier. Requires ffmpeg.</p></div></details>
         <details><summary>Are there filters or beauty effects?</summary><div class="answer"><p><strong>No, on purpose.</strong> Warm, film or pastel looks and skin smoothing can't be done by the phone's camera pipeline; the app would have to process every frame itself, which makes phones hotter and drains the battery, and bakes the look into the footage for good. The same filter also looks different on phones from different brands. MultiCam Recorder records <strong>clean, consistent</strong> footage instead, so you can apply one grade to every angle in your editor.</p></div></details>
         <details><summary>How do I sync the clips from different phones?</summary><div class="answer"><p>The computer syncs clocks with every phone and <strong>schedules a common start time</strong>, and the dashboard shows the measured start offset between phones. For frame-accurate alignment, use your editor's audio sync.</p></div></details>
         <details><summary>Is the app available in English?</summary><div class="answer"><p>The interface is currently in <strong>Traditional Chinese only</strong>.</p></div></details>
@@ -436,7 +436,7 @@ npm start</pre></div>
         </ul>
       </div>
     </div>
-    <p class="fine">MIT license・Made by <a href="https://deanlin.net/about/">Dean Lin</a>・Last updated 2026-10-21 (v0.4.1)</p>
+    <p class="fine">MIT license・Made by <a href="https://deanlin.net/about/">Dean Lin</a>・Last updated 2026-10-21 (v0.4.2)</p>
   </div>
 </footer>
 <script src="../assets/site.js" defer></script>

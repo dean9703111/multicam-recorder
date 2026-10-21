@@ -6,7 +6,7 @@
 
 <p align="center">
   <b>免費開源的手機多機位錄影工具：用電腦一鍵遙控多支 Android 手機同步錄影</b><br>
-  即時畫面・手機原生 4K・人像模式・直式＋橫式同時錄・邊錄邊傳回電腦・支援 macOS／Windows
+  即時畫面・手機原生 4K・臉部優先・直式＋橫式同時錄・邊錄邊傳回電腦・支援 macOS／Windows
 </p>
 
 <p align="center">
@@ -62,7 +62,7 @@
 - **一鍵同步開始、停止**：按 `R` 全部開始、`S` 全部停止，也能單獨控制某一台。開始前電腦會先和每台手機對時，約好同一刻一起開始，清單上會顯示各台實際的開始時間差。
 - **手機原生畫質**：4K、2K、1080p、720p 可選，所有手機一起套用。單段最長 30 分鐘，剩 3 分鐘時網頁和手機都會提醒。
 - **直式、橫式都能錄**：手機橫拿錄 16:9、直拿錄 9:16，App 會自動跟著手機轉，錄影中鎖住方向。
-- **人像設定**：「臉部優先」預設開啟，對焦、曝光、白平衡都以人臉為準；手機做得到的話，還能開「背景虛化」；也可以在錄影時鎖定曝光和白平衡，亮度和顏色不會錄到一半變掉。這些都交給手機的相機處理，**畫質和解析度都不變**。[詳細說明](#人像設定臉部優先背景虛化鎖定曝光)
+- **人像設定**：「臉部優先」預設開啟，對焦、曝光、白平衡都以人臉為準；也可以在錄影時鎖定曝光和白平衡，亮度和顏色不會錄到一半變掉。這些都交給手機的相機處理，**畫質和解析度都不變**。[詳細說明](#人像設定臉部優先鎖定曝光)
 - **外接麥克風**：接上 USB 或耳機孔麥克風會自動改用它收音，App 和網頁都會顯示目前用的是哪一支。
 
 **監看**
@@ -78,7 +78,7 @@
 - **斷線也不怕**：Wi-Fi 斷掉時手機照常錄影，連回來會自動續傳。
 - **用專案整理**：開錄前先選專案，影片會存進「錄影資料夾／專案名稱」，檔名是時間加手機名稱，例如 `20261020_143005_ROG6D.mp4`，同一段的檔案會排在一起。
 - **標記好的段落、一次清掉其他的**：點星號標記好的段落，同一段的每台手機一起標記；每一列右邊的垃圾桶可以刪掉那一段，沒標記的也能一鍵全部移到垃圾桶（Windows 是資源回收筒），刪錯了也救得回來。
-- **裁掉頭尾**：在監看區播放時設定開頭和結尾，同一段的每台手機一起裁，另存成檔名加 `_1` 的新檔，原本的影片不動。不重新壓縮，畫質不變。[詳細說明](#5-播放標記與整理影片)
+- **裁掉頭尾**：在有縮圖的時間軸上拖拉開頭和結尾，同一段的每台手機一起裁，另存成檔名加 `_1` 的新檔，原本的影片不動。不重新壓縮，畫質不變。[詳細說明](#5-播放標記與整理影片)
 - **掃 QR Code 配對**：用手機相機掃一次就好，不用輸入 IP。還沒裝 App 的話，掃完打開的網頁裡就有下載連結。
 
 ## 規格一覽
@@ -90,7 +90,7 @@
 | 手機 | Android 12 以上，**最多 10 台**；目前沒有 iPhone 版 |
 | 解析度 | 4K（3840×2160）、2K（2560×1440）、1080p、720p，每秒 30 格；直拿時寬高對調 |
 | 影片格式 | MP4（H.264 影像、AAC 聲音），4K 約 40 Mbps |
-| 人像設定 | 臉部優先（預設開）、背景虛化（手機做得到才有，例如 Pixel 11 Pro 最高 1080p）、錄影時鎖定曝光和白平衡 |
+| 人像設定 | 臉部優先（預設開）、錄影時鎖定曝光和白平衡（預設關） |
 | 單段長度 | 最長 30 分鐘；4K 每台約 9 GB |
 | 裁剪 | 只裁頭尾、每台手機一起裁、另存新檔，不重新壓縮（需要另外安裝 ffmpeg） |
 | 連線方式 | 手機和電腦連同一個 Wi-Fi，影片只在區域網路裡傳輸 |
@@ -155,7 +155,7 @@ npm start
 
 - **專案**：按上方「專案」選單裡的「新增專案…」，預設名稱是今天的日期。影片會存進「錄影資料夾／專案名稱」。還沒有專案就按開始的話，會先請你新增一個。
 - **錄影規格**：「錄影規格」選單可以選解析度、構圖輔助框和人像設定，所有手機一起套用。解析度和人像設定從下一次開始錄影時生效，錄影中不能改；輔助框隨時可以換。手機不支援選的解析度時，會改錄它能錄的最大解析度，影片清單上會標出實際的大小。
-- **人像設定**：「臉部優先」預設開著，拍人不用特別調。要背景虛化或鎖定曝光的話，在同一個選單打開，做法請看[人像設定](#人像設定臉部優先背景虛化鎖定曝光)。
+- **人像設定**：「臉部優先」預設開著，拍人不用特別調。要鎖定曝光的話，在同一個選單打開，做法請看[人像設定](#人像設定臉部優先鎖定曝光)。
 - **即時畫面與變焦**：監看區平常顯示手機的即時畫面。下面的「變焦」可以按常用倍率或拖滑桿，每台手機各自設定，邊看即時畫面邊調；App 重開也會記得，錄影中也能調。
 - **直拿或橫拿**：手機怎麼放就錄怎麼樣的影片，橫拿 16:9、直拿 9:16，系統的自動旋轉關著也一樣。一台直、一台橫同時錄的做法，請看[使用情境](#使用情境一次錄好長影片和短影音)。
 - **開始和停止**：按網頁上的「開始錄影」或鍵盤 `R`，所有手機一起開始；「停止」或 `S` 全部停止。每個監看區也有「單獨開始／單獨停止」。快捷鍵只在控制台分頁是目前視窗時有效。
@@ -164,7 +164,7 @@ npm start
 > [!IMPORTANT]
 > 錄影時 App 要一直開在前景，螢幕不能關，因為 Android 不允許背景 App 使用相機。長時間錄影可以按 App 上的「調暗螢幕」省電、降溫。
 
-![錄影規格選單：解析度（4K、2K、1080p、720p）、構圖輔助框，最下面是人像設定（臉部優先開著、背景虛化列出做得到的手機、錄影時鎖定曝光和白平衡）；橫拿那台的即時畫面上疊著 9:16 的框，直拿那台本來就是 9:16](docs/images/spec-guide.png)
+![錄影規格選單：解析度（4K、2K、1080p、720p）、構圖輔助框，最下面是人像設定（臉部優先開著、錄影時鎖定曝光和白平衡）；橫拿那台的即時畫面上疊著 9:16 的框，直拿那台本來就是 9:16](docs/images/spec-guide.png)
 
 手機上的 App 畫面長這樣：
 
@@ -193,15 +193,15 @@ npm start
 ![選取模式：勾選要刪的影片，標記星號的段落留下，下方工具列可以一起移到垃圾桶](docs/images/select-trash.png)
 
 - **裁掉頭尾**：開頭等人坐好、結尾收拾東西的片段，可以先在這裡裁掉，剪輯時就不用一支一支找。
-  1. 點清單上的那一段，在監看區播放，再按影片下方的「裁剪…」。
-  2. 拖到要開始的地方按「開頭」旁的「設成目前位置」，再拖到要結束的地方按「結尾」旁的「設成目前位置」。點時間可以跳回那個位置確認。
+  1. 點清單上的那一段，在監看區播放，再按影片下方的「裁剪…」，會出現一條有縮圖的時間軸。
+  2. 拖時間軸左右兩邊的把手設定開頭和結尾，拖的時候監看區會跳到那一格，看得到從哪裡開始、到哪裡結束。點時間軸可以跳到那裡，按「播放這段」會從開頭播到結尾。要微調的話，點一下把手再按方向鍵（每次 0.1 秒，按著 Shift 每次 1 秒）。
   3. 按「裁剪」。**同一段的每台手機會一起裁**，用開始時間差換算，裁的是同一段時間。
   4. 裁好的影片另存成檔名後面加 `_1` 的新檔（同一支再裁一次就是 `_2`、`_3`），**原本的影片不動**。裁好會直接在監看區播放，清單上標「裁剪過」。
 - 裁剪不重新壓縮，畫質完全不變，幾 GB 的 4K 也只要幾秒。代價是開頭只能從關鍵影格開始，所以可能比你設的早一點（手機大多每 1 秒一個關鍵影格）；各台的關鍵影格位置不同，裁好的幾支開始時間會差零點幾秒，清單上會標出來，剪輯時一樣用音訊對齊。
 - 裁剪要用到 ffmpeg，沒裝的話按「裁剪…」會告訴你怎麼裝。
 
 <p align="center">
-  <img src="docs/images/trim.png" width="560" alt="裁剪頭尾：在監看區播放 ROG6D 的影片，下方的裁剪面板設定開頭 00:03.2、結尾 00:18.6，說明會留下 15.4 秒、同一段的 2 支影片一起裁、另存成加 _1 的新檔；清單上是裁好的 _1 影片，標著「裁剪過」">
+  <img src="docs/images/trim.png" width="560" alt="裁剪頭尾：在監看區播放 ROG6D 的影片，下方是有縮圖的時間軸，兩個琥珀色把手設定開頭 00:03.2、結尾 00:22.7，中間是留下的 19.5 秒、外面調暗，白線是目前播放的位置；上面有「播放這段」，下面是說明和「取消」「裁剪」">
 </p>
 
 - 傳輸中的檔案副檔名是 `.part`，驗證通過後才改成 `.mp4`。
@@ -238,28 +238,23 @@ npm start
 > [!NOTE]
 > 從正上方往下拍時，手機平放分不出直橫，會沿用平放前的方向。請先拿成想要的方向、等畫面轉好，再放平。
 
-## 人像設定：臉部優先、背景虛化、鎖定曝光
+## 人像設定：臉部優先、鎖定曝光
 
-拍訪談、Podcast、課程這類以人為主的內容時，「錄影規格」選單最下面的「人像」有三個設定，所有手機一起套用。**全部交給手機的相機處理，解析度、位元率和每秒格數都不變**。
+拍訪談、Podcast、課程這類以人為主的內容時，「錄影規格」選單最下面的「人像」有兩個設定，所有手機一起套用。**全部交給手機的相機處理，解析度、位元率和每秒格數都不變**。
 
-![錄影中的控制台：錄影規格是 1080p、背景虛化、鎖定曝光；直拿的 Pixel11Pro 監看區下方寫著「背景虛化・鎖定曝光」，做不到虛化的 ROG6D 只寫「鎖定曝光」](docs/images/portrait-settings.png)
-
-<p align="center"><sub>錄影中的控制台：直拿的 Pixel 套用了背景虛化，兩台都鎖住曝光和白平衡。做不到虛化的手機照常錄影。</sub></p>
+<p align="center">
+  <img src="docs/images/portrait-settings.png" width="420" alt="錄影規格選單最下面的「人像」：臉部優先打勾（對焦、曝光、白平衡以人臉為準），錄影時鎖定曝光和白平衡沒勾（亮度和顏色不會在錄到一半時變動，適合燈光固定的室內）">
+</p>
 
 | 設定 | 預設 | 效果 | 適合 |
 | --- | --- | --- | --- |
 | **臉部優先** | 開 | 對焦、曝光、白平衡以人臉為準：背後有亮窗時臉不會黑掉，對焦也不會跑到背景。光線平均、人在畫面中間時，看起來和一般的自動模式一樣 | 有人入鏡的拍攝 |
-| **背景虛化** | 關 | 由手機自己的相機把背景模糊，讓人物更突出 | 訪談、Podcast 的人物鏡頭 |
 | **錄影時鎖定曝光和白平衡** | 關 | 按下開始的那一刻鎖住，到停止前亮度和顏色都不變 | 燈光固定的室內 |
 
-### 背景虛化
+### 臉部優先
 
-- **只有部分手機做得到**：手機的相機要有 Android 的「連續背景虛化」（Android 11 起的標準功能）。打開選單時，「背景虛化」底下會列出目前連線的手機裡哪幾台做得到、最高能錄多少解析度。手機原廠相機裡的人像影片、電影模式是廠商自己的功能，其他 App 用不到。
-- **有解析度上限**：例如 Pixel 11 Pro 最高 1080p。選的解析度超過上限時，那台照樣用選的解析度錄，只是不虛化，**不會為了虛化偷偷降畫質**。想要虛化，就把解析度改成上限以內。
-- **變焦範圍會變小**：例如 Pixel 11 Pro 虛化時只能在 1× 到 3× 之間，用不到超廣角。原本的倍率超出範圍時會先用最接近的值，關掉虛化後回到原本的倍率。畫面也可能比平常窄一點。
-- **可能比平常熱一點**：虛化要由手機即時運算，雖然是手機的相機自己做、比 App 一格一格加工省得多，長時間錄影時還是建議接著充電。
-- **控制台會標出來**：有套用的那台，監看區下方會寫「即時畫面・背景虛化」，即時畫面上也看得到效果；開了卻沒套用時，那台的監看區下方會用琥珀色寫原因，例如「背景虛化要 1080p 以下才會套用」，選單裡也有「改成 1080p」的按鈕。錄好的影片，清單上會標「背景虛化」，看得出那一支有沒有虛化。開了虛化的手機，對焦和曝光交給手機的人像處理，「臉部優先」在那台不另外套用。
-- 想讓模糊更自然，拍法也有幫助：**讓人離背景越遠越好**，背景暗一點、乾淨一點。
+- **大部分手機都做得到**：Android 規定，相機只要支援臉部偵測，就要提供這個模式。萬一哪台做不到，選單裡會提醒，那台就照一般的自動模式錄。
+- **它不是看得出來的特效**，而是讓相機在難拍的光線下把臉拍對：人背對窗戶時，曝光以臉為準，臉不會黑掉；對焦也不會跑到背景。光線平均、人在畫面中間時，結果和自動模式差不多。
 
 ### 鎖定曝光和白平衡
 
@@ -268,7 +263,7 @@ npm start
 - 開始前先讓畫面穩定下來（例如人先坐好、燈先打開），鎖住的才是你要的樣子。
 - 適合燈光固定的室內。**戶外或燈光會變的場合請關掉**，不然光線一變，畫面就會太亮或太暗。
 
-沒有濾鏡和美顏，原因請看[常見問題](#有濾鏡或美顏嗎)。
+沒有背景虛化、濾鏡和美顏，原因請看常見問題的[有人像模式嗎？](#有人像模式嗎可以背景虛化嗎)和[有濾鏡或美顏嗎？](#有濾鏡或美顏嗎)。
 
 ## 網路設定建議
 
@@ -317,11 +312,11 @@ npm start
 
 ### 有人像模式嗎？可以背景虛化嗎？
 
-**有。** 「臉部優先」預設開著，對焦、曝光、白平衡都以人臉為準，大部分手機都能用。背景虛化要手機的相機做得到（例如 Pixel 11 Pro，最高 1080p），由手機自己處理，畫質不受影響；做不到的手機照常錄影。詳細請看[人像設定](#人像設定臉部優先背景虛化鎖定曝光)。
+**有臉部優先，沒有背景虛化。** 「臉部優先」預設開著，對焦、曝光、白平衡都以人臉為準，大部分手機都能用。背景虛化試做過，用的是 Android 的連續背景虛化，但只有少數手機做得到，還有解析度上限（例如 Pixel 11 Pro 只到 1080p），開了之後變焦範圍也會變小，效果不穩定，所以拿掉了。想要背景模糊，最可靠的是拍法：讓人離背景越遠越好。詳細請看[人像設定](#人像設定臉部優先鎖定曝光)。
 
 ### 可以剪掉影片的開頭和結尾嗎？
 
-**可以。** 在監看區播放那一段，按「裁剪…」設定開頭和結尾，同一段的每台手機會一起裁，另存成檔名加 `_1` 的新檔，原本的不動。不重新壓縮，畫質不變；開頭會從關鍵影格開始，可能比設定的早一點。需要另外安裝 ffmpeg。詳細請看[播放、標記與整理影片](#5-播放標記與整理影片)。
+**可以。** 在監看區播放那一段，按「裁剪…」，在時間軸上拖拉開頭和結尾，同一段的每台手機會一起裁，另存成檔名加 `_1` 的新檔，原本的不動。不重新壓縮，畫質不變；開頭會從關鍵影格開始，可能比設定的早一點。需要另外安裝 ffmpeg。詳細請看[播放、標記與整理影片](#5-播放標記與整理影片)。
 
 ### 有濾鏡或美顏嗎？
 
@@ -382,11 +377,9 @@ App 會先把影片正常收尾再停止，已經錄到的部分會照常傳到�
 </details>
 
 <details>
-<summary>開了背景虛化，畫面卻沒有變化？</summary>
+<summary>開了臉部優先，卻看不出差別？</summary>
 
-先看那台手機監看區下方的字。寫「背景虛化」就是有套用；用琥珀色寫「背景虛化要 1080p 以下才會套用」，就是解析度超過那台的上限（例如 Pixel 11 Pro 要 1080p 以下），在「錄影規格」選單按「改成 1080p」就好。錄好的影片，清單上有標「背景虛化」的才是有虛化的。另外，App 要更新到 0.4.0 以上才有人像設定。
-
-虛化的強弱由手機的相機決定，人和背景距離越遠越明顯。至於臉部優先，它只在難拍的光線下才看得出差別（例如人背對窗戶），光線平均時本來就和自動模式差不多。
+這是正常的。臉部優先只改變相機以什麼為準來對焦和曝光，光線平均、人在畫面中間時，結果和自動模式差不多；人背對窗戶、人不在畫面中間，或前後有好幾個人時才看得出差別。手機做不到的話，「錄影規格」選單裡會提醒。另外，App 要更新到 0.4.0 以上才有人像設定。
 </details>
 
 <details>
@@ -403,8 +396,7 @@ App 會先把影片正常收尾再停止，已經錄到的部分會照常傳到�
 - 外接麥克風能不能被選用，依手機和麥克風而定，請以 App 上顯示的收音來源為準。
 - 即時畫面是每秒約 5 張的低解析度預覽，只用來確認構圖和變焦，不能取代監看螢幕。
 - 手機平放（例如從正上方往下拍）時分不出直拿或橫拿，會沿用平放前的方向。
-- 背景虛化只有部分手機做得到，而且有解析度上限（例如 Pixel 11 Pro 最高 1080p），開了之後變焦範圍也會變小。
-- 沒有濾鏡和美顏，調色請在剪輯軟體裡做。
+- 沒有背景虛化、濾鏡和美顏，調色請在剪輯軟體裡做。
 - 裁剪只能裁頭尾，開頭會從關鍵影格開始（通常最多早 1 秒），而且要另外安裝 ffmpeg。
 - 還沒有雲端上傳，影片目前存在電腦上。
 - 介面目前只有繁體中文。
@@ -421,12 +413,12 @@ App 會先把影片正常收尾再停止，已經錄到的部分會照常傳到�
 
 - **Synchronized start**: press `R` / `S` to start or stop every phone (up to 10) at the same moment. The computer syncs clocks and schedules a common start time, and the dashboard shows the measured start offset between phones.
 - **Portrait or landscape**: hold a phone sideways to record 16:9 or upright to record 9:16, so one phone can shoot the long-form video while another shoots the shorts in the same take. The app follows each phone's orientation and locks it while recording.
-- **Portrait settings**: face priority (on by default) makes focus, exposure and white balance follow faces; background blur uses the phone's own continuous bokeh mode where the camera supports it (for example, Pixel 11 Pro up to 1080p); exposure and white balance can be locked for the whole take. Everything runs in the phone's camera pipeline, so resolution and bitrate stay the same. There are no filters on purpose: grade the clean footage in your editor.
+- **Portrait settings**: face priority (on by default) makes focus, exposure and white balance follow faces, and exposure and white balance can be locked for the whole take. Both run in the phone's camera pipeline, so resolution and bitrate stay the same. Background blur was tried and removed because only a few phones support it, with resolution limits; there are no filters on purpose either, so grade the clean footage in your editor.
 - **Live view and per-phone zoom**: about 5 fps for framing; pressing record always switches every monitor back to the live view. Phones with ultra-wide or telephoto lenses switch lenses automatically.
 - **Instant playback**: footage is uploaded while recording; after you stop, only the tail is sent and the file is verified chunk by chunk with SHA-256 against the phone's original.
 - **Framing guides**: optional 9:16, 4:5 or 1:1 guides on the phone preview, the live view and the dashboard player; the full frame is always recorded.
 - **Projects, marking and cleanup**: takes go into `<recording folder>/<project name>`; star the good takes (all angles together), delete a take with the trash button on its row, or move every unstarred take to the system Trash / Recycle Bin in one go.
-- **Trim heads and tails**: set in and out points while a clip plays, and every angle of that take is trimmed together into new `_1`, `_2`… files without re-encoding (requires ffmpeg); the originals are kept.
+- **Trim heads and tails**: drag the in and out handles on a thumbnail timeline while a clip plays, and every angle of that take is trimmed together into new `_1`, `_2`… files without re-encoding (requires ffmpeg); the originals are kept.
 - **External microphones**: USB and headset-jack mics are detected automatically, and the active input is shown on both the phone and the dashboard.
 - **Resilient**: recording continues if Wi-Fi drops, and uploads resume automatically.
 

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>多機錄影 MultiCam Recorder｜免費的手機多機位同步錄影工具</title>
-<meta name="description" content="用電腦網頁一鍵遙控多支 Android 手機同步錄影：即時畫面、各別變焦、手機原生 4K、人像模式、直式＋橫式同時錄（長影片＋短影音），影片邊錄邊傳回電腦。免費開源，支援 macOS、Windows。">
+<meta name="description" content="用電腦網頁一鍵遙控多支 Android 手機同步錄影：即時畫面、各別變焦、手機原生 4K、臉部優先、直式＋橫式同時錄（長影片＋短影音），影片邊錄邊傳回電腦。免費開源，支援 macOS、Windows。">
 <link rel="canonical" href="https://deanlin.net/multicam-recorder/">
 <link rel="alternate" hreflang="zh-TW" href="https://deanlin.net/multicam-recorder/">
 <link rel="alternate" hreflang="en" href="https://deanlin.net/multicam-recorder/en/">
@@ -42,11 +42,11 @@
       "@id": "https://deanlin.net/multicam-recorder/#app",
       "name": "多機錄影 MultiCam Recorder",
       "alternateName": ["MultiCam Recorder", "多機錄影"],
-      "description": "免費、開源的手機多機位錄影工具：在電腦（macOS 或 Windows）的網頁控制台同步遙控多支 Android 手機錄影，有即時畫面、各別變焦、手機原生 4K、人像模式、直式＋橫式同時錄，影片邊錄邊傳回電腦。",
+      "description": "免費、開源的手機多機位錄影工具：在電腦（macOS 或 Windows）的網頁控制台同步遙控多支 Android 手機錄影，有即時畫面、各別變焦、手機原生 4K、臉部優先、直式＋橫式同時錄，影片邊錄邊傳回電腦。",
       "applicationCategory": "MultimediaApplication",
       "applicationSubCategory": "多機位錄影",
       "operatingSystem": "macOS, Windows, Android 12+",
-      "softwareVersion": "0.4.1",
+      "softwareVersion": "0.4.2",
       "url": "https://deanlin.net/multicam-recorder/",
       "downloadUrl": "https://github.com/dean9703111/multicam-recorder/releases/latest",
       "installUrl": "https://github.com/dean9703111/multicam-recorder/releases/latest",
@@ -67,7 +67,7 @@
         "每支手機各自調整變焦",
         "手機原生畫質，最高 4K、每秒 30 格",
         "橫拿錄 16:9、直拿錄 9:16，可以同時錄長影片和短影音",
-        "人像設定：臉部優先（預設開）、背景虛化（手機做得到時）、錄影時鎖定曝光和白平衡，都由手機的相機處理，畫質不變",
+        "人像設定：臉部優先（預設開）、錄影時鎖定曝光和白平衡，都由手機的相機處理，畫質不變",
         "影片邊錄邊傳回電腦，停止後用 SHA-256 分段驗證",
         "支援 USB 與耳機孔外接麥克風",
         "構圖輔助框（9:16、4:5、1:1）",
@@ -109,8 +109,8 @@
         { "@type": "Question", "name": "和把手機畫面串流到電腦（例如當成 OBS 的攝影機）有什麼不同？", "acceptedAnswer": { "@type": "Answer", "text": "串流的做法是把畫面即時傳到電腦，畫質會受網路影響，適合直播。多機錄影是在每支手機上錄原生畫質，再把檔案傳回電腦，適合錄完要剪輯的拍攝；它沒有直播功能。" } },
         { "@type": "Question", "name": "最多可以接幾支手機？", "acceptedAnswer": { "@type": "Answer", "text": "10 支。手機越多，Wi-Fi 頻寬需求越大，兩台 4K 一起錄合計約 80 Mbps。" } },
         { "@type": "Question", "name": "可以同時錄直式和橫式嗎？", "acceptedAnswer": { "@type": "Answer", "text": "可以。手機直拿就錄 9:16、橫拿就錄 16:9，同一次錄影裡可以混著用，例如一台錄長影片、一台錄短影音。" } },
-        { "@type": "Question", "name": "有人像模式嗎？可以背景虛化嗎？", "acceptedAnswer": { "@type": "Answer", "text": "有。「臉部優先」預設開著，對焦、曝光、白平衡都以人臉為準，大部分手機都能用。背景虛化要手機的相機做得到（例如 Pixel 11 Pro，最高 1080p），由手機自己處理，畫質不受影響；做不到的手機照常錄影。" } },
-        { "@type": "Question", "name": "可以剪掉影片的開頭和結尾嗎？", "acceptedAnswer": { "@type": "Answer", "text": "可以。在監看區播放那一段，按「裁剪…」設定開頭和結尾，同一段的每台手機會一起裁，另存成檔名加 _1 的新檔，原本的不動。不重新壓縮，畫質不變；開頭會從關鍵影格開始，可能比設定的早一點。需要另外安裝 ffmpeg。" } },
+        { "@type": "Question", "name": "有人像模式嗎？可以背景虛化嗎？", "acceptedAnswer": { "@type": "Answer", "text": "有臉部優先，沒有背景虛化。「臉部優先」預設開著，對焦、曝光、白平衡都以人臉為準，大部分手機都能用。背景虛化試做過，但只有少數手機做得到，還有解析度上限（例如 Pixel 11 Pro 只到 1080p），開了之後變焦範圍也會變小，效果不穩定，所以拿掉了。想要背景模糊，最可靠的是讓人離背景越遠越好。" } },
+        { "@type": "Question", "name": "可以剪掉影片的開頭和結尾嗎？", "acceptedAnswer": { "@type": "Answer", "text": "可以。在監看區播放那一段，按「裁剪…」，在時間軸上拖拉開頭和結尾，同一段的每台手機會一起裁，另存成檔名加 _1 的新檔，原本的不動。不重新壓縮，畫質不變；開頭會從關鍵影格開始，可能比設定的早一點。需要另外安裝 ffmpeg。" } },
         { "@type": "Question", "name": "有濾鏡或美顏嗎？", "acceptedAnswer": { "@type": "Answer", "text": "沒有，這是刻意的。暖色、日系、電影感這類濾鏡和美顏，手機的相機做不到，要由 App 一格一格加工：手機會更燙、更耗電，效果也會燒進影片，拍完就改不回來。兩支不同廠牌的手機套同一個濾鏡，顏色也還是不一樣。多機錄影負責錄出乾淨、各台一致的原始畫面，濾鏡和調色建議在剪輯軟體裡一次套到所有機位。" } },
         { "@type": "Question", "name": "多支手機錄的影片怎麼對齊？", "acceptedAnswer": { "@type": "Answer", "text": "電腦會先和每支手機對時，約好同一刻開始，清單上會顯示各台實際的開始時間差。要精準到同一格畫面，建議用剪輯軟體依音訊自動同步。" } },
         { "@type": "Question", "name": "可以用外接麥克風嗎？", "acceptedAnswer": { "@type": "Answer", "text": "可以。手機接上 USB 或耳機孔麥克風時會自動改用它收音，App 和電腦網頁都會顯示目前用的是哪一支。" } },
@@ -152,7 +152,7 @@
         <a class="btn btn-rec" href="https://github.com/dean9703111/multicam-recorder/releases/latest"><span class="dot" aria-hidden="true"></span>下載 Android App</a>
         <a class="btn btn-ghost" href="#start">三步驟開始使用</a>
       </div>
-      <p class="cta-note">最新版 v0.4.1・電腦端支援 macOS、Windows・手機需要 Android 12 以上</p>
+      <p class="cta-note">最新版 v0.4.2・電腦端支援 macOS、Windows・手機需要 Android 12 以上</p>
       <ul class="chips" aria-label="重點">
         <li>最多 10 台手機</li>
         <li>直式＋橫式同時錄</li>
@@ -236,7 +236,7 @@
         <article class="card"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 9a15 15 0 0 1 20 0M5.5 12.5a10 10 0 0 1 13 0M9 16a5 5 0 0 1 6 0"/><circle cx="12" cy="19.5" r="1.4" fill="currentColor" stroke="none"/></svg></div><h3>斷線也不怕</h3><p>Wi-Fi 斷掉時手機照常錄影，連回來會自動續傳，影片不會遺失。</p></article>
         <article class="card"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 7A2.5 2.5 0 0 1 5 4.5h4l2 2h8A2.5 2.5 0 0 1 21.5 9v8a2.5 2.5 0 0 1-2.5 2.5H5A2.5 2.5 0 0 1 2.5 17z"/></svg></div><h3>用專案整理</h3><p>影片存進「錄影資料夾／專案名稱」，檔名是時間加手機名稱，同一段的檔案會排在一起。</p></article>
         <article class="card"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3.2l2.7 5.5 6 .9-4.4 4.2 1.1 6-5.4-2.9-5.4 2.9 1.1-6-4.4-4.2 6-.9z"/></svg></div><h3>標記好的段落</h3><p>點星號標記好的段落，同一段的每台手機一起標，剪輯時一眼就找到。</p></article>
-        <article class="card"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.2 8.2L20 20M8.2 15.8L20 4"/></svg></div><h3>裁掉頭尾</h3><p>播放時設定開頭和結尾，每台手機一起裁，另存成加 _1 的新檔，原本的不動；不重新壓縮，畫質不變。</p></article>
+        <article class="card"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.2 8.2L20 20M8.2 15.8L20 4"/></svg></div><h3>裁掉頭尾</h3><p>在有縮圖的時間軸上拖拉開頭和結尾，每台手機一起裁，另存成加 _1 的新檔，原本的不動；不重新壓縮，畫質不變。</p></article>
         <article class="card"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9.5 7V4.5h5V7M6 7l1 12.5a1.5 1.5 0 0 0 1.5 1.4h7a1.5 1.5 0 0 0 1.5-1.4L18 7M10 11v6M14 11v6"/></svg></div><h3>刪掉不要的</h3><p>每一列的垃圾桶刪掉那一段，沒標記的也能一鍵清掉；都進系統的垃圾桶，刪錯也救得回來。</p></article>
       </div>
     </div>
@@ -261,13 +261,13 @@
   <section class="section" id="portrait" aria-labelledby="portrait-title">
     <div class="wrap">
       <span class="kicker">PORTRAIT</span>
-      <h2 id="portrait-title">人像設定：臉部優先、背景虛化、鎖定曝光</h2>
+      <h2 id="portrait-title">人像設定：臉部優先、鎖定曝光</h2>
       <p class="section-lead">拍訪談、Podcast、課程這類以人為主的內容時，在「錄影規格」選單打開就好，所有手機一起套用。全部交給手機的相機處理，<strong>解析度、位元率和每秒格數都不變</strong>。</p>
-      <div class="figure"><img src="images/portrait-settings.png" width="1440" height="806" loading="lazy" decoding="async" alt="錄影中的控制台：錄影規格是 1080p、背景虛化、鎖定曝光；直拿的 Pixel11Pro 監看區下方寫著「背景虛化・鎖定曝光」，做不到虛化的 ROG6D 只寫「鎖定曝光」"></div>
+      <div class="figure small"><img src="images/portrait-settings.png" width="540" height="280" loading="lazy" decoding="async" alt="錄影規格選單最下面的「人像」：臉部優先打勾（對焦、曝光、白平衡以人臉為準），錄影時鎖定曝光和白平衡沒勾（亮度和顏色不會在錄到一半時變動，適合燈光固定的室內）"></div>
       <div class="cards three">
         <article class="card"><h3>臉部優先（預設開）</h3><p>對焦、曝光、白平衡以人臉為準：背後有亮窗時臉不會黑掉，對焦也不會跑到背景。光線平均、人在畫面中間時，看起來和一般的自動模式一樣。</p></article>
-        <article class="card"><h3>背景虛化</h3><p>用 Android 的連續背景虛化，由手機自己的相機把背景模糊。只有部分手機做得到，而且有解析度上限，例如 Pixel 11 Pro 最高 1080p；超過上限時照常錄影、只是不虛化，不會偷偷降畫質；監看區會標出原因，錄好的影片也會標「背景虛化」。</p></article>
         <article class="card"><h3>錄影時鎖定曝光和白平衡</h3><p>按下開始的那一刻鎖住，到停止前亮度和顏色都不變，有人走過也不會飄。適合燈光固定的室內；戶外或燈光會變的場合請關掉。</p></article>
+        <article class="card"><h3>沒有背景虛化和濾鏡</h3><p>背景虛化只有少數手機做得到，還有解析度上限，效果不穩定；濾鏡會燒進影片、改不回來。這裡負責錄出乾淨、各台一致的畫面，調色交給剪輯軟體。</p></article>
       </div>
     </div>
   </section>
@@ -370,7 +370,7 @@ npm start</pre></div>
             <tr><th scope="row">手機</th><td>Android 12 以上，<strong>最多 10 台</strong>；目前沒有 iPhone 版</td></tr>
             <tr><th scope="row">解析度</th><td>4K（3840×2160）、2K（2560×1440）、1080p、720p，每秒 30 格；直拿時寬高對調</td></tr>
             <tr><th scope="row">影片格式</th><td>MP4（H.264 影像、AAC 聲音），4K 約 40 Mbps</td></tr>
-            <tr><th scope="row">人像設定</th><td>臉部優先（預設開）、背景虛化（手機做得到才有，例如 Pixel 11 Pro 最高 1080p）、錄影時鎖定曝光和白平衡</td></tr>
+            <tr><th scope="row">人像設定</th><td>臉部優先（預設開）、錄影時鎖定曝光和白平衡（預設關）</td></tr>
             <tr><th scope="row">單段長度</th><td>最長 30 分鐘；4K 每台約 9 GB</td></tr>
             <tr><th scope="row">裁剪</th><td>只裁頭尾、每台手機一起裁、另存新檔，不重新壓縮（需要另外安裝 ffmpeg）</td></tr>
             <tr><th scope="row">連線方式</th><td>手機和電腦連同一個 Wi-Fi，影片只在區域網路裡傳輸</td></tr>
@@ -396,8 +396,8 @@ npm start</pre></div>
         <details><summary>和把手機畫面串流到電腦（例如當成 OBS 的攝影機）有什麼不同？</summary><div class="answer"><p>串流的做法是把畫面即時傳到電腦，畫質會受網路影響，適合直播。<strong>多機錄影是在每支手機上錄原生畫質，再把檔案傳回電腦</strong>，適合錄完要剪輯的拍攝；它沒有直播功能。</p></div></details>
         <details><summary>最多可以接幾支手機？</summary><div class="answer"><p><strong>10 支。</strong>手機越多，Wi-Fi 頻寬需求越大，兩台 4K 一起錄合計約 80 Mbps，請參考<a href="#network">網路設定</a>。</p></div></details>
         <details><summary>可以同時錄直式和橫式嗎？</summary><div class="answer"><p><strong>可以。</strong>手機直拿就錄 9:16、橫拿就錄 16:9，同一次錄影裡可以混著用，例如一台錄長影片、一台錄短影音，做法請看<a href="#long-short">這一節</a>。</p></div></details>
-        <details><summary>有人像模式嗎？可以背景虛化嗎？</summary><div class="answer"><p><strong>有。</strong>「臉部優先」預設開著，對焦、曝光、白平衡都以人臉為準，大部分手機都能用。背景虛化要手機的相機做得到（例如 Pixel 11 Pro，最高 1080p），由手機自己處理，畫質不受影響；做不到的手機照常錄影，做法請看<a href="#portrait">這一節</a>。</p></div></details>
-        <details><summary>可以剪掉影片的開頭和結尾嗎？</summary><div class="answer"><p><strong>可以。</strong>在監看區播放那一段，按「裁剪…」設定開頭和結尾，同一段的每台手機會一起裁，另存成檔名加 <code>_1</code> 的新檔，原本的不動。不重新壓縮，畫質不變；開頭會從關鍵影格開始，可能比設定的早一點。需要另外安裝 ffmpeg。</p></div></details>
+        <details><summary>有人像模式嗎？可以背景虛化嗎？</summary><div class="answer"><p><strong>有臉部優先，沒有背景虛化。</strong>「臉部優先」預設開著，對焦、曝光、白平衡都以人臉為準，大部分手機都能用。背景虛化試做過，但只有少數手機做得到，還有解析度上限（例如 Pixel 11 Pro 只到 1080p），開了之後變焦範圍也會變小，效果不穩定，所以拿掉了。想要背景模糊，最可靠的是讓人離背景越遠越好，詳細請看<a href="#portrait">這一節</a>。</p></div></details>
+        <details><summary>可以剪掉影片的開頭和結尾嗎？</summary><div class="answer"><p><strong>可以。</strong>在監看區播放那一段，按「裁剪…」，在時間軸上拖拉開頭和結尾，同一段的每台手機會一起裁，另存成檔名加 <code>_1</code> 的新檔，原本的不動。不重新壓縮，畫質不變；開頭會從關鍵影格開始，可能比設定的早一點。需要另外安裝 ffmpeg。</p></div></details>
         <details><summary>有濾鏡或美顏嗎？</summary><div class="answer"><p><strong>沒有，這是刻意的。</strong>暖色、日系、電影感這類濾鏡和美顏，手機的相機做不到，要由 App 一格一格加工：手機會更燙、更耗電，效果也會燒進影片，拍完就改不回來。兩支不同廠牌的手機套同一個濾鏡，顏色也還是不一樣。多機錄影負責錄出<strong>乾淨、各台一致</strong>的原始畫面，濾鏡和調色建議在剪輯軟體裡一次套到所有機位。</p></div></details>
         <details><summary>多支手機錄的影片怎麼對齊？</summary><div class="answer"><p>電腦會先和每支手機對時，<strong>約好同一刻開始</strong>，清單上會顯示各台實際的開始時間差。要精準到同一格畫面，建議用剪輯軟體依音訊自動同步。</p></div></details>
         <details><summary>可以用外接麥克風嗎？</summary><div class="answer"><p><strong>可以。</strong>手機接上 USB 或耳機孔麥克風時會自動改用它收音，App 和電腦網頁都會顯示目前用的是哪一支。</p></div></details>
@@ -446,7 +446,7 @@ npm start</pre></div>
         </ul>
       </div>
     </div>
-    <p class="fine">MIT 授權・由 <a href="https://deanlin.net/about/">林鼎淵 Dean Lin</a> 開發・最後更新 2026-10-21（v0.4.1）</p>
+    <p class="fine">MIT 授權・由 <a href="https://deanlin.net/about/">林鼎淵 Dean Lin</a> 開發・最後更新 2026-10-21（v0.4.2）</p>
   </div>
 </footer>
 <script src="assets/site.js" defer></script>

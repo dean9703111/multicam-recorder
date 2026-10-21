@@ -519,30 +519,21 @@ function ProjectControl({ state, open, recording, onToggle, onNew, onEnd, onOpen
 
 const PORTRAIT_OPTIONS = [
   { key: 'facePriority', label: '臉部優先', note: '對焦、曝光、白平衡以人臉為準' },
-  { key: 'bokeh', label: '背景虛化', note: '由手機的相機處理，只有部分手機做得到' },
   { key: 'lockExposure', label: '錄影時鎖定曝光和白平衡', note: '亮度和顏色不會在錄到一半時變動，適合燈光固定的室內' },
 ];
 
-// 背景虛化最高能錄到哪個解析度；做不到時是 undefined（解析度由大到小排）
-const bokehLimit = (state, camera) =>
-  camera?.bokehMax ? state.resolutions.find((x) => x.width <= camera.bokehMax[0] && x.height <= camera.bokehMax[1]) : undefined;
-
-// 開著的人像設定有哪幾台做不到。手機會略過做不到的項目，照常錄影。解析度太高的附上改成多少就能虛化。
+// 開著的人像設定有哪幾台做不到。手機會略過做不到的項目，照常錄影。
 function portraitNotes(state) {
   const s = state.settings;
-  const r = resolutionOf(state);
   const notes = [];
   for (const d of state.devices.filter((x) => x.online)) {
     const c = d.camera;
     if (!c) {
-      notes.push({ text: `${d.name} 的 App 版本太舊，更新後才能用人像設定` });
+      notes.push(`${d.name} 的 App 版本太舊，更新後才能用人像設定`);
       continue;
     }
-    const limit = bokehLimit(state, c);
-    if (s.facePriority && !c.facePriority) notes.push({ text: `${d.name} 做不到臉部優先` });
-    if (s.bokeh && !limit) notes.push({ text: `${d.name} 做不到背景虛化` });
-    else if (s.bokeh && limit.width < r.width) notes.push({ text: `${d.name} 的背景虛化最高 ${limit.label}，現在選 ${r.label} 不會虛化`, fix: limit });
-    if (s.lockExposure && !c.lockExposure) notes.push({ text: `${d.name} 做不到鎖定曝光和白平衡` });
+    if (s.facePriority && !c.facePriority) notes.push(`${d.name} 做不到臉部優先`);
+    if (s.lockExposure && !c.lockExposure) notes.push(`${d.name} 做不到鎖定曝光和白平衡`);
   }
   return notes;
 }
@@ -552,14 +543,10 @@ function SpecControl({ state, open, recording, onToggle, run }) {
   const s = state.settings;
   const g = s.guide;
   const max = state.limits.maxDurationSec;
-  const capable = state.devices
-    .filter((d) => d.online && bokehLimit(state, d.camera))
-    .map((d) => `${d.name}（最高 ${bokehLimit(state, d.camera).label}）`);
-  const noteOf = (o) => (o.key === 'bokeh' && capable.length ? `做得到的手機：${capable.join('、')}` : o.note);
   return html`<div class="readout menu-anchor">
     <span class="label">錄影規格</span>
     <button class="picker" aria-haspopup="menu" aria-expanded=${open} onClick=${onToggle}>
-      <span class="picker-value">${r.label}${g !== 'none' && html`<small>${g} 框</small>`}${s.bokeh && html`<small>背景虛化</small>`}${s.lockExposure && html`<small>鎖定曝光</small>`}</span>
+      <span class="picker-value">${r.label}${g !== 'none' && html`<small>${g} 框</small>`}${s.lockExposure && html`<small>鎖定曝光</small>`}</span>
       <span class="caret" aria-hidden="true"></span>
     </button>
     <span class="readout-note">
@@ -606,16 +593,10 @@ function SpecControl({ state, open, recording, onToggle, run }) {
           onClick=${() => run(() => post('/api/settings', { [o.key]: !s[o.key] }))}
         >
           <span>${o.label}</span>
-          <small class="toggle-note">${noteOf(o)}</small>
+          <small class="toggle-note">${o.note}</small>
         </button>`,
       )}
-      ${portraitNotes(state).map(
-        (n) => html`<p class="menu-hint warn">
-          ${n.text}${n.fix &&
-          !recording &&
-          html` <button class="btn-link" onClick=${() => run(() => post('/api/settings', { resolution: n.fix.id }))}>改成 ${n.fix.label}</button>`}
-        </p>`,
-      )}
+      ${portraitNotes(state).map((n) => html`<p class="menu-hint warn">${n}</p>`)}
     </div>`}
   </div>`;
 }
@@ -764,14 +745,6 @@ function Bay({ state, device, letter, t, compact, onStart, onStop, onRemove, not
   const bitrate = resolutionOf(state).bitrate;
   const minutesLeft = st.freeBytes != null ? Math.floor(st.freeBytes / (bitrate / 8) / 60) : null;
   const locked = recording && active.spec.lockExposure && device.camera?.lockExposure;
-  // 背景虛化開著卻沒套用時，直接在這台的監看區下方說原因（舊版 App 沒有回報，選單裡會提醒更新）
-  const limit = bokehLimit(state, device.camera);
-  let bokehNote = null;
-  if (state.settings.bokeh && device.online && device.camera && st.cameraReady && !st.bokeh) {
-    if (!limit) bokehNote = '這台做不到背景虛化';
-    else if (resolutionOf(state).width > limit.width) bokehNote = `背景虛化要 ${limit.label} 以下才會套用`;
-    else bokehNote = '背景虛化沒有套用';
-  }
 
   return html`
     <section class=${`bay ${recording ? 'rec' : ''} ${device.online ? '' : 'offline'}`}>
@@ -834,8 +807,7 @@ function Bay({ state, device, letter, t, compact, onStart, onStop, onRemove, not
               </button>
               <button class="btn-link" onClick=${() => setSelectedId(null)}>回到即時畫面</button>`
           : html`<span>
-              即時畫面${st.orientation ? `・${ORIENTATION_LABEL[st.orientation]}` : ''}${st.bokeh ? '・背景虛化' : ''}${locked ? '・鎖定曝光' : ''}
-              ${bokehNote && html`<span class="caption-warn">・${bokehNote}</span>`}
+              即時畫面${st.orientation ? `・${ORIENTATION_LABEL[st.orientation]}` : ''}${locked ? '・鎖定曝光' : ''}
             </span>`}
       </div>
       ${selected &&
@@ -897,18 +869,124 @@ function LiveView({ device }) {
     ${fresh ? html`<span class="live-badge">即時</span>` : html`<div class="monitor-empty">${reason}</div>`}`;
 }
 
-// 裁剪：在監看區播放時設定開頭和結尾。同一段的每台手機一起裁，另存成檔名加 _1 的新檔，原本的不動。
+// 裁剪：在監看區播放時，拖時間軸上的兩個把手設定開頭和結尾。同一段的每台手機一起裁，另存成檔名加 _1 的新檔，原本的不動。
 // 用 ffmpeg 串流複製、不重新壓縮，所以開頭只能從關鍵影格開始（手機大多每 1 秒一個）。
 const fmtSec = (s) => `${fmtClock(s * 1000)}.${Math.floor((s % 1) * 10)}`;
+const THUMBS = 10;
+
+// 時間軸上的縮圖：用一個看不到的 video 依序跳到幾個位置，畫成小圖。抓不到就只顯示時間軸。
+function useThumbnails(fileId) {
+  const [thumbs, setThumbs] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    const v = document.createElement('video');
+    v.muted = true;
+    v.preload = 'auto';
+    v.src = `/media/${fileId}`;
+    const wait = (event) =>
+      Promise.race([new Promise((resolve) => v.addEventListener(event, resolve, { once: true })), new Promise((resolve) => setTimeout(resolve, 4000))]);
+    (async () => {
+      await wait('loadedmetadata');
+      if (!v.videoWidth) return;
+      const canvas = document.createElement('canvas');
+      canvas.height = 72;
+      canvas.width = Math.round((72 * v.videoWidth) / v.videoHeight);
+      const out = [];
+      for (let i = 0; i < THUMBS && !cancelled; i++) {
+        v.currentTime = ((i + 0.5) / THUMBS) * v.duration;
+        await wait('seeked');
+        canvas.getContext('2d').drawImage(v, 0, 0, canvas.width, canvas.height);
+        out.push(canvas.toDataURL('image/jpeg', 0.7));
+        if (!cancelled) setThumbs([...out]);
+      }
+    })().catch(() => {});
+    return () => {
+      cancelled = true;
+      v.removeAttribute('src');
+      v.load();
+    };
+  }, [fileId]);
+  return thumbs;
+}
 
 function TrimBar({ state, file, videoRef, onClose, onDone, notify }) {
-  const duration = (file.durationMs ?? 0) / 1000;
+  const duration = Math.max(1, (file.durationMs ?? 0) / 1000);
   const [[start, end], setRange] = useState([0, duration]);
+  const range = useRef([0, duration]); // 連續拖拉、按鍵時畫面還沒更新，從這裡拿最新的範圍
+  const [now, setNow] = useState(0); // 播放頭
   const [busy, setBusy] = useState(false);
+  const track = useRef(null);
+  const drag = useRef(null); // 正在拖的：'start'、'end'，或在時間軸上拖播放頭 'seek'
+  const stopAt = useRef(null); // 「播放這段」播到結尾就停
+  const thumbs = useThumbnails(file.id);
   const angles = state.files.filter((g) => g.takeId === file.takeId && g.state === 'ready').length;
-  const here = () => videoRef.current?.currentTime ?? 0;
-  const seek = (s) => {
-    if (videoRef.current) videoRef.current.currentTime = s;
+  const pct = (s) => `${(Math.min(duration, Math.max(0, s)) / duration) * 100}%`;
+
+  // 播放頭跟著影片走，播放中每一格都更新；暫停時數值沒變就不會重畫
+  useEffect(() => {
+    let raf = 0;
+    const loop = () => {
+      const v = videoRef.current;
+      if (v) {
+        setNow(v.currentTime);
+        if (stopAt.current != null && v.currentTime >= stopAt.current) {
+          v.pause();
+          stopAt.current = null;
+        }
+      }
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  // 拖把手時監看區跟著跳到那一格，看得到從哪裡開始、到哪裡結束
+  const seekTo = (s) => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.pause();
+    stopAt.current = null;
+    v.currentTime = s;
+  };
+  const move = (which, s) => {
+    const [from, to] = range.current;
+    if (which === 'start') {
+      s = Math.max(0, Math.min(s, to - 1));
+      range.current = [s, to];
+    } else if (which === 'end') {
+      s = Math.min(duration, Math.max(s, from + 1));
+      range.current = [from, s];
+    }
+    setRange(range.current);
+    seekTo(s);
+  };
+  const timeAt = (x) => {
+    const r = track.current.getBoundingClientRect();
+    return ((x - r.left) / r.width) * duration;
+  };
+  const onDown = (e) => {
+    if (busy) return;
+    drag.current = e.target.closest('[data-handle]')?.dataset.handle ?? 'seek';
+    track.current.setPointerCapture(e.pointerId);
+    move(drag.current, timeAt(e.clientX));
+  };
+  const onMove = (e) => drag.current && move(drag.current, timeAt(e.clientX));
+  const onUp = () => (drag.current = null);
+  // 鍵盤：方向鍵每次 0.1 秒，按著 Shift 每次 1 秒
+  const onKey = (which) => (e) => {
+    const step = e.shiftKey ? 1 : 0.1;
+    const cur = range.current[which === 'start' ? 0 : 1];
+    const next = { ArrowLeft: cur - step, ArrowRight: cur + step, Home: 0, End: duration }[e.key];
+    if (next === undefined) return;
+    e.preventDefault();
+    move(which, next);
+  };
+  const playRange = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.currentTime = start;
+    stopAt.current = end;
+    v.play();
   };
   const submit = async () => {
     setBusy(true);
@@ -931,16 +1009,39 @@ function TrimBar({ state, file, videoRef, onClose, onDone, notify }) {
     </div>`;
   }
   return html`<div class="trim" role="group" aria-label="裁剪頭尾">
-    <div class="trim-points">
-      <span class="label">開頭</span>
-      <button class="trim-time" title="跳到這裡" onClick=${() => seek(start)}>${fmtSec(start)}</button>
-      <button class="btn-ghost btn-small" onClick=${() => setRange([Math.max(0, Math.min(here(), end - 1)), end])}>設成目前位置</button>
-      <span class="label">結尾</span>
-      <button class="trim-time" title="跳到這裡" onClick=${() => seek(end)}>${fmtSec(end)}</button>
-      <button class="btn-ghost btn-small" onClick=${() => setRange([start, Math.min(duration, Math.max(here(), start + 1))])}>設成目前位置</button>
+    <div class="trim-head">
+      <button class="btn-ghost btn-small" disabled=${busy} onClick=${playRange} title="從開頭播到結尾">▶ 播放這段</button>
+      <span class="trim-readout">開頭 <b>${fmtSec(start)}</b>・結尾 <b>${fmtSec(end)}</b>・留下 <b>${fmtSec(end - start)}</b></span>
+    </div>
+    <div class="trim-track" ref=${track} onPointerDown=${onDown} onPointerMove=${onMove} onPointerUp=${onUp} onPointerCancel=${onUp}>
+      <div class="trim-strip">
+        ${Array.from({ length: THUMBS }, (_, i) => html`<span style=${thumbs[i] ? { backgroundImage: `url(${thumbs[i]})` } : undefined}></span>`)}
+      </div>
+      <div class="trim-shade" style=${{ left: 0, width: pct(start) }}></div>
+      <div class="trim-shade" style=${{ left: pct(end), right: 0 }}></div>
+      <div class="trim-window" style=${{ left: pct(start), width: pct(end - start) }}></div>
+      <div class="trim-playhead" style=${{ left: pct(now) }}></div>
+      ${[
+        ['start', '開頭', start],
+        ['end', '結尾', end],
+      ].map(
+        ([which, label, s]) => html`<div
+          class=${`trim-handle ${which}`}
+          data-handle=${which}
+          style=${{ left: pct(s) }}
+          role="slider"
+          tabindex="0"
+          aria-label=${label}
+          aria-valuemin="0"
+          aria-valuemax=${duration.toFixed(1)}
+          aria-valuenow=${s.toFixed(1)}
+          aria-valuetext=${fmtSec(s)}
+          onKeyDown=${onKey(which)}
+        ></div>`,
+      )}
     </div>
     <p class="hint">
-      留下 ${fmtSec(end - start)}${angles > 1 ? `，這一段的 ${angles} 支影片一起裁` : ''}，另存成檔名後面加 _1 的新檔，原本的不動。
+      拖兩邊的把手設定開頭和結尾，拖的時候上面會跳到那一格；點時間軸可以跳到那裡。${angles > 1 ? `這一段的 ${angles} 支影片會一起裁，` : ''}另存成檔名後面加 _1 的新檔，原本的不動。
       不重新壓縮，畫質不變；開頭會從前一個關鍵影格開始，通常最多早 1 秒。
     </p>
     <div class="trim-actions">
@@ -964,7 +1065,7 @@ function ZoomControl({ device, run }) {
   const toPos = (z) => Math.round((Math.log(z / min) / Math.log(max / min)) * 1000);
   const fromPos = (pos) => Math.min(max, Math.max(min, roundZoom(min * Math.pow(max / min, pos / 1000))));
   const send = (z) => run(() => post(`/api/devices/${device.id}/zoom`, { ratio: z }));
-  // 手機會把倍率限制在它現在的範圍內（背景虛化時範圍比較小），顯示的是手機實際用的倍率
+  // 手機會把倍率限制在它能用的範圍內，顯示的是手機實際用的倍率
   const current = Math.min(max, Math.max(min, device.zoom ?? 1));
   const shown = dragging ?? current;
   return html`<div class="zoom">
@@ -1036,7 +1137,7 @@ function Clip({ f, state, selected, onPlay, onTrash, selecting, picked, onPick, 
   else if (f.state === 'recording') detail = `邊錄邊傳，已傳 ${fmtBytes(f.receivedBytes)}${speed}`;
   else if (f.state === 'finishing') detail = progress >= 1 ? '驗證檔案中' : `收尾傳輸 ${Math.floor((progress ?? 0) * 100)}%${speed}`;
   else if (f.state === 'ready') {
-    detail = `${fmtClock(f.durationMs ?? 0)}・${fmtBytes(f.size)}${actual ? `・${actual}` : ''}${f.orientation === 'portrait' ? '・直式' : ''}${f.bokeh ? '・背景虛化' : ''}${f.trimmedFrom ? '・裁剪過' : ''}${STOP_NOTE[f.stopReason] ?? ''}`;
+    detail = `${fmtClock(f.durationMs ?? 0)}・${fmtBytes(f.size)}${actual ? `・${actual}` : ''}${f.orientation === 'portrait' ? '・直式' : ''}${f.trimmedFrom ? '・裁剪過' : ''}${STOP_NOTE[f.stopReason] ?? ''}`;
   } else detail = f.error || '錄影失敗';
 
   // 同一次錄影的另一台，顯示開始時間差多少

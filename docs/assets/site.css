@@ -188,6 +188,7 @@ figcaption { margin-top: 14px; font-size: 14px; color: var(--muted); text-align:
 .section-lead { max-width: 46em; margin: 16px 0 0; font-size: 17px; color: var(--soft); }
 .figure { margin: 40px 0 0; }
 .figure img { display: block; width: 100%; border-radius: 14px; border: 1px solid var(--line); }
+.figure.small img { max-width: 540px; margin-inline: auto; }
 .split { display: grid; grid-template-columns: 1.05fr 1fr; gap: 48px; align-items: center; }
 .split.reverse { grid-template-columns: 1fr 1.05fr; }
 @media (max-width: 900px) { .split, .split.reverse { grid-template-columns: 1fr; gap: 28px; } }

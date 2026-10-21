@@ -870,11 +870,6 @@ kbd {
   stroke: var(--red);
 }
 
-/* 監看區下方的提醒，例如背景虛化沒有套用 */
-.caption-warn {
-  color: var(--amber);
-}
-
 /* 裁剪頭尾 */
 .trim {
   margin: -2px 16px 12px;
@@ -884,24 +879,103 @@ kbd {
   background: var(--panel-hi);
 }
 
-.trim-points {
+.trim-head {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px 10px;
+  gap: 8px 14px;
 }
 
-.trim-time {
-  padding: 2px 8px;
-  border: 1px solid var(--line-hi);
-  border-radius: 3px;
-  background: var(--bg);
+.trim-readout {
   font-family: var(--mono);
-  font-size: 13px;
+  font-size: 12px;
+  color: var(--muted);
 }
 
-.trim-time:hover {
-  border-color: var(--cyan);
+.trim-readout b {
+  font-weight: 500;
+  color: var(--text);
+}
+
+/* 時間軸：縮圖條上，兩個把手中間是要留下的範圍，外面調暗 */
+.trim-track {
+  position: relative;
+  height: 52px;
+  margin: 12px 8px 4px;
+  border-radius: 4px;
+  background: var(--bg);
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+}
+
+.trim-strip {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  overflow: hidden;
+  border-radius: 4px;
+}
+
+.trim-strip span {
+  flex: 1;
+  background: center / cover no-repeat;
+}
+
+.trim-shade {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(10, 11, 13, 0.72);
+  pointer-events: none;
+}
+
+.trim-window {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-top: 2px solid var(--amber);
+  border-bottom: 2px solid var(--amber);
+  pointer-events: none;
+}
+
+.trim-playhead {
+  position: absolute;
+  top: -5px;
+  bottom: -5px;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--text);
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.7);
+  pointer-events: none;
+}
+
+.trim-handle {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 14px;
+  margin-left: -7px;
+  border-radius: 4px;
+  background: var(--amber);
+  cursor: ew-resize;
+}
+
+/* 把手上的兩條握把紋 */
+.trim-handle::after {
+  content: '';
+  position: absolute;
+  top: 34%;
+  bottom: 34%;
+  left: 4px;
+  width: 6px;
+  border-left: 2px solid rgba(10, 11, 13, 0.55);
+  border-right: 2px solid rgba(10, 11, 13, 0.55);
+}
+
+.trim-handle:focus-visible {
+  outline-offset: 1px;
 }
 
 .trim .hint {
@@ -1139,7 +1213,7 @@ kbd {
   z-index: 15;
   display: grid;
   min-width: 280px;
-  max-height: 70vh;
+  max-height: calc(100vh - 110px); /* 選單從頂列往下開，用滿下面的空間，筆電上最後幾項才不會被切掉 */
   overflow-y: auto;
   padding: 6px;
   border: 1px solid var(--line-hi);

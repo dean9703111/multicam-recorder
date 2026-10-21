@@ -45,11 +45,11 @@ Windows 上請改用 `cd android` 再 `gradlew.bat :app:assembleDebug`（`JAVA_H
 
 ## 不用手機也能測試
 
-`tools/fake-phone.ts` 是模擬手機，會用 ffmpeg 產生測試影片：流動的漸層加上一圈刻度，白點每 3 秒繞一圈，下方有音量表，聲音是每秒嗶一聲。兩支模擬手機同時開始時，白點的位置和嗶聲都會對齊；顏色依手機名稱而定，方便分辨。它也會送即時畫面、支援 1× 到 4× 的變焦，加上 `--orientation portrait` 就是直拿的手機，加上 `--bokeh-max 1920x1080` 就是做得到背景虛化（最高 1080p）的手機，走的流程和真正的手機完全一樣（需要先安裝 ffmpeg，例如 `brew install ffmpeg`）。虛化時模擬手機只模糊背景的漸層，變焦範圍變成 1× 到 3×，和 Pixel 11 Pro 一樣。啟動電腦端後，另外開兩個終端機：
+`tools/fake-phone.ts` 是模擬手機，會用 ffmpeg 產生測試影片：流動的漸層加上一圈刻度，白點每 3 秒繞一圈，下方有音量表，聲音是每秒嗶一聲。兩支模擬手機同時開始時，白點的位置和嗶聲都會對齊；顏色依手機名稱而定，方便分辨。它也會送即時畫面、支援 1× 到 4× 的變焦，加上 `--orientation portrait` 就是直拿的手機，走的流程和真正的手機完全一樣（需要先安裝 ffmpeg，例如 `brew install ffmpeg`）。啟動電腦端後，另外開兩個終端機：
 
 ```sh
 npm run fake-phone -- --model "ASUS_AI2203" --tone 440 --mic "外接 USB（USB Audio）"
-npm run fake-phone -- --model "Pixel 11 Pro" --tone 660 --mic "手機內建" --orientation portrait --bokeh-max 1920x1080
+npm run fake-phone -- --model "Pixel 11 Pro" --tone 660 --mic "手機內建" --orientation portrait
 ```
 
 測試用的環境變數：
@@ -65,34 +65,30 @@ npm run fake-phone -- --model "Pixel 11 Pro" --tone 660 --mic "手機內建" --o
 
 ## 自動測試
 
-`npm run smoke-test` 會自己開一個伺服器和兩支模擬手機（一支橫拿、一支直拿，直拿的做得到背景虛化），把配對、即時畫面、變焦、人像設定、兩支同時錄影、裁剪、傳檔驗證、專案、標記、移到垃圾桶、刪檔同步、改名、移除手機都跑一遍，大約 15 秒。測試資料放在暫存資料夾，跑完就清掉；只有兩支幾秒鐘的測試影片會留在系統的垃圾桶裡。
+`npm run smoke-test` 會自己開一個伺服器和兩支模擬手機（一支橫拿、一支直拿），把配對、即時畫面、變焦、人像設定、兩支同時錄影、裁剪、傳檔驗證、專案、標記、移到垃圾桶、刪檔同步、改名、移除手機都跑一遍，大約 15 秒。測試資料放在暫存資料夾，跑完就清掉；只有兩支幾秒鐘的測試影片會留在系統的垃圾桶裡。
 
 GitHub Actions 每次推送都會在 Windows、macOS、Linux 上各跑一次（[`.github/workflows/ci.yml`](../.github/workflows/ci.yml)），Windows 上也會確認中文的資料夾路徑、NTFS 偵測和資源回收筒。
 
 ## 人像設定
 
-臉部優先、背景虛化、鎖定曝光都只是在相機的 request 上設定，交給手機的相機處理，不經過 App 自己的影像處理，所以畫質不變（[`CameraRecorder.kt`](../android/app/src/main/kotlin/dev/multicam/recorder/CameraRecorder.kt)）：
+臉部優先、鎖定曝光都只是在相機的 request 上設定，交給手機的相機處理，不經過 App 自己的影像處理，所以畫質不變（[`CameraRecorder.kt`](../android/app/src/main/kotlin/dev/multicam/recorder/CameraRecorder.kt)）：
 
 - **臉部優先**：`CONTROL_MODE_USE_SCENE_MODE`＋`CONTROL_SCENE_MODE_FACE_PRIORITY`。有臉部偵測的手機都會在 `CONTROL_AVAILABLE_SCENE_MODES` 列出它，而且自動曝光、白平衡、對焦照常運作。
-- **背景虛化**：`CONTROL_MODE_USE_EXTENDED_SCENE_MODE`＋`CONTROL_EXTENDED_SCENE_MODE_BOKEH_CONTINUOUS`（Android 11 起）。手機在 `CONTROL_AVAILABLE_EXTENDED_SCENE_MODE_CAPABILITIES` 回報最大串流尺寸和變焦範圍；預覽和錄影都在上限內才套用，所以錄影解析度超過上限時就不虛化，而不是降解析度。虛化時變焦取範圍內最接近的值，關掉後回到原本要求的倍率。它和臉部優先都是場景模式，只能二選一，以虛化為準。
 - **鎖定曝光和白平衡**：`CONTROL_AE_LOCK`、`CONTROL_AWB_LOCK` 只加在錄影的 request 上，開始錄影的那一刻鎖住，停止後恢復自動。它不影響 session，切換時相機不用重開。
-- Pixel 的 `sceneMode`、`extendedSceneMode` 是 session 參數（`availableSessionKeys`），所以建 session 時用 `SessionConfiguration.sessionParameters` 先帶上；臉部優先、背景虛化改了就重建 session，和改解析度一樣只在沒錄影時做。
-- 開著背景虛化卻建不起 session 的手機，會自動關掉虛化再建一次，並回報沒有套用。
-- 開始錄影時，電腦用手機最近一次回報的狀態記下這支有沒有虛化（`FileEntry.bokeh`），清單上會標「背景虛化」；開著卻沒套用時，監看區下方會寫原因。
+- Pixel 的 `sceneMode` 是 session 參數（`availableSessionKeys`），所以建 session 時用 `SessionConfiguration.sessionParameters` 先帶上；臉部優先改了就重建 session，和改解析度一樣只在沒錄影時做。
+- 背景虛化（`CONTROL_EXTENDED_SCENE_MODE_BOKEH_CONTINUOUS`）在 v0.4.0、v0.4.1 試做過，v0.4.2 拿掉：只有少數手機有，還有解析度上限（Pixel 11 Pro 只到 1080p），開了之後變焦範圍也會變小，效果不穩定。
 
 想知道某支手機做得到哪些，接上 USB 後用唯讀的 dumpsys 查（不會改手機的設定）：
 
 ```sh
-adb shell dumpsys media.camera | grep -A3 "availableSceneModes\|availableExtendedSceneModeMaxSizes\|availableExtendedSceneModeZoomRatioRanges\|aeLockAvailable\|awbLockAvailable"
+adb shell dumpsys media.camera | grep -A3 "availableSceneModes\|aeLockAvailable\|awbLockAvailable"
 ```
 
-`availableSceneModes` 裡有 `1` 就是做得到臉部優先。`availableExtendedSceneModeMaxSizes` 是每三個數字一組（模式、寬、高），模式 `2` 是連續背景虛化，例如 Pixel 11 Pro 是 `2 1920 1080`；`availableExtendedSceneModeZoomRatioRanges` 依同樣的順序列出變焦範圍（不含關閉的那組）。App 開著時，同一個指令輸出的「Last request sent」也看得到實際送出的 `android.control.mode`、`sceneMode`、`aeLock`。
-
-Android 模擬器的相機做得到臉部優先和鎖定曝光，但沒有連續背景虛化，背景虛化要用實機測。
+`availableSceneModes` 裡有 `1` 就是做得到臉部優先。App 開著時，同一個指令輸出的「Last request sent」也看得到實際送出的 `android.control.mode`、`sceneMode`、`aeLock`。Android 模擬器的相機兩個都做得到。
 
 ## 裁剪
 
-控制台的「裁剪…」呼叫 `POST /api/takes/:takeId/trim`（`{ fileId, start, end }`，秒數是在 fileId 那支影片上的位置），由電腦端的 `trimTake`（[`server/server.ts`](../server/server.ts)）處理：
+控制台的「裁剪…」是一條時間軸（`server/public/app.js` 的 `TrimBar`）：縮圖用一個看不到的 video 依序跳到 10 個位置畫出來，兩個把手（也能用方向鍵微調）設定開頭和結尾，拖的時候監看區跟著跳到那一格，「播放這段」會播到結尾就停。按下「裁剪」呼叫 `POST /api/takes/:takeId/trim`（`{ fileId, start, end }`，秒數是在 fileId 那支影片上的位置），由電腦端的 `trimTake`（[`server/server.ts`](../server/server.ts)）處理：
 
 - 用電腦上的 ffmpeg 串流複製（`-c copy`），不重新壓縮，所以畫質不變、幾 GB 的檔案也只要幾秒。啟動時會找 `ffmpeg` 和 `ffprobe`，找不到時 `state.ffmpeg` 是 false，網頁會提示怎麼裝。
 - 串流複製只能從關鍵影格開始，所以先用 `ffprobe -read_intervals` 只讀開頭附近的封包，找到開頭（含）之前最近的關鍵影格，從那裡裁。手機的 MediaRecorder 大多每 1 秒一個關鍵影格、沒有 B 影格，結尾可以照設定的時間裁。
@@ -165,7 +161,7 @@ llms.txt                   給 AI 工具讀的專案摘要
 ## 更新 README 的圖
 
 - **示意圖**（how-it-works、pairing、phone-app、phone-app-portrait、use-cases、long-short、network、social-preview）的原稿都在 [`docs/mockups.html`](mockups.html)。在專案根目錄執行 `python3 -m http.server`，打開 <http://localhost:8000/docs/mockups.html>，把每個 section 各自截圖存到 `docs/images/`。
-- **控制台的截圖**（console、spec-guide、portrait-settings、trim、select-trash、setup）是用模擬手機實際操作截的；portrait-settings 是直拿那支加上 `--bokeh-max 1920x1080`，在 1080p、背景虛化和鎖定曝光都打開時錄影中截的。電腦的硬碟空間不夠時，控制台上方會出現提醒，截圖前可以先把 `.alerts` 藏起來。
+- **控制台的截圖**（console、spec-guide、portrait-settings、trim、select-trash、setup）是用模擬手機實際操作截的；portrait-settings 是規格選單「人像」那一段的放大特寫：視窗開成 2160×1140、`html` 設 `zoom: 1.5` 再截，版面和 1440×760 一樣但比較清楚。電腦的硬碟空間不夠時，控制台上方會出現提醒，截圖前可以先把 `.alerts` 藏起來。
 - 截圖裡不要出現自己電腦的使用者名稱或私人路徑，例如錄影資料夾的完整路徑。
 - `social-preview.png`（1280×640）是分享連結時顯示的預覽圖，要到 GitHub 專案的 **Settings → General → Social preview** 手動上傳。
 

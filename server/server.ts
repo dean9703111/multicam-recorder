@@ -120,9 +120,7 @@ function onDeviceConnection(ws: WebSocket, token: string | null): void {
 // 手機回報的相機能力；格式不對的項目當成做不到
 function cameraOf(c: Partial<CameraCapabilities> | undefined): CameraCapabilities | null {
   if (!c || typeof c !== 'object') return null;
-  const max = c.bokehMax;
-  const valid = Array.isArray(max) && max.length === 2 && max.every((n) => Number.isFinite(n) && n > 0);
-  return { facePriority: c.facePriority === true, bokehMax: valid ? [max[0], max[1]] : null, lockExposure: c.lockExposure === true };
+  return { facePriority: c.facePriority === true, lockExposure: c.lockExposure === true };
 }
 
 function onDeviceMessage(d: Device, l: Live, m: DeviceMessage): void {
@@ -156,8 +154,6 @@ function onDeviceMessage(d: Device, l: Live, m: DeviceMessage): void {
           f.videoHeight = m.height;
         }
         if (m.orientation === 'portrait' || m.orientation === 'landscape') f.orientation = m.orientation;
-        // 手機在狀態裡回報背景虛化有沒有套用，錄影中不會變，開始時記下來，錄完才看得出這支有沒有虛化
-        f.bokeh = l.status.bokeh === true;
         save();
       }
       break;
@@ -244,7 +240,6 @@ function currentSpec(): RecordingSpec {
     warnBeforeSec: WARN_BEFORE_SEC,
     guide: db.settings.guide,
     facePriority: db.settings.facePriority,
-    bokeh: db.settings.bokeh,
     lockExposure: db.settings.lockExposure,
   };
 }
@@ -739,7 +734,6 @@ async function trimTake(takeId: string, b: { fileId?: unknown; start?: unknown; 
         videoWidth: f.videoWidth,
         videoHeight: f.videoHeight,
         orientation: f.orientation,
-        bokeh: f.bokeh,
         trimmedFrom: f.id,
       };
       db.files.push(entry);
@@ -852,7 +846,6 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
         guide?: Guide;
         storageDir?: string;
         facePriority?: boolean;
-        bokeh?: boolean;
         lockExposure?: boolean;
       }>(req);
       if (b.resolution !== undefined) {
@@ -865,7 +858,7 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
         db.settings.guide = b.guide; // 只影響預覽，錄影中也可以改
       }
       // 人像設定會改變錄到的畫面，跟解析度一樣錄影中不能改
-      const portrait = (['facePriority', 'bokeh', 'lockExposure'] as const).filter((k) => b[k] !== undefined);
+      const portrait = (['facePriority', 'lockExposure'] as const).filter((k) => b[k] !== undefined);
       for (const k of portrait) {
         if (typeof b[k] !== 'boolean') throw new HttpError(400, '人像設定只能是開或關');
         if (isRecording()) throw new HttpError(409, '錄影中不能改人像設定，停止後再調整');

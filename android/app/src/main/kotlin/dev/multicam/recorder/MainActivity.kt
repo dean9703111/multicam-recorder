@@ -136,7 +136,6 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
         uploader = Uploader(store) { main.post { render() } }
         val capabilities = JSONObject()
             .put("facePriority", camera.facePrioritySupported)
-            .put("bokehMax", camera.bokehMaxSize?.let { JSONArray().put(it.width).put(it.height) } ?: JSONObject.NULL)
             .put("lockExposure", camera.lockSupported)
         link = ServerLink(store, this, capabilities)
 
@@ -323,11 +322,9 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
         guideView.setGuide(spec.optString("guide", "none"))
         val requested = sizeOf(spec.optString("resolution")) ?: return
         videoSize = camera.videoSize(requested.width, requested.height)
-        if (recording == null) camera.configure(videoSize, sceneOf(spec))
+        // 人像設定；舊版的電腦沒有送，就跟以前一樣不開
+        if (recording == null) camera.configure(videoSize, spec.optBoolean("facePriority"))
     }
-
-    // 人像設定裡會改場景模式的部分；舊版的電腦沒有送，就跟以前一樣都不開
-    private fun sceneOf(spec: JSONObject) = CameraRecorder.Scene(spec.optBoolean("facePriority"), spec.optBoolean("bokeh"))
 
     private fun startRecording(msg: JSONObject) {
         val fileId = msg.getString("fileId")
@@ -346,7 +343,7 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
         recording = rec // 從這裡開始鎖住方向，下面算的錄影方向才不會變
         val delay = (link.toLocalTime(msg.getLong("startAt")) - System.currentTimeMillis()).coerceAtLeast(0)
         val hint = camera.orientationHint(displayRotationDegrees())
-        camera.start(file, spec, sceneOf(msg), hint, SystemClock.uptimeMillis() + delay) { result ->
+        camera.start(file, spec, msg.optBoolean("facePriority"), hint, SystemClock.uptimeMillis() + delay) { result ->
             result.onSuccess { started ->
                 rec.startedAt = started.wallClockMs
                 recordingMic = started.mic
@@ -517,8 +514,7 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
                 .put("audioInput", micLabel())
                 .put("zoom", camera.zoom.toDouble())
                 .put("zoomRange", JSONArray().put(camera.zoomRange.lower.toDouble()).put(camera.zoomRange.upper.toDouble()))
-                .put("orientation", orientationName())
-                .put("bokeh", camera.bokehActive),
+                .put("orientation", orientationName()),
             queueIfOffline = false,
         )
     }
