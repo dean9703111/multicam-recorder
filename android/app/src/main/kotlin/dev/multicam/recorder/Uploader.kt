@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit
 
 // 照 server/protocol.ts 的流程把影片傳到電腦：錄影中就邊錄邊傳，停止後 finish → 分段雜湊 → verify → 補傳。
 // 跑在自己的執行緒，連不上就每 3 秒重試，App 重開後會從電腦已收到的位置繼續。
-// language：送給電腦的 Accept-Language，電腦的錯誤訊息才會用手機的語言
+// language：送給電腦的 Accept-Language，電腦的錯誤訊息才會和 App 畫面用同一種語言
 class Uploader(private val store: Store, private val language: () -> String, private val onChange: () -> Unit) {
     private val client = OkHttpClient.Builder()
         .connectTimeout(5, TimeUnit.SECONDS)
@@ -39,8 +39,15 @@ class Uploader(private val store: Store, private val language: () -> String, pri
         persist()
     }
 
+    @Volatile private var running = true
+
     fun start() {
         Thread(::loop, "uploader").apply { isDaemon = true }.start()
+    }
+
+    // 畫面關掉或被系統重建時停下來；新的畫面會從存檔的進度接著傳，兩個同時傳同一支影片會互相打架
+    fun stop() {
+        running = false
     }
 
     fun add(job: UploadJob) {
@@ -75,13 +82,14 @@ class Uploader(private val store: Store, private val language: () -> String, pri
     private fun persist() = store.saveJobs(jobs)
 
     private fun loop() {
-        while (true) {
+        while (running) {
             // 被電腦移除或還沒配對時先暫停，重新配對後會從電腦已收到的位置接著傳
             if (store.token == null) {
                 Thread.sleep(1000)
                 continue
             }
             for (job in jobs) {
+                if (!running) return
                 if (System.currentTimeMillis() < job.retryAt) continue
                 try {
                     if (step(job)) {
@@ -213,8 +221,9 @@ class Uploader(private val store: Store, private val language: () -> String, pri
     }
 }
 
+// 數字和單位之間用不換行空格，對話框裡才不會把「2 MB」拆成兩行
 fun formatBytes(n: Long): String = when {
-    n >= 1_000_000_000 -> "%.1f GB".format(n / 1e9)
-    n >= 1_000_000 -> "${n / 1_000_000} MB"
-    else -> "${n / 1000} KB"
+    n >= 1_000_000_000 -> "%.1f\u00A0GB".format(n / 1e9)
+    n >= 1_000_000 -> "${n / 1_000_000}\u00A0MB"
+    else -> "${n / 1000}\u00A0KB"
 }

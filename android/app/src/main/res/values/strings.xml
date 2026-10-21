@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 英文是預設（手機是其他語言時也用英文）；繁體中文在 values-zh。直拿時比較窄的字在 values-port、values-zh-port。 -->
+<!-- 英文是預設（手機是其他語言時也用英文）；繁體中文在 values-b+zh+Hant。直拿時比較窄的字在 values-port、values-b+zh+Hant-port。 -->
 <resources>
+    <!-- 這份文字的語言：告訴電腦用哪種語言回訊息，才會和 App 畫面上的一致 -->
+    <string name="language_tag" translatable="false">en</string>
     <string name="app_name">MultiCam</string>
     <string name="scan">Scan QR code</string>
     <string name="dim">Dim screen</string>
@@ -25,7 +27,7 @@
 
     <string name="timer_starting">Starting…</string>
     <string name="timer_rec">● REC %1$s / %2$s</string>
-    <string name="timer_rec_warn">● REC %1$s / %2$s · %3$s left</string>
+    <string name="timer_rec_warn">● REC %1$s · %2$s left</string>
     <string name="resolution_fallback">This phone can\'t record %1$d×%2$d, so it records %3$d×%4$d instead</string>
 
     <!-- 錄影失敗：手機上顯示，同時用代碼回報給電腦 -->

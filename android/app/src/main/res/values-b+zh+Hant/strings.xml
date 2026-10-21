@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 繁體中文；手機是任何一種中文（台灣、香港、中國）都用這份 -->
+<!-- 繁體中文：台灣、香港、澳門的手機用這份。不能只寫 values-zh：Android 7.0 起沒寫字體的 zh 會被當成簡體，
+     台灣的手機反而顯示英文。簡體中文的手機顯示英文，也可以在系統設定替 App 選中文。 -->
 <resources>
+    <string name="language_tag" translatable="false">zh-TW</string>
     <string name="app_name">多機錄影</string>
     <string name="scan">掃描 QR Code</string>
     <string name="dim">調暗螢幕</string>
@@ -25,7 +27,7 @@
 
     <string name="timer_starting">準備開始…</string>
     <string name="timer_rec">● REC %1$s / %2$s</string>
-    <string name="timer_rec_warn">● REC %1$s / %2$s　剩 %3$s</string>
+    <string name="timer_rec_warn">● REC %1$s　剩 %2$s</string>
     <string name="resolution_fallback">這支手機不支援 %1$d×%2$d，改用 %3$d×%4$d</string>
 
     <string name="fail_busy">這支手機已經在錄影</string>

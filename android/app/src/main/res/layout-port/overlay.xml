@@ -73,7 +73,7 @@
             android:paddingHorizontal="14dp"
             android:paddingVertical="6dp"
             android:textColor="#ECE8E1"
-            android:textSize="22sp"
+            android:textSize="20sp"
             android:visibility="gone" />
     </LinearLayout>
 

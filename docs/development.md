@@ -100,11 +100,11 @@ adb shell dumpsys media.camera | grep -A3 "availableSceneModes\|aeLockAvailable\
 
 ## 介面語言（繁體中文、英文）
 
-控制台、伺服器的訊息、配對網頁和手機 App 都有繁體中文和英文。中文（不分地區）一律用繁體中文，其他語言一律用英文。
+控制台、伺服器的訊息、配對網頁和手機 App 都有繁體中文和英文。控制台、伺服器和配對網頁遇到中文（不分地區）一律用繁體中文，其他語言一律用英文；手機 App 只有繁體中文的手機顯示中文（見下面）。
 
 - **控制台**：文字集中在 [`server/public/i18n.js`](../server/public/i18n.js)，用 `tr(key, params)` 取用；句子裡有按鈕或標籤的寫成函式，回傳 htm 片段。語言照「設定」裡選的（自動、繁體中文、English），自動時跟著瀏覽器，右上角的按鈕可以一鍵切換。上次用的語言記在 localStorage，連上伺服器之前先用它，畫面才不會閃一下另一種語言。
 - **伺服器**：錯誤訊息、配對網頁、終端機的訊息集中在 [`server/i18n.ts`](../server/i18n.ts)，用 `m(key, params)` 取用。每個請求用自己的語言（AsyncLocalStorage）：控制台送 `X-Lang`，手機的瀏覽器和 App 送 `Accept-Language`。推給控制台的狀態依每個分頁的語言各算一次；影片失敗的原因存成代碼（`errorCode`、`errorParams`），送出時才換成那個分頁的語言。終端機用設定的語言，自動時看電腦的系統語言。
-- **手機 App**：文字在 `res/values/strings.xml`（英文，手機是其他語言時也用它）和 `res/values-zh/`（繁體中文）；直拿時比較窄，短一點的字在 `values-port/`、`values-zh-port/`。Android 13 起可以在系統設定單獨替 App 選語言（`res/xml/locales_config.xml`）。送給電腦的請求都帶 `Accept-Language`，`hello` 也帶 `lang`；錄影失敗用代碼回報（`code`、`detail`），由電腦換成控制台的語言。
+- **手機 App**：文字在 `res/values/strings.xml`（英文，手機是其他語言時也用它）和 `res/values-b+zh+Hant/`（繁體中文，台灣、香港、澳門的手機會用）；直拿時比較窄，短一點的字在 `values-port/`、`values-b+zh+Hant-port/`。**不能只寫 `values-zh`**：Android 7.0 起沒寫字體的 `zh` 會被當成簡體，台灣的手機反而顯示英文。簡體中文的手機顯示英文；App 告訴電腦的語言是畫面上實際用的那一種（`language_tag`），電腦送來的訊息才會一致。Android 13 起可以在系統設定單獨替 App 選語言（`res/xml/locales_config.xml`）。送給電腦的請求都帶 `Accept-Language`，`hello` 也帶 `lang`；錄影失敗用代碼回報（`code`、`detail`），由電腦換成控制台的語言。
 - **新增或修改文字**：兩種語言要一起改。英文少了某一句時會退回顯示中文，不會出錯，所以要自己切到英文看一遍；`npm run smoke-test` 會檢查錯誤訊息、配對網頁和狀態文字有跟著語言走。
 
 ## 開發時不用掃 QR Code
@@ -141,7 +141,7 @@ android/app/src/main/
   kotlin/.../GuideOverlay.kt     預覽上的構圖輔助框
   kotlin/.../MainActivity.kt     畫面與整體流程、跟著手機轉向、擷取即時畫面
   res/layout/overlay.xml         橫拿時的狀態列；直拿的在 layout-port/
-  res/values/strings.xml         App 的文字（英文）；繁體中文在 values-zh/，直拿時的短字在 values-port/、values-zh-port/
+  res/values/strings.xml         App 的文字（英文）；繁體中文在 values-b+zh+Hant/，直拿時的短字在 values-port/、values-b+zh+Hant-port/
 tools/
   fake-phone.ts            模擬手機，也是通訊格式的參考實作
   smoke-test.ts            端對端測試，CI 在三種作業系統上跑

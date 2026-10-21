@@ -117,6 +117,19 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
     private lateinit var previewBitmap: Bitmap
     private var previewOn = false
 
+    // 接上或拔掉麥克風時，App 和電腦上顯示的收音來源跟著改
+    private val audioDevices = object : AudioDeviceCallback() {
+        override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>) {
+            sendStatus()
+            render()
+        }
+
+        override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>) {
+            sendStatus()
+            render()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -160,17 +173,7 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
             }
         })
 
-        getSystemService(AudioManager::class.java).registerAudioDeviceCallback(object : AudioDeviceCallback() {
-            override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>) {
-                sendStatus()
-                render()
-            }
-
-            override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>) {
-                sendStatus()
-                render()
-            }
-        }, main)
+        getSystemService(AudioManager::class.java).registerAudioDeviceCallback(audioDevices, main)
 
         for (job in uploader.interrupted) {
             reportFailed(job.fileId, "appClosed", toast = false)
@@ -201,6 +204,11 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
         super.onDestroy()
         main.removeCallbacks(loop)
         main.removeCallbacks(capture)
+        // 按返回鍵離開、或被系統重建（換語言、字體大小、深色模式）時，下次開啟的畫面會重新連線、接著上傳，
+        // 這裡的要關掉：留著的話兩條連線會互相踢掉，兩個上傳也會同時傳同一支影片
+        link.close()
+        uploader.stop()
+        getSystemService(AudioManager::class.java).unregisterAudioDeviceCallback(audioDevices)
         previewThread.quitSafely()
         camera.release()
     }
@@ -548,8 +556,8 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
 
     private fun micLabel(): String = micDevice()?.let(camera::describe) ?: getString(R.string.mic_builtin)
 
-    // 手機（或在系統設定替這個 App 選）的語言，例如 zh-TW、en-US
-    private fun languageTag(): String = resources.configuration.locales[0].toLanguageTag()
+    // App 畫面上用的語言（不是手機的語言：簡體中文的手機顯示英文），電腦送來的訊息才會和畫面一致
+    private fun languageTag(): String = getString(R.string.language_tag)
 
     // 狀態列的版面直拿、橫拿各一份（layout-port/overlay.xml），換版面後重新接上
     private fun bindOverlay() {
@@ -624,8 +632,9 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
                 val left = rec.maxDurationSec * 1000L - elapsed
                 val warn = left <= rec.warnBeforeSec * 1000L
                 val max = clock(rec.maxDurationSec * 1000L)
+                // 最後幾分鐘不寫上限、改寫剩多少，字數才和平常差不多，不會蓋到旁邊的狀態或換行
                 timerView.text =
-                    if (warn) getString(R.string.timer_rec_warn, clock(elapsed), max, clock(left)) else getString(R.string.timer_rec, clock(elapsed), max)
+                    if (warn) getString(R.string.timer_rec_warn, clock(elapsed), clock(left)) else getString(R.string.timer_rec, clock(elapsed), max)
                 timerView.setTextColor(if (warn) AMBER else RED)
                 timerView.visibility = View.VISIBLE
             }

@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit
 // 和電腦的 WebSocket 連線。所有狀態都只在主執行緒改動。
 // 斷線時照常錄影；重要的訊息（開始、停止、失敗）先排隊，連回來再送。
 // camera 是這支手機做得到哪些人像設定，連上時在 hello 裡回報。
-// language：手機的語言（例如 zh-TW），電腦送來的訊息會用這個語言
+// language：App 畫面上用的語言（例如 zh-TW），電腦送來的訊息會用這個語言
 class ServerLink(private val store: Store, private val listener: Listener, private val camera: JSONObject, private val language: () -> String) {
     interface Listener {
         fun onConnectionChanged(connected: Boolean)
@@ -115,6 +115,15 @@ class ServerLink(private val store: Store, private val listener: Listener, priva
     }
 
     private val reconnect = Runnable { connect() }
+
+    // 畫面關掉或被系統重建時呼叫。新的畫面會自己重新連線；舊的不關掉的話，
+    // 電腦每次收到新連線都會把舊的踢掉，兩條連線就會一直互相踢來踢去。
+    fun close() {
+        main.removeCallbacksAndMessages(null) // 重連、對時，以及還沒處理的訊息
+        ws?.cancel()
+        ws = null
+        connected = false
+    }
 
     private fun sync() {
         if (connected) ws?.send(JSONObject().put("type", "sync").put("t0", System.currentTimeMillis()).toString())
