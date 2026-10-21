@@ -17,7 +17,7 @@
   --text: #ece8e1;
   --soft: #c9c6c0;
   --muted: #9aa0a8;
-  --faint: #6b727b;
+  --faint: #7d848d;
   --red: #ff3b3b;
   --red-soft: #ff7b7b;
   --amber: #ffb000;
@@ -115,8 +115,9 @@ kbd { display: inline-block; min-width: 1.7em; padding: 0 6px; border: 1px solid
 }
 .btn:hover { transform: translateY(-1px); }
 .btn svg { flex: none; }
-.btn-rec { background: var(--red); color: #fff; box-shadow: 0 0 0 4px rgba(255, 59, 59, 0.18), 0 14px 34px -14px rgba(255, 59, 59, 0.8); }
-.btn-rec:hover { color: #fff; background: #ff5252; }
+/* 按鈕的紅色比 --red 深一點，白字的對比才夠（WCAG 4.5:1） */
+.btn-rec { background: #dc2626; color: #fff; box-shadow: 0 0 0 4px rgba(255, 59, 59, 0.18), 0 14px 34px -14px rgba(255, 59, 59, 0.8); }
+.btn-rec:hover { color: #fff; background: #e5262b; }
 .btn-rec .dot { width: 10px; height: 10px; border-radius: 50%; background: #fff; }
 .btn-ghost { border-color: var(--line-hi); background: rgba(18, 21, 25, 0.85); color: var(--text); }
 .btn-ghost:hover { color: var(--text); border-color: #4a525c; }
@@ -285,10 +286,11 @@ td { color: var(--soft); }
 /* 頁尾 */
 .site-footer { margin-top: 96px; padding: 48px 0 56px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14.5px; }
 .site-footer .cols { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 32px; }
-.site-footer h4 { margin: 0 0 10px; font: 700 14px var(--label); letter-spacing: 0.2em; color: var(--soft); }
+.site-footer .foot-title { margin: 0 0 10px; font: 700 14px var(--label); letter-spacing: 0.2em; color: var(--soft); }
 .site-footer ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
 .site-footer a { color: var(--muted); text-decoration: none; }
 .site-footer a:hover { color: var(--text); }
+.site-footer .fine a { color: var(--soft); text-decoration: underline; }
 .site-footer .fine { margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--line); font-size: 13.5px; color: var(--faint); }
 @media (max-width: 760px) { .site-footer .cols { grid-template-columns: 1fr; } }
 
