@@ -136,7 +136,7 @@ npm start
 ![控制台的「開始使用」畫面：確認錄影資料夾、配對手機、新增專案三個步驟](docs/images/setup.png)
 
 - **錄影資料夾**預設是「影片」資料夾底下的 `MultiCamRecorder`（macOS 是 `~/Movies/MultiCamRecorder`，Windows 是 `~/Videos/MultiCamRecorder`）。要改的話按右上角「設定」，再按「選擇資料夾…」挑一個，**建議選外接 SSD**；也可以直接貼上路徑。資料夾必須已經存在。
-- 想用「裁掉頭尾」的話，另外安裝 [ffmpeg](https://ffmpeg.org/)：macOS 執行 `brew install ffmpeg`（要先裝 [Homebrew](https://brew.sh/)），Windows 執行 `winget install Gyan.FFmpeg`，裝好後重新 `npm start`。不裝也能正常錄影和傳檔。
+- 想用「裁掉頭尾」的話，另外安裝 [ffmpeg](https://ffmpeg.org/)：macOS 執行 `brew install ffmpeg`（要先裝 [Homebrew](https://brew.sh/)），Windows 執行 `winget install Gyan.FFmpeg`，Linux（Ubuntu、Debian）執行 `sudo apt install ffmpeg`。不裝也能正常錄影和傳檔；控制台開著的時候才裝也沒關係，在安裝說明的視窗按「重新檢查」就能用。
 - 第一次有手機連線時，系統可能會問要不要讓 node 接受連入連線：macOS 請按「允許」；Windows 防火牆請勾選「私人網路」再按「允許存取」。
 
 ### 2. 安裝手機 App
@@ -205,7 +205,7 @@ npm start
   3. 按「裁剪」。**同一段的每台手機會一起裁**，用開始時間差換算，裁的是同一段時間。
   4. 裁好的影片另存成檔名後面加 `_1` 的新檔（同一支再裁一次就是 `_2`、`_3`），**原本的影片不動**。裁好會直接在監看區播放，清單上標「裁剪過」。
 - 裁剪不重新壓縮，畫質完全不變，幾 GB 的 4K 也只要幾秒。代價是開頭只能從關鍵影格開始，所以可能比你設的早一點（手機大多每 1 秒一個關鍵影格）；各台的關鍵影格位置不同，裁好的幾支開始時間會差零點幾秒，清單上會標出來，剪輯時一樣用音訊對齊。
-- 裁剪要用到 ffmpeg，沒裝的話按「裁剪…」會告訴你怎麼裝。
+- 裁剪要用到 ffmpeg。沒裝的話按「裁剪…」會跳出安裝說明，只列你電腦的系統（macOS、Windows 或 Linux）要用的指令，可以一鍵複製；裝好後按「重新檢查」，找到就直接打開時間軸，不用重開 `npm start`。
 
 <p align="center">
   <img src="docs/images/trim.png" width="560" alt="裁剪頭尾：在監看區播放 ROG6D 的影片，下方是有縮圖的時間軸，兩個琥珀色把手設定開頭 00:03.2、結尾 00:22.7，中間是留下的 19.5 秒、外面調暗，白線是目前播放的位置；上面有「播放這段」，下面是說明和「取消」「裁剪」">

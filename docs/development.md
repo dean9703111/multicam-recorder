@@ -92,7 +92,8 @@ adb shell dumpsys media.camera | grep -A3 "availableSceneModes\|aeLockAvailable\
 
 控制台的「裁剪…」是一條時間軸（`server/public/app.js` 的 `TrimBar`）：縮圖用一個看不到的 video 依序跳到 10 個位置畫出來，兩個把手（也能用方向鍵微調）設定開頭和結尾，拖的時候監看區跟著跳到那一格，「播放這段」會播到結尾就停。按下「裁剪」呼叫 `POST /api/takes/:takeId/trim`（`{ fileId, start, end }`，秒數是在 fileId 那支影片上的位置），由電腦端的 `trimTake`（[`server/server.ts`](../server/server.ts)）處理：
 
-- 用電腦上的 ffmpeg 串流複製（`-c copy`），不重新壓縮，所以畫質不變、幾 GB 的檔案也只要幾秒。啟動時會找 `ffmpeg` 和 `ffprobe`，找不到時 `state.ffmpeg` 是 false，網頁會提示怎麼裝。
+- 用電腦上的 ffmpeg 串流複製（`-c copy`），不重新壓縮，所以畫質不變、幾 GB 的檔案也只要幾秒。啟動時 `checkFfmpeg` 會找 `ffmpeg` 和 `ffprobe`，找不到時 `state.ffmpeg` 是 false，按「裁剪…」會跳出安裝說明（`FfmpegModal`，依 `state.platform` 只列那個系統的指令）。
+- 安裝說明裡的「重新檢查」呼叫 `POST /api/ffmpeg/check` 再找一次：先找 PATH，再找剛裝好時可能在的資料夾（`platform.ts` 的 `toolDirs`：macOS 是 Homebrew 的 `/opt/homebrew/bin`、`/usr/local/bin`，Windows 從登錄檔讀最新的 PATH，Linux 是 `/usr/bin`、`/snap/bin`），因為執行 `npm start` 的終端機還是舊的 PATH。找到的完整路徑記在 `tools`，之後裁剪都用它。
 - 串流複製只能從關鍵影格開始，所以先用 `ffprobe -read_intervals` 只讀開頭附近的封包，找到開頭（含）之前最近的關鍵影格，從那裡裁。手機的 MediaRecorder 大多每 1 秒一個關鍵影格、沒有 B 影格，結尾可以照設定的時間裁。
 - 同一段的其他手機用 `startedAt` 的差換算成各自的時間軸，裁的是同一段時間；各台的關鍵影格位置不同，裁好的幾支開始時間會差零點幾秒，新檔的 `startedAt` 記的是實際的開始時間，清單上照樣顯示時間差。
 - 新檔放在同一個資料夾，檔名是原檔名加 `_1`，已經有就 `_2`、`_3`…（`trimmedName`）；先寫成 `.part` 再改名。新檔屬於新的一段（新的 `takeId`），`trimmedFrom` 記著原本那支，原檔不動。裁出來的影片不會觸發「錄完自動播放」，只有按下裁剪的那一台會換成播放新檔。

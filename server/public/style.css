@@ -1728,6 +1728,43 @@ kbd {
   gap: 8px;
 }
 
+/* 安裝 ffmpeg 的說明：指令放在框裡，旁邊有「複製」 */
+.install-why {
+  margin: 0 0 16px;
+  color: var(--muted);
+}
+
+.install-steps {
+  gap: 14px;
+}
+
+.install-steps .hint {
+  margin-top: 6px;
+}
+
+.install-steps a {
+  color: var(--cyan);
+  text-underline-offset: 3px;
+}
+
+.install-cmd {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 6px 6px 6px 12px;
+  border: 1px solid var(--line-hi);
+  border-radius: 4px;
+  background: var(--bg);
+}
+
+.install-cmd code {
+  flex: 1;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
 .pair-meta {
   margin-top: 16px;
   color: var(--muted);

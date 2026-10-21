@@ -200,7 +200,7 @@ function useNow(interval) {
 function App() {
   const [state, connected] = useServerState();
   const now = useNow(250);
-  const [modal, setModal] = useState(null); // { kind: 'pair' | 'settings' | 'newProject' | 'endProject' | 'removeDevice' | 'trash', … }
+  const [modal, setModal] = useState(null); // { kind: 'pair' | 'settings' | 'newProject' | 'endProject' | 'removeDevice' | 'trash' | 'ffmpeg', … }
   const [menu, setMenu] = useState(null); // 'project' | 'spec'
   const [selection, setSelection] = useState(null); // 選取模式中勾選的影片 ID；null 表示不在選取模式
   const [toast, setToast] = useState(null);
@@ -400,6 +400,7 @@ function App() {
               onToggleSelected=${toggleSelected}
               onTrashTake=${(takeId) =>
                 setModal({ kind: 'trash', take: true, ids: state.files.filter((f) => f.takeId === takeId && canTrash(f)).map((f) => f.id) })}
+              onNeedFfmpeg=${(ready) => setModal({ kind: 'ffmpeg', ready })}
             />`,
           )
         : html`<${Setup} state=${state} onModal=${(kind) => setModal({ kind })} />`}
@@ -433,6 +434,15 @@ function App() {
       ${state.files.some((f) => f.deviceId === modal.device.id && (f.state === 'finishing' || isActive(f))) &&
       html`<p class="hint warn">${tr('removeDevice.pending')}</p>`}
     <//>`}
+    ${modal?.kind === 'ffmpeg' &&
+    html`<${FfmpegModal}
+      state=${state}
+      onClose=${closeModal}
+      onReady=${() => {
+        closeModal();
+        modal.ready();
+      }}
+    />`}
     ${modal?.kind === 'trash' &&
     html`<${TrashModal}
       state=${state}
@@ -742,7 +752,7 @@ function Setup({ state, onModal }) {
   </section>`;
 }
 
-function Bay({ state, device, letter, t, compact, onStart, onStop, onRemove, notify, run, selection, onToggleSelected, onTrashTake }) {
+function Bay({ state, device, letter, t, compact, onStart, onStop, onRemove, notify, run, selection, onToggleSelected, onTrashTake, onNeedFfmpeg }) {
   const files = state.files.filter((f) => f.deviceId === device.id).sort((a, b) => b.createdAt - a.createdAt);
   const active = files.find(isActive);
   const recording = active?.state === 'recording' && active.startedAt;
@@ -841,7 +851,10 @@ function Bay({ state, device, letter, t, compact, onStart, onStop, onRemove, not
       <div class="monitor-caption">
         ${selected
           ? html`<span>${selected.name}</span>
-              ${!trimming && html`<button class="btn-link" onClick=${() => setTrimming(true)}>${tr('bay.trim')}</button>`}
+              ${!trimming &&
+              html`<button class="btn-link" onClick=${() => (state.ffmpeg ? setTrimming(true) : onNeedFfmpeg(() => setTrimming(true)))}>
+                ${tr('bay.trim')}
+              </button>`}
               <button class="btn-link" onClick=${() => run(() => post('/api/open-folder', { fileId: selected.id }))}>
                 ${revealLabel(state)}
               </button>
@@ -1040,12 +1053,6 @@ function TrimBar({ state, file, videoRef, onClose, onDone, notify }) {
       setBusy(false);
     }
   };
-  if (!state.ffmpeg) {
-    return html`<div class="trim">
-      <p class="hint warn">${tr('trim.needFfmpeg')}</p>
-      <div class="trim-actions"><button class="btn-ghost btn-small" onClick=${onClose}>${tr('common.close')}</button></div>
-    </div>`;
-  }
   return html`<div class="trim" role="group" aria-label=${tr('trim.aria')}>
     <div class="trim-head">
       <button class="btn-ghost btn-small" disabled=${busy} onClick=${playRange} title=${tr('trim.playTitle')}>${tr('trim.play')}</button>
@@ -1427,6 +1434,61 @@ function PairModal({ state, onClose }) {
           ${devices.map((d) => html`<span class=${`paired-chip ${d.online ? 'on' : ''}`}>${d.name}</span>`)}
         </div>
       </div>
+    </div>
+  <//>`;
+}
+
+// 裁剪要用到 ffmpeg：照電腦的系統只列那一種裝法，裝好後按「重新檢查」，找到就直接打開時間軸
+const FFMPEG_INSTALL = { darwin: ['mac', 'brew install ffmpeg'], win32: ['win', 'winget install Gyan.FFmpeg'] };
+
+function FfmpegModal({ state, onClose, onReady }) {
+  const [os, cmd] = FFMPEG_INSTALL[state.platform] ?? ['linux', 'sudo apt install ffmpeg'];
+  const [copied, setCopied] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [missing, setMissing] = useState(false);
+  // 找到的時候伺服器會推新的狀態（別的分頁按了重新檢查、或伺服器剛啟動還在找，也一樣）
+  useEffect(() => {
+    if (state.ffmpeg) onReady();
+  }, [state.ffmpeg]);
+  const copy = () =>
+    navigator.clipboard.writeText(cmd).then(
+      () => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      },
+      () => {},
+    );
+  const check = async () => {
+    setBusy(true);
+    setMissing(false);
+    try {
+      if ((await post('/api/ffmpeg/check')).ffmpeg) onReady();
+      else setMissing(true);
+    } catch {
+      setMissing(true);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return html`<${Modal} title=${tr('ffmpeg.title')} onClose=${onClose}>
+    <p class="install-why">${tr('ffmpeg.why')}</p>
+    <ol class="steps install-steps">
+      <li>${tr(`ffmpeg.${os}.open`)}</li>
+      <li>
+        ${tr('ffmpeg.run')}
+        <div class="install-cmd">
+          <code>${cmd}</code>
+          <button class="btn-ghost btn-small" onClick=${copy}>${copied ? tr('ffmpeg.copied') : tr('ffmpeg.copy')}</button>
+        </div>
+        <p class="hint">${tr(`ffmpeg.${os}.note`)}</p>
+      </li>
+      <li>${tr('ffmpeg.done')}</li>
+    </ol>
+    ${missing && html`<p class="hint warn" role="alert">${tr(os === 'win' ? 'ffmpeg.notFoundWin' : 'ffmpeg.notFound')}</p>`}
+    <div class="modal-foot">
+      <button class="btn-ghost" onClick=${onClose}>${tr('common.cancel')}</button>
+      <button class="btn-primary" disabled=${busy} onClick=${check}>${busy ? tr('ffmpeg.checking') : tr('ffmpeg.check')}</button>
     </div>
   <//>`;
 }

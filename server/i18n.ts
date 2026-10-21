@@ -137,7 +137,7 @@ const ZH: Record<string, Message> = {
   'path.notFound': '找不到 {path}',
   'take.notFound': '找不到這一段',
 
-  'trim.needFfmpeg': '裁剪要用到 ffmpeg：macOS 執行 brew install ffmpeg，Windows 執行 winget install Gyan.FFmpeg，裝好後重新 npm start',
+  'trim.needFfmpeg': '裁剪要用到 ffmpeg：請在終端機執行 {cmd}，裝好後再試一次',
   'trim.clipMissing': '找不到這支影片，清單可能已經更新了',
   'trim.badRange': '裁剪的範圍不對，至少要留 1 秒',
   'trim.busy': '這一段正在裁剪，請稍等',
@@ -262,7 +262,7 @@ const EN: Record<string, Message> = {
   'path.notFound': 'Not found: {path}',
   'take.notFound': 'Take not found.',
 
-  'trim.needFfmpeg': 'Trimming needs ffmpeg. On macOS run brew install ffmpeg, on Windows run winget install Gyan.FFmpeg, then restart npm start.',
+  'trim.needFfmpeg': 'Trimming needs ffmpeg. Run {cmd} in a terminal, then try again.',
   'trim.clipMissing': "Couldn't find this clip. The list may have changed.",
   'trim.badRange': 'Invalid range. Keep at least 1 second.',
   'trim.busy': 'This take is already being trimmed. Please wait.',

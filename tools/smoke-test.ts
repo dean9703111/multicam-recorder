@@ -231,6 +231,7 @@ async function main(): Promise<void> {
 
   // 裁剪：同一段的每台手機一起裁，另存成 _1、_2，原本的不動
   assert((await state()).ffmpeg, '伺服器應該找得到 ffmpeg');
+  assert((await ok('POST', '/api/ffmpeg/check')).ffmpeg === true, '控制台按「重新檢查」時也要回報找得到 ffmpeg');
   const ref = takes[0][0];
   // CI 的機器比較慢，模擬手機實際錄到的長度會比按的時間短，範圍照實際長度訂
   const dur = ref.durationMs / 1000;

@@ -215,8 +215,24 @@ const STRINGS = {
     'live.badge': '即時',
 
     'trim.done': (p) => `裁好了：${p.names}${p.skipped ? `（${p.skipped}）` : ''}`,
-    'trim.needFfmpeg': () =>
-      html`裁剪要用到 ffmpeg：macOS 在終端機執行 <code>brew install ffmpeg</code>，Windows 執行 <code>winget install Gyan.FFmpeg</code>，裝好後重新 <code>npm start</code>。`,
+    'ffmpeg.title': '裁剪要先安裝 ffmpeg',
+    'ffmpeg.why': '裁剪用 ffmpeg 直接複製影像，不重新壓縮，畫質不變。只要裝一次；不裝也能正常錄影和傳檔。',
+    'ffmpeg.mac.open': '打開「終端機」：用 Spotlight 搜尋「終端機」，或在「應用程式 → 工具程式」裡',
+    'ffmpeg.win.open': '打開 PowerShell：在開始選單搜尋「PowerShell」',
+    'ffmpeg.linux.open': '打開終端機',
+    'ffmpeg.run': '貼上這行指令，按 Enter 執行：',
+    'ffmpeg.mac.note': () =>
+      html`還沒裝 Homebrew 的話，先照 <a href="https://brew.sh/" target="_blank" rel="noopener">brew.sh</a> 的說明安裝，再執行上面這行。`,
+    'ffmpeg.win.note': '第一次用 winget 會問是否同意來源的使用條款，輸入 Y 再按 Enter。',
+    'ffmpeg.linux.note': '這是 Ubuntu、Debian 的指令；其他發行版請用它的套件管理員安裝 ffmpeg。',
+    'ffmpeg.done': '裝好後回到這裡，按「重新檢查」。',
+    'ffmpeg.copy': '複製',
+    'ffmpeg.copied': '已複製',
+    'ffmpeg.check': '重新檢查',
+    'ffmpeg.checking': '檢查中…',
+    'ffmpeg.notFound': '還是找不到 ffmpeg。請確認指令跑完沒有出現錯誤；如果已經裝好，在執行 npm start 的終端機按 Ctrl+C 停止，再重新 npm start。',
+    'ffmpeg.notFoundWin':
+      '還是找不到 ffmpeg。請確認指令跑完沒有出現錯誤；如果已經裝好，關掉執行 npm start 的視窗，開一個新的 PowerShell 到專案資料夾，再執行 npm start。',
     'trim.aria': '裁剪頭尾',
     'trim.playTitle': '從開頭播到結尾',
     'trim.play': '▶ 播放這段',
@@ -458,8 +474,25 @@ const STRINGS = {
     'live.badge': 'LIVE',
 
     'trim.done': (p) => `Trimmed: ${p.names}${p.skipped ? ` (${p.skipped})` : ''}`,
-    'trim.needFfmpeg': () =>
-      html`Trimming needs ffmpeg. On macOS run <code>brew install ffmpeg</code> in Terminal, on Windows run <code>winget install Gyan.FFmpeg</code>, then restart <code>npm start</code>.`,
+    'ffmpeg.title': 'Install ffmpeg to trim',
+    'ffmpeg.why': 'Trimming uses ffmpeg to copy the video without re-encoding, so quality stays the same. You only install it once, and recording and uploading work without it.',
+    'ffmpeg.mac.open': 'Open Terminal: search for it with Spotlight, or find it in Applications → Utilities',
+    'ffmpeg.win.open': 'Open PowerShell: search for “PowerShell” in the Start menu',
+    'ffmpeg.linux.open': 'Open a terminal',
+    'ffmpeg.run': 'Paste this command and press Enter:',
+    'ffmpeg.mac.note': () =>
+      html`If you don't have Homebrew yet, install it first by following <a href="https://brew.sh/" target="_blank" rel="noopener">brew.sh</a>, then run the command above.`,
+    'ffmpeg.win.note': 'The first time you use winget, it asks you to accept the source agreements: type Y and press Enter.',
+    'ffmpeg.linux.note': 'This is for Ubuntu and Debian. On other distributions, install ffmpeg with your package manager.',
+    'ffmpeg.done': 'When it finishes, come back here and click “Check again”.',
+    'ffmpeg.copy': 'Copy',
+    'ffmpeg.copied': 'Copied',
+    'ffmpeg.check': 'Check again',
+    'ffmpeg.checking': 'Checking…',
+    'ffmpeg.notFound':
+      "Still can't find ffmpeg. Make sure the command finished without errors. If it did, press Ctrl+C in the terminal running npm start, then run npm start again.",
+    'ffmpeg.notFoundWin':
+      "Still can't find ffmpeg. Make sure the command finished without errors. If it did, close the window running npm start, open a new PowerShell window in the project folder, and run npm start again.",
     'trim.aria': 'Trim head and tail',
     'trim.playTitle': 'Play from the in point to the out point',
     'trim.play': '▶ Play range',

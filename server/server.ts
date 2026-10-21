@@ -8,7 +8,7 @@ import QRCode from 'qrcode';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { HttpError, isLoopback, readJson, sendFile, sendJson } from './http.ts';
 import { currentLang, joinList, LANG_SETTINGS, m, parseLang, PHONE_ERRORS, setDefaultLang, systemLang, withLang, type Lang, type LangSetting } from './i18n.ts';
-import { moveToTrash, powershellArgs, psQuote } from './platform.ts';
+import { ffmpegInstallCommand, moveToTrash, powershellArgs, psQuote, toolDirs } from './platform.ts';
 import type {
   CameraCapabilities,
   DeviceMessage,
@@ -671,20 +671,44 @@ async function trashFiles(ids: unknown): Promise<{ trashed: number }> {
 
 // ---------- 裁剪 ----------
 
-// 裁剪用電腦上的 ffmpeg、ffprobe 做串流複製，不重新壓縮，畫質不變。沒裝的話網頁會提示怎麼裝。
+// 裁剪用電腦上的 ffmpeg、ffprobe 做串流複製，不重新壓縮，畫質不變。
+// 沒裝的話控制台會跳出安裝說明；裝好後按「重新檢查」會再找一次，不用重開。
 let ffmpegReady = false;
-Promise.all(['ffmpeg', 'ffprobe'].map((cmd) => runTool(cmd, ['-version']))).then(
-  () => {
-    ffmpegReady = true;
-    changed();
-  },
-  () => {},
-);
+const tools: Record<string, string> = {}; // 找到的執行檔：PATH 上的就是名稱，其他資料夾的是完整路徑
+
+// 先找 PATH，找不到再找剛裝好時可能在的資料夾（toolDirs）
+async function checkFfmpeg(): Promise<boolean> {
+  if (ffmpegReady) return true;
+  const runs = (file: string) => runTool(file, ['-version']).then(() => true, () => false);
+  let dirs: string[] | undefined;
+  for (const name of ['ffmpeg', 'ffprobe']) {
+    if (await runs(name)) {
+      tools[name] = name;
+      continue;
+    }
+    dirs ??= await toolDirs();
+    const exe = process.platform === 'win32' ? `${name}.exe` : name;
+    let found: string | undefined;
+    for (const dir of dirs) {
+      const file = path.join(dir, exe);
+      if (fs.existsSync(file) && (await runs(file))) {
+        found = file;
+        break;
+      }
+    }
+    if (!found) return false;
+    tools[name] = found;
+  }
+  ffmpegReady = true;
+  changed();
+  return true;
+}
+void checkFfmpeg();
 const trimming = new Set<string>(); // 正在裁剪的段落，避免連按兩次
 
 function runTool(cmd: string, args: string[]): Promise<string> {
   return new Promise((resolve, reject) =>
-    execFile(cmd, args, { maxBuffer: 16 * 1024 * 1024, windowsHide: true }, (e, stdout, stderr) =>
+    execFile(tools[cmd] ?? cmd, args, { maxBuffer: 16 * 1024 * 1024, windowsHide: true }, (e, stdout, stderr) =>
       e ? reject(new Error(String(stderr).trim().split('\n').pop() || e.message)) : resolve(String(stdout)),
     ),
   );
@@ -711,8 +735,8 @@ async function keyframeBefore(file: string, time: number): Promise<number> {
 // 只裁前後：同一段的每台手機一起裁，另存新檔（檔名加 _1），原本的不動。
 // start、end 是在 fileId 那支影片上的秒數，其他手機用開始時間差換算，裁的是同一段時間。
 async function trimTake(takeId: string, b: { fileId?: unknown; start?: unknown; end?: unknown }) {
-  if (!ffmpegReady) {
-    throw new HttpError(409, m('trim.needFfmpeg'));
+  if (!(await checkFfmpeg())) {
+    throw new HttpError(409, m('trim.needFfmpeg', { cmd: ffmpegInstallCommand() }));
   }
   const files = db.files.filter((f) => f.takeId === takeId && f.state === 'ready');
   const ref = files.find((f) => f.id === b.fileId);
@@ -846,6 +870,7 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
       return sendJson(res, 200, stopRecording(b.deviceIds));
     }
     if (p === '/api/choose-folder') return sendJson(res, 200, await chooseFolder());
+    if (p === '/api/ffmpeg/check') return sendJson(res, 200, { ffmpeg: await checkFfmpeg() });
     if (p === '/api/open-folder') {
       const b = await readJson<{ fileId?: string }>(req);
       openFolder(b.fileId);

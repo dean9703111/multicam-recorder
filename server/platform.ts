@@ -1,4 +1,4 @@
-// 各作業系統不一樣的地方：硬碟格式、垃圾桶、PowerShell。
+// 各作業系統不一樣的地方：硬碟格式、垃圾桶、PowerShell、找 ffmpeg。
 import { execFile, execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -116,3 +116,26 @@ export async function moveToTrash(files: string[]): Promise<void> {
     throw e;
   }
 }
+
+// ---------- 外部工具（ffmpeg） ----------
+
+// 剛裝好的程式，執行 npm start 的那個終端機不一定找得到：它的 PATH 還是打開時的樣子
+// （例如第一次裝 Homebrew，或 Windows 用 winget 裝）。這裡列出常見的安裝位置，重新檢查時不用重開也找得到。
+export async function toolDirs(): Promise<string[]> {
+  if (process.platform === 'darwin') return ['/opt/homebrew/bin', '/usr/local/bin', '/opt/local/bin'];
+  if (process.platform !== 'win32') return ['/usr/bin', '/usr/local/bin', '/snap/bin'];
+  // Windows：從登錄檔讀最新的 PATH（系統的和使用者的），winget 裝好後會加在這裡
+  const ps = "[Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')";
+  const out = await run('powershell.exe', powershellArgs(ps), { timeout: 15_000 }).then(
+    (r) => String(r.stdout),
+    () => '',
+  );
+  return out
+    .split(';')
+    .map((d) => d.trim())
+    .filter(Boolean);
+}
+
+// 在終端機安裝 ffmpeg 的指令（伺服器的錯誤訊息用；控制台的安裝說明在 public/app.js）
+export const ffmpegInstallCommand = (): string =>
+  process.platform === 'darwin' ? 'brew install ffmpeg' : process.platform === 'win32' ? 'winget install Gyan.FFmpeg' : 'sudo apt install ffmpeg';
