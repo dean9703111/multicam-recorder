@@ -239,8 +239,13 @@ async function main(): Promise<void> {
   // 裁剪：同一段的每台手機一起裁，另存成 _1、_2，原本的不動
   assert((await state()).ffmpeg, '伺服器應該找得到 ffmpeg');
   const ref = takes[0][0];
-  assert((await api('POST', `/api/takes/${ref.takeId}/trim`, { fileId: ref.id, start: 1, end: 1.5 })).status === 400, '少於 1 秒的範圍應該被擋下');
-  for (const [n, range] of [[1, { start: 0.5, end: 2.5 }], [2, { start: 1, end: 2 }]] as const) {
+  // CI 的機器比較慢，模擬手機實際錄到的長度會比按的時間短，範圍照實際長度訂
+  const dur = ref.durationMs / 1000;
+  assert(dur >= 1.3, `${ref.name} 太短（${dur} 秒），沒辦法測裁剪`);
+  assert((await api('POST', `/api/takes/${ref.takeId}/trim`, { fileId: ref.id, start: 0.2, end: 0.7 })).status === 400, '少於 1 秒的範圍應該被擋下');
+  const ranges = [{ start: 0.1, end: dur }, { start: 0.1, end: 1.2 }];
+  for (const [i, range] of ranges.entries()) {
+    const n = i + 1;
     const r = await ok('POST', `/api/takes/${ref.takeId}/trim`, { fileId: ref.id, ...range });
     assert(r.files.length === devices.length, `應該裁出 ${devices.length} 支，結果是 ${r.files.length}：${r.skipped.join('、')}`);
     s = await state();
@@ -250,13 +255,13 @@ async function main(): Promise<void> {
       const from = takes[0].find((x) => x.id === f.trimmedFrom);
       assert(from && f.name === from.name.replace(/\.mp4$/, `_${n}.mp4`), `檔名應該是原檔名加 _${n}，結果是 ${f.name}`);
       assert(f.state === 'ready' && fs.existsSync(path.join(projectDir, f.name)), `${f.name} 應該在專案資料夾裡`);
-      // 串流複製從前一個關鍵影格開始，所以可能比要的長一點，但不會短
-      const want = (range.end - range.start) * 1000;
-      assert(f.durationMs >= want - 100 && f.durationMs <= want + 3000, `${f.name} 長度不對：${f.durationMs} ms`);
+      // 串流複製從前一個關鍵影格開始，所以可能比要的長一點，但不會短；每台原片的長度不一定一樣
+      const want = (Math.min(range.end, from.durationMs / 1000) - range.start) * 1000;
+      assert(f.durationMs >= want - 150 && f.durationMs <= want + 3000, `${f.name} 長度不對：${f.durationMs} ms，應該約 ${Math.round(want)} ms`);
       assert(fs.existsSync(path.join(projectDir, from.name)), `原本的 ${from.name} 應該還在`);
     }
   }
-  step('裁剪：兩支一起裁、另存成 _1 和 _2，原檔不動');
+  step(`裁剪：兩支一起裁、另存成 _1 和 _2，原檔不動（原片 ${dur.toFixed(1)} 秒）`);
 
   const trashed = takes[1];
   const r = await ok('POST', '/api/files/trash', { fileIds: trashed.map((f) => f.id) });
