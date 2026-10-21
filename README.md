@@ -83,6 +83,7 @@
 - **標記好的段落、一次清掉其他的**：點星號標記好的段落，同一段的每台手機一起標記；每一列右邊的垃圾桶可以刪掉那一段，沒標記的也能一鍵全部移到垃圾桶（Windows 是資源回收筒），刪錯了也救得回來。
 - **裁掉頭尾**：在有縮圖的時間軸上拖拉開頭和結尾，同一段的每台手機一起裁，另存成檔名加 `_1` 的新檔，原本的影片不動。不重新壓縮，畫質不變。[詳細說明](#5-播放標記與整理影片)
 - **掃 QR Code 配對**：用手機相機掃一次就好，不用輸入 IP。還沒裝 App 的話，掃完打開的網頁裡就有下載連結。
+- **中文、英文介面**：控制台、配對網頁和手機 App 都有繁體中文和英文。控制台跟著瀏覽器的語言，右上角可以一鍵切換；App 跟著手機的語言。
 
 ## 規格一覽
 
@@ -99,7 +100,7 @@
 | 連線方式 | 手機和電腦連同一個 Wi-Fi，影片只在區域網路裡傳輸 |
 | 收音 | 手機內建麥克風，或 USB、耳機孔外接麥克風 |
 | 即時畫面 | 每秒約 5 張（橫拿 640×360、直拿 360×640） |
-| 介面語言 | 繁體中文 |
+| 介面語言 | 繁體中文、英文（控制台、配對網頁、手機 App） |
 
 ## 運作方式
 
@@ -302,7 +303,7 @@ npm start
 
 ### 電腦端支援 Windows 嗎？
 
-**支援。** 每次更新程式，GitHub Actions 都會在 Windows、macOS、Linux 上用兩支模擬手機（一支橫拿、一支直拿）把整個流程跑一遍：配對、即時畫面、變焦、人像設定、兩支同時錄影、裁剪、傳檔和 SHA-256 驗證、中文的資料夾路徑、專案、標記、移到資源回收筒、偵測硬碟格式（NTFS、FAT32）。實際使用的是 Apple Silicon 的 Mac；Windows 還沒有人用實機錄過，選擇資料夾的視窗和「在檔案總管中顯示」也還沒實際試過，遇到問題歡迎開 issue。
+**支援。** Windows 和 Apple Silicon 的 Mac 都實際用手機錄過，可以正常使用。每次更新程式，GitHub Actions 也會在 Windows、macOS、Linux 上用兩支模擬手機（一支橫拿、一支直拿）把整個流程跑一遍：配對、即時畫面、變焦、人像設定、兩支同時錄影、裁剪、傳檔和 SHA-256 驗證、中文的資料夾路徑、專案、標記、移到資源回收筒、偵測硬碟格式（NTFS、FAT32）。遇到問題歡迎開 issue。
 
 ### 需要網路嗎？影片會上傳到雲端嗎？
 
@@ -341,6 +342,10 @@ npm start
 ### 多支手機錄的影片怎麼對齊？
 
 電腦會先和每支手機對時，**約好同一刻開始**，清單上會顯示各台實際的開始時間差。要精準到同一格畫面，建議用剪輯軟體依音訊自動同步，大部分剪輯軟體都有這個功能。
+
+### 介面有英文嗎？
+
+**有。** 控制台、配對網頁和手機 App 都有繁體中文和英文。控制台跟著瀏覽器的語言，也可以按右上角的「English」一鍵切換，或在「設定」裡選；手機 App 跟著手機的語言（中文用繁體中文，其他語言用英文），Android 13 以上也能在系統設定的「應用程式語言」單獨替 App 選。
 
 ## 疑難排解
 
@@ -407,7 +412,7 @@ App 會先把影片正常收尾再停止，已經錄到的部分會照常傳到�
 ## 已知限制
 
 - 手機端目前只有 Android App，錄影時 App 必須留在前景。
-- 電腦端在 Windows 上還沒有人用實機錄過，選擇資料夾的視窗和「在檔案總管中顯示」也還沒實際試過；其他流程在 CI 上測過。Linux 沒有選擇資料夾的視窗，要直接貼上路徑。
+- 電腦端在 Linux 上沒有選擇資料夾的視窗，要直接貼上路徑。
 - 影片存在 App 自己的資料夾（`Android/data/dev.multicam.recorder/files/Movies`），解除安裝 App 會連影片一起刪掉。
 - 外接麥克風能不能被選用，依手機和麥克風而定，請以 App 上顯示的收音來源為準。
 - 即時畫面是每秒約 5 張的低解析度預覽，只用來確認構圖和變焦，不能取代監看螢幕。
@@ -415,7 +420,7 @@ App 會先把影片正常收尾再停止，已經錄到的部分會照常傳到�
 - 沒有背景虛化、濾鏡和美顏，調色請在剪輯軟體裡做。
 - 裁剪只能裁頭尾，開頭會從關鍵影格開始（通常最多早 1 秒），而且要另外安裝 ffmpeg。
 - 還沒有雲端上傳，影片目前存在電腦上。
-- 介面目前只有繁體中文。
+- 介面只有繁體中文和英文，手機或瀏覽器是其他語言時會顯示英文。
 
 ## 給開發者
 
@@ -441,6 +446,8 @@ App 會先把影片正常收尾再停止，已經錄到的部分會照常傳到�
 
 **MultiCam Recorder** is a free, open-source multi-camera recording tool that turns Android phones into synchronized cameras. Open the web dashboard on your Mac or Windows PC, watch every phone's live view, set each phone's zoom, and start or stop all of them with one key. Each phone records phone-native 4K locally and streams the footage to your computer over local Wi-Fi while recording, so you can play it back shortly after you stop. No cloud account is needed and footage never leaves your local network.
 
+![MultiCam Recorder dashboard: two Android phones recording 4K in sync, one landscape 16:9 and one portrait 9:16, with live views and clips uploading to the computer](docs/images/console-en.png)
+
 - **Synchronized start**: press `R` / `S` to start or stop every phone (up to 10) at the same moment. The computer syncs clocks and schedules a common start time, and the dashboard shows the measured start offset between phones.
 - **Portrait or landscape**: hold a phone sideways to record 16:9 or upright to record 9:16, so one phone can shoot the long-form video while another shoots the shorts in the same take. The app follows each phone's orientation and locks it while recording.
 - **Portrait settings**: face priority (on by default) makes focus, exposure and white balance follow faces, and exposure and white balance can be locked for the whole take. Both run in the phone's camera pipeline, so resolution and bitrate stay the same. Background blur was tried and removed because only a few phones support it, with resolution limits; there are no filters on purpose either, so grade the clean footage in your editor.
@@ -451,6 +458,7 @@ App 會先把影片正常收尾再停止，已經錄到的部分會照常傳到�
 - **Trim heads and tails**: drag the in and out handles on a thumbnail timeline while a clip plays, and every angle of that take is trimmed together into new `_1`, `_2`… files without re-encoding (requires ffmpeg); the originals are kept.
 - **External microphones**: USB and headset-jack mics are detected automatically, and the active input is shown on both the phone and the dashboard.
 - **Resilient**: recording continues if Wi-Fi drops, and uploads resume automatically.
+- **English and Traditional Chinese**: the dashboard follows your browser's language and switches with one click at the top right; the phone app follows the phone's language.
 
 | | |
 | --- | --- |
@@ -459,6 +467,7 @@ App 會先把影片正常收尾再停止，已經錄到的部分會照常傳到�
 | Phones | Android 12+, up to 10 (no iPhone app yet) |
 | Video | 4K / 2K / 1080p / 720p at 30 fps, MP4 (H.264 + AAC), up to 30 minutes per take |
 | Network | Phones and computer on the same Wi-Fi; footage stays on your local network |
+| Interface | English and Traditional Chinese (dashboard, pairing page, phone app) |
 
 Quick start:
 
@@ -471,7 +480,7 @@ npm start
 
 Open <http://localhost:8787>, then download `MultiCamRecorder.apk` from [Releases](https://github.com/dean9703111/multicam-recorder/releases/latest) (or scan the pairing QR code and use the download link on the page that opens), pair each phone, create a project and press `R`.
 
-Every push runs an end-to-end test with two simulated phones (one portrait, one landscape) on Windows, macOS and Linux in GitHub Actions; Windows has not been used with real phones yet. The phone protocol is documented in [`server/protocol.ts`](server/protocol.ts), so other phone platforms can be added. Developer notes are in [`docs/development.md`](docs/development.md). The UI is currently in Traditional Chinese. Product site: <https://deanlin.net/multicam-recorder/en/>
+It has been used with real phones on both Windows and an Apple Silicon Mac, and every push runs an end-to-end test with two simulated phones (one portrait, one landscape) on Windows, macOS and Linux in GitHub Actions. The phone protocol is documented in [`server/protocol.ts`](server/protocol.ts), so other phone platforms can be added. Developer notes are in [`docs/development.md`](docs/development.md) (in Traditional Chinese). Product site: <https://deanlin.net/multicam-recorder/en/>
 
 Made by Dean Lin: [Medium](https://medium.com/@dean-lin) · [Facebook](https://www.facebook.com/deanlinbao) · [Threads](https://www.threads.com/@deanlin5288) · [YouTube](https://www.youtube.com/@dlcorner) · [GitHub](https://github.com/dean9703111). If MultiCam Recorder helps you, a ⭐ or a share is much appreciated.
 

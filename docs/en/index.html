@@ -21,16 +21,16 @@
 <meta property="og:title" content="MultiCam Recorder｜Control multiple Android phones and record in sync">
 <meta property="og:description" content="Free, open-source multi-camera recording: live view, phone-native 4K, portrait and landscape in the same take, footage uploaded to your computer while recording. macOS, Windows and Android 12+.">
 <meta property="og:url" content="https://deanlin.net/multicam-recorder/en/">
-<meta property="og:image" content="https://deanlin.net/multicam-recorder/images/social-preview.png">
+<meta property="og:image" content="https://deanlin.net/multicam-recorder/images/social-preview-en.png">
 <meta property="og:image:width" content="1280">
 <meta property="og:image:height" content="640">
-<meta property="og:image:alt" content="MultiCam Recorder: control multiple Android phones from your computer and record in sync">
+<meta property="og:image:alt" content="MultiCam Recorder: control every Android phone from your computer and record in sync">
 <meta property="og:locale" content="en_US">
 <meta property="og:locale:alternate" content="zh_TW">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="MultiCam Recorder｜Control multiple Android phones and record in sync">
 <meta name="twitter:description" content="Free, open-source multi-camera recording with Android phones: live view, phone-native 4K, portrait and landscape in the same take.">
-<meta name="twitter:image" content="https://deanlin.net/multicam-recorder/images/social-preview.png">
+<meta name="twitter:image" content="https://deanlin.net/multicam-recorder/images/social-preview-en.png">
 <link rel="preload" href="../assets/fonts/barlow-condensed-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="../assets/fonts/barlow-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
 <script>matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.classList.add('motion');</script>
@@ -56,12 +56,12 @@
       "license": "https://opensource.org/licenses/MIT",
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
       "inLanguage": "en",
-      "image": "https://deanlin.net/multicam-recorder/images/social-preview.png",
+      "image": "https://deanlin.net/multicam-recorder/images/social-preview-en.png",
       "screenshot": [
-        "https://deanlin.net/multicam-recorder/images/console.png",
-        "https://deanlin.net/multicam-recorder/images/portrait-settings.png",
-        "https://deanlin.net/multicam-recorder/images/phone-app.png",
-        "https://deanlin.net/multicam-recorder/images/pairing.png"
+        "https://deanlin.net/multicam-recorder/images/console-en.png",
+        "https://deanlin.net/multicam-recorder/images/portrait-settings-en.png",
+        "https://deanlin.net/multicam-recorder/images/phone-app-en.png",
+        "https://deanlin.net/multicam-recorder/images/pairing-en.png"
       ],
       "featureList": [
         "Start and stop up to 10 Android phones at the same moment with one key",
@@ -111,7 +111,7 @@
       "mainEntity": [
         { "@type": "Question", "name": "Is MultiCam Recorder free?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. MultiCam Recorder is open-source software under the MIT license. The computer side and the phone app are both free, with no ads, subscriptions or accounts." } },
         { "@type": "Question", "name": "Does it work with iPhone?", "acceptedAnswer": { "@type": "Answer", "text": "Not yet. The phone app is available for Android 12 and later. The protocol between the computer and the phones is public, so other platforms can be added." } },
-        { "@type": "Question", "name": "Does it run on Windows?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Every push runs an end-to-end test on Windows, macOS and Linux in GitHub Actions with two simulated phones, covering pairing, live view, recording, transfer and verification. It has been used on an Apple Silicon Mac; Windows has not been used with real phones yet." } },
+        { "@type": "Question", "name": "Does it run on Windows?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. It has been used with real phones on both Windows and an Apple Silicon Mac, and every push runs an end-to-end test on Windows, macOS and Linux in GitHub Actions with two simulated phones, covering pairing, live view, recording, transfer and verification." } },
         { "@type": "Question", "name": "Does it need the internet? Is footage uploaded to the cloud?", "acceptedAnswer": { "@type": "Answer", "text": "No cloud is involved. Recording and file transfer happen only between your phones and your computer over the same Wi-Fi network, with no account. Footage is saved to the recording folder you choose. You only need the internet to download the app and the program." } },
         { "@type": "Question", "name": "Does Wi-Fi affect video quality?", "acceptedAnswer": { "@type": "Answer", "text": "No. Each phone records phone-native video locally; Wi-Fi only carries control messages and file transfers. A slow network only makes the transfer take longer, and the rest is sent after you stop." } },
         { "@type": "Question", "name": "How is this different from streaming phone cameras into OBS?", "acceptedAnswer": { "@type": "Answer", "text": "Streaming sends a live picture to the computer, so quality depends on the network; it suits live streaming. MultiCam Recorder records full quality on each phone and transfers the files, which suits shoots you edit afterwards. It does not live-stream." } },
@@ -121,7 +121,7 @@
         { "@type": "Question", "name": "Can I trim the start and end of a take?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Play the take in a monitor, choose Trim, drag the in and out handles on the timeline, and every angle of that take is trimmed together into new files named with _1 (the originals are kept). Nothing is re-encoded, so quality is unchanged; the start snaps back to the previous keyframe, so it may begin slightly earlier. Requires ffmpeg." } },
         { "@type": "Question", "name": "Are there filters or beauty effects?", "acceptedAnswer": { "@type": "Answer", "text": "No, on purpose. Warm, film or pastel looks and skin smoothing can't be done by the phone's camera pipeline; the app would have to process every frame itself, which makes phones hotter and drains the battery, and bakes the look into the footage for good. The same filter also looks different on phones from different brands. MultiCam Recorder records clean, consistent footage instead, so you can apply one grade to every angle in your editor." } },
         { "@type": "Question", "name": "How do I sync the clips from different phones?", "acceptedAnswer": { "@type": "Answer", "text": "The computer syncs clocks with every phone and schedules a common start time, and the dashboard shows the measured start offset between phones. For frame-accurate alignment, use your editor's audio sync." } },
-        { "@type": "Question", "name": "Is the app available in English?", "acceptedAnswer": { "@type": "Answer", "text": "The interface is currently in Traditional Chinese only." } }
+        { "@type": "Question", "name": "Is the app available in English?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. The dashboard, the pairing page and the phone app are available in English and Traditional Chinese. The dashboard follows your browser's language and switches with one click at the top right or in Settings; the phone app follows the phone's language, and on Android 13 and later you can also choose a language just for the app in the system settings." } }
       ]
     }
   ]
@@ -207,7 +207,7 @@
         <a class="btn btn-rec" href="https://github.com/dean9703111/multicam-recorder/releases/latest"><span class="dot" aria-hidden="true"></span>Download the Android app</a>
         <a class="btn btn-ghost" href="#start">Get started in 3 steps</a>
       </div>
-      <p class="cta-note">Latest v0.4.2・Computer: macOS or Windows・Phones: Android 12+・Interface in Traditional Chinese</p>
+      <p class="cta-note">Latest v0.4.2・Computer: macOS or Windows・Phones: Android 12+・Interface in English and Traditional Chinese</p>
       <ul class="chips" aria-label="Highlights">
         <li>Up to 10 phones</li>
         <li>Portrait + landscape in one take</li>
@@ -216,7 +216,7 @@
         <li>No cloud account</li>
       </ul>
       <figure class="monitor-frame">
-        <img src="../images/console.png" width="1440" height="960" fetchpriority="high" alt="MultiCam Recorder dashboard: two Android phones recording 4K in sync, one landscape 16:9 and one portrait 9:16, with live views and clips uploading to the computer">
+        <img src="../images/console-en.png" width="1440" height="960" fetchpriority="high" alt="MultiCam Recorder dashboard: two Android phones recording 4K in sync, one landscape 16:9 and one portrait 9:16, with live views and clips uploading to the computer">
         <span class="mf-corner tl" aria-hidden="true"></span><span class="mf-corner tr" aria-hidden="true"></span><span class="mf-corner bl" aria-hidden="true"></span><span class="mf-corner br" aria-hidden="true"></span>
       </figure>
       <figcaption>The dashboard on your computer: two phones recording 4K, landscape 16:9 on the left and portrait 9:16 on the right, each with a live view (the gradients come from the simulated phones used in development).</figcaption>
@@ -308,7 +308,7 @@
       <span class="kicker">USE CASES</span>
       <h2 id="use-cases-title">Made for multi-angle shoots</h2>
       <p class="section-lead">Whenever you need several angles but don't want to rent cameras and a switcher, the phones you already have will do.</p>
-      <div class="figure reveal"><img src="../images/use-cases.png" width="1860" height="1490" loading="lazy" decoding="async" alt="Top-down diagrams of four setups: an interview or podcast with two cameras, one landscape and one portrait phone for long-form video and shorts, a class with a wide shot and a close-up, and product shots from the front, overhead and the side"></div>
+      <div class="figure reveal"><img src="../images/use-cases-en.png" width="1860" height="1457" loading="lazy" decoding="async" alt="Top-down diagrams of four setups: an interview or podcast with two cameras, one landscape and one portrait phone for long-form video and shorts, a class with a wide shot and a close-up, and product shots from the front, overhead and the side"></div>
       <div class="cards four">
         <article class="card reveal"><div class="n">01</div><h3>Interviews and podcasts</h3><p>One phone on the host, one on the guest, with an external mic on one of them as the main audio track.</p></article>
         <article class="card reveal hot"><div class="n">02</div><h3>Long-form + shorts</h3><p>One phone sideways for a 16:9 YouTube video, one upright for 9:16 Reels, Shorts or TikTok, in the same take.</p></article>
@@ -495,11 +495,11 @@
         </div>
       </div>
       <div class="pt-row">
-        <div class="figure reveal"><img src="../images/portrait-settings.png" width="540" height="280" loading="lazy" decoding="async" alt="Portrait section at the bottom of the recording spec menu: face priority checked (focus, exposure and white balance follow faces), exposure and white-balance lock unchecked (brightness and color stay the same for the whole take, best for steady indoor lighting)"></div>
+        <div class="figure reveal"><img src="../images/portrait-settings-en.png" width="540" height="309" loading="lazy" decoding="async" alt="Portrait section at the bottom of the recording spec menu: face priority checked (focus, exposure and white balance follow faces), exposure and white-balance lock unchecked (brightness and color stay the same for the whole take, best for steady indoor lighting)"></div>
         <div class="pt-text reveal">
           <h3>No background blur or filters</h3>
           <p>Background blur only works on a few phones and has resolution limits, so results were unreliable; filters bake a look into the footage for good. The app records <strong>clean, consistent</strong> footage, so you can grade every angle at once in your editor.</p>
-          <p class="hint">Both settings are under Portrait at the bottom of the recording spec menu (the interface is in Traditional Chinese).</p>
+          <p class="hint">Both settings are under Portrait at the bottom of the recording spec menu.</p>
         </div>
       </div>
     </div>
@@ -509,7 +509,7 @@
     <div class="wrap">
       <span class="kicker">HOW IT WORKS</span>
       <h2 id="how-title">How it works</h2>
-      <div class="figure reveal"><img src="../images/how-it-works.png" width="1860" height="1025" loading="lazy" decoding="async" alt="The computer is the control room and the phones are the cameras, all on the same Wi-Fi; commands and live view go over WebSocket, footage is uploaded while recording and verified after you stop"></div>
+      <div class="figure reveal"><img src="../images/how-it-works-en.png" width="1860" height="1002" loading="lazy" decoding="async" alt="The computer is the control room and the phones are the cameras, all on the same Wi-Fi; commands and live view go over WebSocket, footage is uploaded while recording and verified after you stop"></div>
       <div class="cards three">
         <article class="card reveal"><h3>The computer directs</h3><p>A local server on your computer serves the dashboard. The dashboard only opens on that computer, not on other devices on the network.</p></article>
         <article class="card reveal"><h3>The phones record</h3><p>Recording happens on each phone (Camera2 + MediaRecorder), so Wi-Fi never limits image quality; it only carries control and files.</p></article>
@@ -587,31 +587,31 @@
 cd multicam-recorder
 npm install
 npm start</pre></div>
-            <p>When you see <code>控制台：http://localhost:8787</code>, open <code>http://localhost:8787</code> in your browser. The setup screen walks you through the recording folder (an external SSD is recommended), pairing and your first project. <code>npm install</code> is only needed the first time; press <kbd>Ctrl</kbd>+<kbd>C</kbd> in the terminal to stop.</p>
-            <div class="figure reveal"><img src="../images/setup.png" width="1240" height="530" loading="lazy" decoding="async" alt="The dashboard's setup screen with three steps: confirm the recording folder, pair a phone, create a project"></div>
+            <p>When you see <code>Dashboard: http://localhost:8787</code>, open <code>http://localhost:8787</code> in your browser. The setup screen walks you through the recording folder (an external SSD is recommended), pairing and your first project. <code>npm install</code> is only needed the first time; press <kbd>Ctrl</kbd>+<kbd>C</kbd> in the terminal to stop.</p>
+            <div class="figure reveal"><img src="../images/setup-en.png" width="1366" height="551" loading="lazy" decoding="async" alt="The dashboard's setup screen with three steps: confirm the recording folder, pair a phone, create a project"></div>
           </div>
         </li>
         <li class="step reveal">
           <div>
             <h3>Install the app and pair with a QR code</h3>
-            <p>Download <strong>MultiCamRecorder.apk</strong> from <a href="https://github.com/dean9703111/multicam-recorder/releases/latest">Releases</a> and install it (Android will ask you to allow installing unknown apps). Then click 配對手機 (Pair phone) on the dashboard, scan the QR code with the phone's camera and tap the button on the page that opens. That page also links to the app download. <strong>Each phone only needs to be paired once.</strong></p>
-            <div class="figure reveal"><img src="../images/pairing.png" width="2130" height="1235" loading="lazy" decoding="async" alt="Pairing: the computer shows a QR code, the phone camera scans it, the page opens the app, and pairing is done"></div>
+            <p>Download <strong>MultiCamRecorder.apk</strong> from <a href="https://github.com/dean9703111/multicam-recorder/releases/latest">Releases</a> and install it (Android will ask you to allow installing unknown apps). Then click <strong>Pair phone</strong> on the dashboard, scan the QR code with the phone's camera and tap the button on the page that opens. That page also links to the app download. <strong>Each phone only needs to be paired once.</strong></p>
+            <div class="figure reveal"><img src="../images/pairing-en.png" width="2130" height="1218" loading="lazy" decoding="async" alt="Pairing: the computer shows a QR code, the phone camera scans it, the page opens the app, and pairing is done"></div>
           </div>
         </li>
         <li class="step reveal">
           <div>
             <h3>Create a project and press R</h3>
             <ul>
-              <li>Create a project from the 專案 (Project) menu; takes are saved to <code>&lt;recording folder&gt;/&lt;project&gt;</code>.</li>
-              <li>Pick the resolution (4K, 2K, 1080p, 720p) and a framing guide in the 錄影規格 (Recording spec) menu.</li>
+              <li>Create a project from the <strong>Project</strong> menu; takes are saved to <code>&lt;recording folder&gt;/&lt;project&gt;</code>.</li>
+              <li>Pick the resolution (4K, 2K, 1080p, 720p) and a framing guide in the <strong>Recording spec</strong> menu.</li>
               <li>Press <kbd>R</kbd> to start every phone and <kbd>S</kbd> to stop; each clip plays on its monitor once it has uploaded.</li>
-              <li>Keep the app in the foreground with the screen on while recording; use the app's dim button for long takes.</li>
+              <li>Keep the app in the foreground with the screen on while recording; use the app's <strong>Dim screen</strong> button for long takes.</li>
             </ul>
-            <div class="figure reveal"><img src="../images/spec-guide.png" width="1440" height="740" loading="lazy" decoding="async" alt="The recording spec menu with 4K, 2K, 1080p and 720p and the framing guides; a 9:16 guide is shown on the landscape phone's live view"></div>
+            <div class="figure reveal"><img src="../images/spec-guide-en.png" width="1440" height="745" loading="lazy" decoding="async" alt="The recording spec menu with 4K, 2K, 1080p and 720p and the framing guides; a 9:16 guide is shown on the landscape phone's live view"></div>
           </div>
         </li>
       </ol>
-      <p class="note"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg><span>The interface is currently in Traditional Chinese. Full documentation, including playback, starring, cleanup and troubleshooting, is in the <a href="https://github.com/dean9703111/multicam-recorder#readme">README on GitHub</a>.</span></p>
+      <p class="note"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg><span>The full guide, including playback, starring, cleanup and troubleshooting, is in the <a href="https://github.com/dean9703111/multicam-recorder#readme">README on GitHub</a> (in Traditional Chinese, with an English summary).</span></p>
     </div>
   </section>
 
@@ -621,8 +621,8 @@ npm start</pre></div>
       <h2 id="app-title">The phone app: set it up and leave it</h2>
       <p class="section-lead">The computer starts and stops recording. The app shows the connection, the recording timer, the mic in use, the zoom and the upload progress, and turns upright when the phone does.</p>
       <div class="app-shots reveal">
-        <img src="../images/phone-app.png" width="1860" height="1348" loading="lazy" decoding="async" alt="The phone app in landscape: name and connection, recording timer, microphone and zoom, upload status, dim screen, scan and clean buttons, framing guide">
-        <img src="../images/phone-app-portrait.png" width="1140" height="1213" loading="lazy" decoding="async" alt="The phone app in portrait: name and microphone at the top, the timer below, three buttons in one row at the bottom, orientation locked while recording">
+        <img src="../images/phone-app-en.png" width="1860" height="1333" loading="lazy" decoding="async" alt="The phone app in landscape: name and connection, recording timer, microphone and zoom, upload status, dim screen, scan and clean buttons, framing guide">
+        <img src="../images/phone-app-portrait-en.png" width="1140" height="1199" loading="lazy" decoding="async" alt="The phone app in portrait: name and microphone at the top, the timer below, three buttons in one row at the bottom, orientation locked while recording">
       </div>
     </div>
   </section>
@@ -631,7 +631,7 @@ npm start</pre></div>
     <div class="wrap">
       <span class="kicker">NETWORK</span>
       <h2 id="network-title">The fastest way to connect</h2>
-      <div class="figure reveal"><img src="../images/network.png" width="1860" height="991" loading="lazy" decoding="async" alt="Best: computer on Ethernet; also good: computer on 5 GHz and phones on 2.4 GHz; avoid putting everything on one band, guest networks and VPNs"></div>
+      <div class="figure reveal"><img src="../images/network-en.png" width="1860" height="1038" loading="lazy" decoding="async" alt="Best: computer on Ethernet; also good: computer on 5 GHz and phones on 2.4 GHz; avoid putting everything on one band, guest networks and VPNs"></div>
       <ul class="checks reveal">
         <li><strong>Connect the computer with Ethernet</strong>: each phone's footage then crosses the air only once.</li>
         <li><strong>Or split the bands</strong>: for example phones on 2.4 GHz and the computer on 5 GHz, so they don't compete for the same channel.</li>
@@ -660,7 +660,7 @@ npm start</pre></div>
             <tr><th scope="row">Network</th><td>Phones and computer on the same Wi-Fi; footage stays on your local network</td></tr>
             <tr><th scope="row">Audio</th><td>Built-in mic, or USB and headset-jack external mics</td></tr>
             <tr><th scope="row">Live view</th><td>About 5 fps (640×360 landscape, 360×640 portrait)</td></tr>
-            <tr><th scope="row">Interface</th><td>Traditional Chinese</td></tr>
+            <tr><th scope="row">Interface</th><td>English and Traditional Chinese (dashboard, pairing page, phone app)</td></tr>
           </tbody>
         </table>
       </div>
@@ -674,7 +674,7 @@ npm start</pre></div>
       <div class="faq">
         <details open><summary>Is MultiCam Recorder free?</summary><div class="answer"><p><strong>Yes.</strong> MultiCam Recorder is open-source software under the MIT license. The computer side and the phone app are both free, with no ads, subscriptions or accounts.</p></div></details>
         <details><summary>Does it work with iPhone?</summary><div class="answer"><p><strong>Not yet.</strong> The phone app is available for Android 12 and later. The protocol between the computer and the phones is public (<a href="https://github.com/dean9703111/multicam-recorder/blob/main/server/protocol.ts">server/protocol.ts</a>), so other platforms can be added.</p></div></details>
-        <details><summary>Does it run on Windows?</summary><div class="answer"><p><strong>Yes.</strong> Every push runs an end-to-end test on Windows, macOS and Linux in GitHub Actions with two simulated phones, covering pairing, live view, recording, transfer and verification. It has been used on an Apple Silicon Mac; Windows has not been used with real phones yet, so please <a href="https://github.com/dean9703111/multicam-recorder/issues">open an issue</a> if you hit a problem.</p></div></details>
+        <details><summary>Does it run on Windows?</summary><div class="answer"><p><strong>Yes.</strong> It has been used with real phones on both Windows and an Apple Silicon Mac, and every push runs an end-to-end test on Windows, macOS and Linux in GitHub Actions with two simulated phones, covering pairing, live view, recording, transfer and verification. If you hit a problem, please <a href="https://github.com/dean9703111/multicam-recorder/issues">open an issue</a>.</p></div></details>
         <details><summary>Does it need the internet? Is footage uploaded to the cloud?</summary><div class="answer"><p><strong>No cloud is involved.</strong> Recording and file transfer happen only between your phones and your computer over the same Wi-Fi network, with no account. Footage is saved to the recording folder you choose. You only need the internet to download the app and the program.</p></div></details>
         <details><summary>Does Wi-Fi affect video quality?</summary><div class="answer"><p><strong>No.</strong> Each phone records phone-native video locally; Wi-Fi only carries control messages and file transfers. A slow network only makes the transfer take longer, and the rest is sent after you stop.</p></div></details>
         <details><summary>How is this different from streaming phone cameras into OBS?</summary><div class="answer"><p>Streaming sends a live picture to the computer, so quality depends on the network; it suits live streaming. <strong>MultiCam Recorder records full quality on each phone and transfers the files</strong>, which suits shoots you edit afterwards. It does not live-stream.</p></div></details>
@@ -684,7 +684,7 @@ npm start</pre></div>
         <details><summary>Can I trim the start and end of a take?</summary><div class="answer"><p><strong>Yes.</strong> Play the take in a monitor, choose Trim, drag the in and out handles on the timeline, and every angle of that take is trimmed together into new files named with <code>_1</code> (the originals are kept). Nothing is re-encoded, so quality is unchanged; the start snaps back to the previous keyframe, so it may begin slightly earlier. Requires ffmpeg.</p></div></details>
         <details><summary>Are there filters or beauty effects?</summary><div class="answer"><p><strong>No, on purpose.</strong> Warm, film or pastel looks and skin smoothing can't be done by the phone's camera pipeline; the app would have to process every frame itself, which makes phones hotter and drains the battery, and bakes the look into the footage for good. The same filter also looks different on phones from different brands. MultiCam Recorder records <strong>clean, consistent</strong> footage instead, so you can apply one grade to every angle in your editor.</p></div></details>
         <details><summary>How do I sync the clips from different phones?</summary><div class="answer"><p>The computer syncs clocks with every phone and <strong>schedules a common start time</strong>, and the dashboard shows the measured start offset between phones. For frame-accurate alignment, use your editor's audio sync.</p></div></details>
-        <details><summary>Is the app available in English?</summary><div class="answer"><p>The interface is currently in <strong>Traditional Chinese only</strong>.</p></div></details>
+        <details><summary>Is the app available in English?</summary><div class="answer"><p><strong>Yes.</strong> The dashboard, the pairing page and the phone app are available in English and Traditional Chinese. The dashboard follows your browser's language and switches with one click at the top right or in Settings; the phone app follows the phone's language, and on Android 13 and later you can also choose a language just for the app in the system settings.</p></div></details>
       </div>
     </div>
   </section>

@@ -1,0 +1,706 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="robots" content="noindex" />
+<title>README mockups (English)</title>
+<!-- 英文版示意圖的原稿（中文版是 mockups.html，兩邊的版面要一起改）：每個 section 對應 docs/images/ 裡的一張 -en 圖
+     architecture → how-it-works-en.png、pairing → pairing-en.png、app → phone-app-en.png、app-portrait → phone-app-portrait-en.png、
+     use-cases → use-cases-en.png、network → network-en.png、social → social-preview-en.png（英文網站的分享預覽圖）。
+     手機 App 上的字照 android/app/src/main/res/values/strings.xml，配對網頁照 server/i18n.ts 的 pairPage.*。
+     在專案根目錄執行 python3 -m http.server，打開 http://localhost:8000/docs/mockups-en.html，把每個 section 各自截圖。 -->
+<style>
+@font-face { font-family: 'Barlow Condensed'; font-weight: 600; src: url(../node_modules/@fontsource/barlow-condensed/files/barlow-condensed-latin-600-normal.woff2); }
+@font-face { font-family: 'Barlow Condensed'; font-weight: 700; src: url(../node_modules/@fontsource/barlow-condensed/files/barlow-condensed-latin-700-normal.woff2); }
+@font-face { font-family: 'Barlow'; font-weight: 400; src: url(../node_modules/@fontsource/barlow/files/barlow-latin-400-normal.woff2); }
+@font-face { font-family: 'Barlow'; font-weight: 500; src: url(../node_modules/@fontsource/barlow/files/barlow-latin-500-normal.woff2); }
+@font-face { font-family: 'Martian Mono'; font-weight: 400; src: url(../node_modules/@fontsource/martian-mono/files/martian-mono-latin-400-normal.woff2); }
+@font-face { font-family: 'Martian Mono'; font-weight: 500; src: url(../node_modules/@fontsource/martian-mono/files/martian-mono-latin-500-normal.woff2); }
+
+:root {
+  --bg: #0a0b0d; --panel: #121519; --panel-hi: #191d22; --line: #252a30; --line-hi: #353c45;
+  --text: #ece8e1; --muted: #8b919a; --faint: #596069;
+  --red: #ff3b3b; --red-glow: rgba(255, 59, 59, 0.42); --amber: #ffb000; --green: #3ddc84; --cyan: #59c2ff;
+  --label: 'Barlow Condensed', 'PingFang TC', sans-serif;
+  --body: 'Barlow', 'PingFang TC', sans-serif;
+  --mono: 'Martian Mono', 'SF Mono', Menlo, monospace;
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 30px; background: #333; font-family: var(--body); color: var(--text); display: grid; gap: 30px; justify-content: start; }
+
+.canvas {
+  position: relative;
+  overflow: hidden;
+  border-radius: 14px;
+  background:
+    radial-gradient(900px 420px at 10% -10%, rgba(89, 194, 255, 0.08), transparent 60%),
+    radial-gradient(800px 420px at 110% 110%, rgba(255, 59, 59, 0.07), transparent 60%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.016) 0 1px, transparent 1px 3px),
+    var(--bg);
+}
+.kicker { font-family: var(--label); font-weight: 700; letter-spacing: 0.28em; font-size: 13px; color: var(--muted); }
+.title { font-family: var(--label); font-weight: 700; font-size: 30px; letter-spacing: 0.02em; margin: 4px 0 0; }
+
+/* ---------- 通用：手機外框 ---------- */
+.phone { position: relative; background: #050505; border: 3px solid #2c3037; box-shadow: 0 0 0 7px #15181c, 0 30px 60px -20px rgba(0,0,0,.9); overflow: hidden; }
+.phone.portrait { width: 230px; height: 480px; border-radius: 34px; }
+.phone.landscape { border-radius: 34px; }
+.phone.portrait::before { content: ''; position: absolute; top: 12px; left: 50%; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: #000; box-shadow: 0 0 0 2px #1d2025; z-index: 5; }
+.phone.landscape::before { content: ''; position: absolute; left: 12px; top: 50%; width: 12px; height: 12px; margin-top: -6px; border-radius: 50%; background: #000; box-shadow: 0 0 0 2px #1d2025; z-index: 5; }
+
+.pill { position: absolute; background: rgba(10, 11, 13, 0.72); border-radius: 6px; padding: 7px 11px; color: var(--text); font-size: 13px; line-height: 1.3; }
+.pill b { display: block; font-size: 16px; font-weight: 700; }
+.ok { color: var(--green); }
+.btn { display: inline-block; padding: 8px 12px; border-radius: 6px; background: rgba(60, 64, 72, 0.92); color: var(--text); font-size: 13px; font-weight: 500; letter-spacing: 0.02em; }
+.btn.off { opacity: 0.45; }
+.badge { position: absolute; z-index: 9; width: 30px; height: 30px; border-radius: 50%; background: var(--cyan); color: #06121b; font: 700 17px var(--label); display: grid; place-items: center; box-shadow: 0 0 0 4px rgba(89, 194, 255, 0.25); }
+
+/* 相機畫面：訪談場景 */
+.scene { position: absolute; inset: 0; overflow: hidden;
+  background: linear-gradient(180deg, #3b4a5c 0%, #55657a 55%, #2a2622 55%, #3a322b 100%); }
+.scene .window { position: absolute; left: 8%; top: 10%; width: 22%; height: 34%; background: linear-gradient(160deg, #cfe3f5, #8fb3d6); border: 6px solid #2a3542; }
+.scene .lamp { position: absolute; right: 12%; top: 8%; width: 60px; height: 60px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 226, 160, 0.9), rgba(255, 210, 120, 0) 70%); }
+.scene .plant { position: absolute; right: 10%; bottom: 42%; width: 46px; height: 70px; border-radius: 50% 50% 8px 8px; background: radial-gradient(circle at 50% 30%, #4f8a55, #2f5a36); }
+.scene .person { position: absolute; left: 50%; bottom: 0; width: 34%; height: 78%; transform: translateX(-50%); }
+.scene .person .head { position: absolute; left: 50%; top: 0; width: 34%; aspect-ratio: 1; transform: translateX(-50%); border-radius: 50%; background: #e3b590; box-shadow: inset 0 -6px 0 rgba(0,0,0,.08); }
+.scene .person .hair { position: absolute; left: 50%; top: -2%; width: 36%; height: 16%; transform: translateX(-50%); border-radius: 50% 50% 30% 30%; background: #2b211b; }
+.scene .person .body { position: absolute; left: 0; right: 0; bottom: 0; height: 62%; border-radius: 48% 48% 0 0; background: linear-gradient(180deg, #2f6f9e, #255a82); }
+.scene .desk { position: absolute; left: 0; right: 0; bottom: 0; height: 18%; background: #6b4f3a; border-top: 4px solid #84634a; }
+.scene .mic { position: absolute; left: 58%; bottom: 14%; width: 10px; height: 46px; background: #1b1b1b; border-radius: 5px; }
+.scene .mic::before { content: ''; position: absolute; left: -6px; top: -16px; width: 22px; height: 22px; border-radius: 50%; background: #111; }
+
+/* ---------- 架構圖 ---------- */
+#architecture { width: 1240px; padding: 36px 44px 34px; }
+.arch { display: grid; grid-template-columns: 380px 1fr 300px; align-items: center; margin-top: 26px; }
+.laptop { width: 360px; }
+.laptop .lap-screen { height: 226px; border: 10px solid #1c1f24; border-bottom-width: 14px; border-radius: 12px 12px 0 0; background: var(--bg); padding: 10px; }
+.laptop .base { height: 14px; margin: 0 -22px; border-radius: 0 0 14px 14px; background: linear-gradient(180deg, #2a2e34, #16191d); }
+.mini-top { display: flex; align-items: center; gap: 8px; height: 22px; padding: 0 6px; border-bottom: 1px solid var(--line); }
+.mini-top .dot { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--text); position: relative; }
+.mini-top .dot::after { content: ''; position: absolute; inset: 1px; border-radius: 50%; background: var(--red); }
+.mini-top .rec { margin-left: auto; width: 46px; height: 12px; border-radius: 2px; background: var(--red); }
+.mini-top .stop { width: 30px; height: 12px; border-radius: 2px; background: #2a2f36; }
+.mini-bays { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.mini-bay { height: 156px; border: 1px solid rgba(255, 59, 59, 0.7); border-radius: 4px; padding: 6px; background: var(--panel); }
+.mini-bay .tc { font: 500 20px var(--mono); }
+.mini-bay .tc span { font-size: 9px; color: var(--faint); }
+/* 監看畫面：和模擬手機的測試動畫同一種樣子（漸層＋刻度圈） */
+.mini-bay .mon { position: relative; margin-top: 6px; height: 64px; overflow: hidden;
+  background: radial-gradient(circle at 55% 42%, rgba(255, 77, 141, 0.85), transparent 58%), linear-gradient(105deg, #1c0a0a 34%, #d11f3a 46%, #ffb000 53%, #1c0a0a 64%); }
+.mini-bay.b .mon { background: radial-gradient(circle at 55% 42%, rgba(139, 92, 246, 0.85), transparent 58%), linear-gradient(105deg, #0a1030 34%, #1d4ed8 46%, #22d3ee 53%, #0a1030 64%); }
+.mini-bay .mon::before { content: ''; position: absolute; left: 50%; top: 50%; width: 34px; height: 34px; margin: -17px 0 0 -17px; border: 1px solid rgba(255, 255, 255, 0.6); border-radius: 50%; }
+.mini-bay .mon::after { content: ''; position: absolute; left: calc(50% + 10px); top: calc(50% - 16px); width: 5px; height: 5px; border-radius: 50%; background: #fff; box-shadow: 0 0 6px #fff; }
+.mini-bay .row { margin-top: 7px; height: 8px; border-radius: 2px; background: var(--line-hi); }
+.mini-bay .row.short { width: 60%; }
+.device-label { margin-top: 18px; text-align: center; }
+.device-label b { display: block; font: 700 21px var(--label); letter-spacing: 0.04em; }
+.device-label span { color: var(--muted); font-size: 14px; }
+
+.links { position: relative; height: 300px; }
+.links > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.wifi { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 120px; text-align: center; }
+.wifi .icon { width: 74px; height: 74px; margin: 0 auto; border-radius: 50%; background: var(--panel-hi); border: 1px solid var(--line-hi); display: grid; place-items: center; }
+.wifi span { display: block; margin-top: 8px; font: 700 15px var(--label); letter-spacing: 0.08em; color: var(--muted); }
+.flow-label { position: absolute; left: 50%; transform: translateX(-50%); width: 300px; text-align: center; font-size: 14px; line-height: 1.45; }
+.flow-label small { display: block; color: var(--faint); font-family: var(--mono); font-size: 11px; letter-spacing: 0.02em; }
+.flow-label.top { top: 6px; color: var(--cyan); }
+.flow-label.bottom { bottom: 0; color: #ffb4b4; }
+
+.phones { display: grid; gap: 22px; justify-items: center; }
+.phones .phone.landscape { width: 250px; height: 116px; border-radius: 20px; }
+.phones .phone.landscape::before { width: 8px; height: 8px; margin-top: -4px; left: 9px; }
+.phones .rec-dot { position: absolute; top: 9px; left: 50%; transform: translateX(-50%); z-index: 6; font: 500 10px var(--mono); color: var(--red); background: rgba(10,11,13,.75); padding: 2px 6px; border-radius: 3px; }
+.phone-cap { margin-top: 10px; text-align: center; font-size: 14px; }
+.phone-cap b { font: 700 17px var(--label); letter-spacing: 0.06em; margin-right: 6px; }
+.tag { display: inline-block; margin-left: 6px; padding: 0 6px; border: 1px solid rgba(89, 194, 255, 0.55); border-radius: 2px; color: var(--cyan); font-size: 12px; }
+.more { padding: 6px 14px; border: 1px dashed var(--line-hi); border-radius: 16px; color: var(--muted); font-size: 13px; }
+
+.steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 30px; }
+.step { position: relative; padding: 14px 16px 15px; border: 1px solid var(--line-hi); border-radius: 6px; background: rgba(18, 21, 25, 0.86); }
+.step .n { font: 700 13px var(--label); letter-spacing: 0.2em; color: var(--cyan); }
+.step b { display: block; margin-top: 3px; font: 700 21px var(--label); letter-spacing: 0.03em; }
+.step p { margin: 4px 0 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+.step.hot { border-color: rgba(255, 59, 59, 0.6); }
+.step.hot .n { color: var(--red); }
+
+/* ---------- 配對流程 ---------- */
+#pairing { width: 1420px; padding: 36px 44px 40px; }
+.pair-row { display: grid; grid-template-columns: 330px 250px 250px 1fr; gap: 34px; align-items: start; margin-top: 28px; }
+.pair-col { display: grid; grid-template-rows: 500px auto; justify-items: center; gap: 22px; }
+.pair-col > :first-child { align-self: end; }
+.pair-col .cap { align-self: start; }
+.cap { text-align: center; max-width: 300px; }
+.cap .n { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--cyan); color: #06121b; font: 700 17px var(--label); margin-bottom: 8px; }
+.cap b { display: block; font: 700 20px var(--label); letter-spacing: 0.03em; }
+.cap span { display: block; margin-top: 3px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+
+.mac-modal { width: 330px; border: 1px solid var(--line-hi); border-radius: 8px; background: var(--panel); box-shadow: 0 30px 60px -20px rgba(0,0,0,.9); overflow: hidden; }
+.mac-modal .bar { display: flex; gap: 6px; padding: 9px 12px; background: #1b1e23; border-bottom: 1px solid var(--line); }
+.mac-modal .bar i { width: 10px; height: 10px; border-radius: 50%; background: #3a3f46; }
+.mac-modal .bar span { margin-left: 8px; font: 500 11px var(--mono); color: var(--muted); line-height: 10px; }
+.mac-modal .head { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line); font: 700 20px var(--label); letter-spacing: 0.04em; }
+.mac-modal .head span { font: 600 12px var(--label); padding: 3px 8px; border: 1px solid var(--line-hi); border-radius: 3px; }
+.mac-modal .body { display: grid; grid-template-columns: 150px 1fr; gap: 14px; padding: 16px; }
+.qr { background: #fff; padding: 7px; border-radius: 4px; }
+.qr img { display: block; width: 100%; image-rendering: pixelated; }
+.mac-modal ol { margin: 0; padding-left: 16px; font-size: 12px; line-height: 1.55; color: var(--text); }
+.mac-modal ol li + li { margin-top: 4px; }
+.mac-modal .addr { padding: 0 16px 14px; font-size: 11px; color: var(--muted); }
+.mac-modal .addr code { font-family: var(--mono); color: var(--text); }
+
+.cam-view { position: absolute; inset: 0; background: radial-gradient(circle at 50% 45%, #3a3f46, #15171a 75%); }
+.cam-view .monitor { position: absolute; left: 22px; right: 22px; top: 120px; height: 190px; border-radius: 6px; background: #20242a; border: 2px solid #0b0c0e; transform: perspective(500px) rotateX(8deg); display: grid; place-items: center; }
+.cam-view .monitor .qr { width: 118px; padding: 5px; }
+.cam-view .frame { position: absolute; left: 50%; top: 141px; width: 150px; height: 150px; transform: translateX(-50%); }
+.cam-view .frame::before, .cam-view .frame::after { content: ''; position: absolute; width: 30px; height: 30px; border: 3px solid #fff; }
+.cam-view .frame::before { left: 0; top: 0; border-right: 0; border-bottom: 0; border-radius: 8px 0 0 0; }
+.cam-view .frame::after { right: 0; bottom: 0; border-left: 0; border-top: 0; border-radius: 0 0 8px 0; }
+.link-chip { position: absolute; left: 14px; right: 14px; bottom: 74px; display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 22px; background: #f1f3f4; color: #1f1f1f; font-size: 12px; box-shadow: 0 6px 18px rgba(0,0,0,.4); }
+.link-chip .ic { flex: none; width: 22px; height: 22px; border-radius: 50%; background: #1a73e8; display: grid; place-items: center; }
+.link-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); font-size: 10.5px; }
+.shutter { position: absolute; left: 50%; bottom: 18px; width: 46px; height: 46px; margin-left: -23px; border-radius: 50%; border: 4px solid #fff; }
+
+.browser { position: absolute; inset: 0; background: #0a0b0d; }
+.browser .urlbar { margin: 34px 12px 0; display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 18px; background: #2a2d31; font-size: 11px; color: #c9ccd1; }
+.browser .urlbar em { font-style: normal; color: #f28b82; font-size: 10px; white-space: nowrap; }
+.browser .urlbar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); font-size: 10px; }
+.browser .page { padding: 34px 18px; }
+.browser h4 { margin: 0 0 10px; font-size: 22px; }
+.browser p { margin: 0; color: #b9bdc4; font-size: 13px; line-height: 1.6; }
+.browser .page { padding-top: 26px; }
+.browser .go { display: block; margin: 20px 0 22px; padding: 14px; border-radius: 6px; background: var(--red); color: #fff; font-size: 15px; font-weight: 700; text-align: center; box-shadow: 0 0 0 4px rgba(255, 59, 59, 0.25); }
+.browser h5 { margin: 0 0 6px; font-size: 14px; }
+.browser .note { font-size: 11px; color: #8b919a; }
+.browser .note u { color: var(--cyan); }
+.tap { position: absolute; width: 44px; height: 44px; border-radius: 50%; background: rgba(255, 255, 255, 0.28); border: 2px solid rgba(255,255,255,.7); z-index: 7; }
+
+#pairing .phone.landscape { width: 392px; height: 184px; }
+.toast { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); padding: 9px 16px; border-radius: 18px; background: rgba(40, 43, 48, 0.95); color: #fff; font-size: 13px; white-space: nowrap; z-index: 6; }
+
+/* ---------- App 畫面說明 ---------- */
+#app { width: 1240px; padding: 36px 44px 40px; }
+#app .stage { position: relative; margin: 34px auto 0; width: 1020px; }
+#app .phone.landscape { width: 1020px; height: 470px; }
+.phone-screen { position: absolute; inset: 0; background: #000; }
+.preview { position: absolute; top: 0; height: 100%; left: 50%; aspect-ratio: 16 / 9; transform: translateX(-50%); }
+#app .pill { font-size: 15px; padding: 9px 14px; }
+#app .pill b { font-size: 21px; }
+.timer { left: 50%; top: 16px; transform: translateX(-50%); font: 500 25px var(--mono); color: var(--red); padding: 7px 16px; white-space: nowrap; }
+.legend-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px 24px; margin-top: 30px; }
+/* 構圖輔助框：框外調暗，錄影照樣是完整的畫面 */
+.guide { position: absolute; top: 0; bottom: 0; left: 50%; width: 31.64%; transform: translateX(-50%); border-left: 2px solid rgba(255, 255, 255, 0.85); border-right: 2px solid rgba(255, 255, 255, 0.85); box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4); }
+.guide span { position: absolute; left: 10px; bottom: 12px; font: 500 13px var(--mono); text-shadow: 0 0 4px #000; }
+.legend-row div { display: grid; grid-template-columns: 30px 1fr; gap: 10px; align-items: start; font-size: 14px; line-height: 1.5; color: var(--muted); }
+.legend-row div b { display: block; color: var(--text); font-size: 15px; }
+.legend-row .badge { position: static; }
+.warn-strip { display: flex; align-items: center; gap: 14px; margin-top: 24px; padding: 12px 16px; border: 1px solid rgba(255, 176, 0, 0.45); border-radius: 6px; background: rgba(255, 176, 0, 0.08); font-size: 14px; color: #ffd27a; }
+.warn-strip .sample { font: 500 17px var(--mono); color: var(--amber); background: rgba(10, 11, 13, 0.8); padding: 5px 12px; border-radius: 6px; white-space: nowrap; }
+
+/* ---------- 使用情境：四種拍法（俯視示意） ---------- */
+#use-cases { width: 1240px; padding: 36px 44px 40px; }
+.uc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 26px; }
+.uc { border: 1px solid var(--line-hi); border-radius: 10px; background: rgba(18, 21, 25, 0.9); overflow: hidden; }
+.uc-map { display: block; width: 100%; height: auto; background:
+  linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px) 0 0 / 24px 24px,
+  linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px) 0 0 / 24px 24px,
+  #0e1114; border-bottom: 1px solid var(--line); }
+.uc-map text { font: 600 12px var(--label); letter-spacing: 0.04em; }
+.uc-map .who { fill: var(--muted); font: 500 12px var(--body); letter-spacing: 0; }
+.uc-text { padding: 16px 20px 18px; }
+.uc-text .uc-n { font: 700 13px var(--label); letter-spacing: 0.2em; color: var(--cyan); }
+.uc-text b { display: block; margin-top: 2px; font: 700 23px var(--label); letter-spacing: 0.03em; }
+.uc-text p { margin: 6px 0 0; color: var(--muted); font-size: 14.5px; line-height: 1.6; }
+.uc-tags { display: flex; gap: 8px; margin-top: 12px; }
+.uc-tags span { padding: 2px 9px; border: 1px solid var(--line-hi); border-radius: 3px; font-size: 12.5px; color: var(--text); }
+
+/* 直拿那台拍得近一點：人比較大，只拍到胸口 */
+.scene.close .person { width: 80%; height: 46%; }
+.scene.close .person .body { height: 72%; }
+.scene.close .desk { height: 12%; }
+.scene.close .mic { left: 64%; bottom: 8%; }
+
+/* ---------- 直拿時的 App ---------- */
+#app-portrait { width: 760px; padding: 36px 44px 40px; }
+.ap { display: grid; grid-template-columns: 300px 1fr; gap: 40px; margin-top: 28px; align-items: center; }
+.ap .phone.portrait { width: 300px; height: 640px; border-radius: 38px; }
+.ap .phone-screen { background: #000; }
+.ap .pv { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); aspect-ratio: 9 / 16; }
+.ap .pill { font-size: 12px; padding: 7px 10px; }
+.ap .pill b { font-size: 16px; }
+.ap .timer2 { position: absolute; left: 50%; top: 92px; transform: translateX(-50%); font: 500 15px var(--mono); color: var(--red); white-space: nowrap; }
+.ap .btn-row { position: absolute; left: 12px; right: 12px; bottom: 14px; display: grid; grid-template-columns: 1.25fr 1fr 1.1fr; gap: 6px; }
+.ap .btn-row .btn { text-align: center; padding: 8px 4px; font-size: 11.5px; }
+.ap-notes { display: grid; gap: 14px; }
+.ap-notes div { display: grid; grid-template-columns: 30px 1fr; gap: 10px; font-size: 14.5px; line-height: 1.55; color: var(--muted); }
+.ap-notes b { display: block; color: var(--text); font-size: 16px; }
+.ap-notes .badge { position: static; }
+
+/* ---------- 網路設定 ---------- */
+#network { width: 1240px; padding: 36px 44px 40px; }
+.net { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; margin-top: 26px; }
+.net-card { border: 1px solid var(--line-hi); border-radius: 10px; background: rgba(18, 21, 25, 0.9); overflow: hidden; }
+.net-card.good { border-color: rgba(61, 220, 132, 0.45); }
+.net-card.bad { border-color: rgba(255, 59, 59, 0.45); }
+.net-card svg { display: block; width: 100%; height: auto; background: #0e1114; border-bottom: 1px solid var(--line); }
+.net-card svg text { font: 600 13px var(--label); letter-spacing: 0.05em; }
+.net-text { padding: 14px 18px 18px; }
+.net-text .verdict { font: 700 13px var(--label); letter-spacing: 0.2em; }
+.net-card.good .verdict { color: var(--green); }
+.net-card.bad .verdict { color: #ff7b7b; }
+.net-text b { display: block; margin-top: 2px; font: 700 22px var(--label); letter-spacing: 0.03em; }
+.net-text p { margin: 6px 0 0; color: var(--muted); font-size: 14px; line-height: 1.6; }
+.net-text ul { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+.net-text li { font-size: 14px; line-height: 1.55; color: var(--muted); }
+.net-text li strong { display: block; color: var(--text); font-size: 15px; }
+.net-note { margin-top: 18px; padding: 12px 16px; border: 1px solid rgba(89, 194, 255, 0.4); border-radius: 6px; background: rgba(89, 194, 255, 0.07); color: #bfe4ff; font-size: 14px; }
+
+/* ---------- 分享預覽圖（GitHub 的 Social preview，1280×640） ---------- */
+#social { width: 1280px; height: 640px; padding: 64px 0 0 72px; border-radius: 0; }
+#social .logo { width: 84px; height: 84px; }
+#social .name { margin-top: 26px; font: 700 64px/1 var(--label); letter-spacing: 0.01em; }
+#social .name small { display: block; margin-top: 10px; font-size: 40px; color: var(--muted); letter-spacing: 0.06em; }
+#social .tag-line { margin-top: 30px; font-size: 32px; font-weight: 600; width: 560px; line-height: 1.45; }
+#social .chips { display: flex; flex-wrap: wrap; gap: 10px; width: 560px; margin-top: 24px; }
+#social .chips span { padding: 6px 13px; border: 1px solid var(--line-hi); border-radius: 4px; font-size: 18px; background: rgba(18, 21, 25, 0.9); }
+#social .chips span.hot { border-color: rgba(255, 59, 59, 0.6); color: #ffb4b4; }
+#social .foot { position: absolute; left: 72px; bottom: 50px; font: 500 16px var(--mono); color: var(--muted); }
+#social .shot { position: absolute; right: -150px; top: 70px; width: 760px; border-radius: 12px; border: 1px solid var(--line-hi); box-shadow: 0 40px 90px -20px rgba(0, 0, 0, 0.95); transform: perspective(1400px) rotateY(-14deg) rotateX(4deg); transform-origin: left center; }
+
+/* ---------- 英文版另外調的版面 ---------- */
+.mac-modal .body { align-items: start; } /* 步驟比 QR Code 高時，QR Code 的白底不要被拉長 */
+#pairing .phone.landscape .scene .person { left: 62%; } /* 「Connected to the computer」比較長，人往右一點才不會被蓋住 */
+.ap .btn-row { grid-template-columns: 1.45fr 1fr 1.2fr; }
+.ap .btn-row .btn { padding: 8px 2px; font-size: 11px; letter-spacing: 0; }
+</style>
+</head>
+<body>
+
+<!-- ============ 架構圖 ============ -->
+<section id="architecture" class="canvas">
+  <div class="kicker">HOW IT WORKS</div>
+  <div class="title">The computer is the control room, the phones are the cameras, all on the same Wi-Fi</div>
+  <div class="arch">
+    <div>
+      <div class="laptop">
+        <div class="lap-screen">
+          <div class="mini-top"><span class="dot"></span><span class="rec"></span><span class="stop"></span></div>
+          <div class="mini-bays">
+            <div class="mini-bay"><div class="tc">12:34 <span>/ 30:00</span></div><div class="mon"></div><div class="row"></div><div class="row short"></div></div>
+            <div class="mini-bay b"><div class="tc">12:34 <span>/ 30:00</span></div><div class="mon"></div><div class="row"></div><div class="row short"></div></div>
+          </div>
+        </div>
+        <div class="base"></div>
+      </div>
+      <div class="device-label"><b>Computer (macOS / Windows)</b><span>Web dashboard + local server · receive, verify, play</span></div>
+    </div>
+
+    <div class="links">
+      <svg viewBox="0 0 500 300" preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          <marker id="ah-cyan" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#59c2ff"/></marker>
+          <marker id="ah-red" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#ff7b7b"/></marker>
+        </defs>
+        <path d="M10 118 C 170 70, 330 70, 490 118" fill="none" stroke="#59c2ff" stroke-width="3" stroke-dasharray="2 7" stroke-linecap="round" marker-start="url(#ah-cyan)" marker-end="url(#ah-cyan)"/>
+        <path d="M490 182 C 330 230, 170 230, 10 182" fill="none" stroke="#ff7b7b" stroke-width="5" stroke-linecap="round" marker-end="url(#ah-red)"/>
+      </svg>
+      <div class="flow-label top">Start / stop, zoom, clock sync; live view<small>WebSocket</small></div>
+      <div class="wifi">
+        <div class="icon">
+          <svg width="40" height="32" viewBox="0 0 40 32" aria-hidden="true"><path d="M2 10a26 26 0 0 1 36 0M8 16a17 17 0 0 1 24 0M14 22a8 8 0 0 1 12 0" fill="none" stroke="#ece8e1" stroke-width="3.2" stroke-linecap="round"/><circle cx="20" cy="28" r="3" fill="#ece8e1"/></svg>
+        </div>
+        <span>SAME WI-FI</span>
+      </div>
+      <div class="flow-label bottom">Uploads while recording, verified on stop<small>HTTP</small></div>
+    </div>
+
+    <div class="phones">
+      <div>
+        <div class="phone landscape"><div class="scene"><div class="window"></div><div class="lamp"></div><div class="person"><div class="body"></div><div class="head"></div><div class="hair"></div></div><div class="desk"></div></div><div class="rec-dot">● REC 12:34</div></div>
+        <div class="phone-cap"><b>CAM A</b>ROG Phone 6D<span class="tag">External mic</span></div>
+      </div>
+      <div>
+        <div class="phone landscape"><div class="scene" style="background: linear-gradient(180deg, #4a3f5c 0%, #66597a 55%, #2a2622 55%, #3a322b 100%);"><div class="plant"></div><div class="person" style="left: 42%;"><div class="body" style="background: linear-gradient(180deg, #2f6f9e, #255a82);"></div><div class="head"></div><div class="hair"></div></div><div class="desk"></div></div><div class="rec-dot">● REC 12:34</div></div>
+        <div class="phone-cap"><b>CAM B</b>Pixel 11 Pro</div>
+      </div>
+      <div class="more">+ up to 10 Android phones</div>
+    </div>
+  </div>
+
+  <div class="steps">
+    <div class="step hot"><div class="n">STEP 1</div><b>Press R to start</b><p>The computer syncs clocks with every phone and schedules one common start</p></div>
+    <div class="step"><div class="n">STEP 2</div><b>Upload while recording</b><p>Each phone keeps sending what it has already written to the computer</p></div>
+    <div class="step hot"><div class="n">STEP 3</div><b>Press S to stop</b><p>Only the tail is left to send, then chunk hashes confirm the file is identical</p></div>
+    <div class="step"><div class="n">STEP 4</div><b>Play right away</b><p>Watch the original file in the browser within seconds, picture and sound</p></div>
+  </div>
+</section>
+
+<!-- ============ 配對流程 ============ -->
+<section id="pairing" class="canvas">
+  <div class="kicker">PAIRING</div>
+  <div class="title">Pair once by scanning a QR code with the phone camera</div>
+  <div class="pair-row">
+    <div class="pair-col">
+      <div class="mac-modal">
+        <div class="bar"><i></i><i></i><i></i><span>localhost:8787</span></div>
+        <div class="head">Pair phones <span>Close</span></div>
+        <div class="body">
+          <div class="qr"><img src="data:image/png;base64,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" alt="" /></div>
+          <ol>
+            <li>Same Wi-Fi on the phone and computer</li>
+            <li>Scan this QR code with the phone camera</li>
+            <li>Tap “Open the app and pair”</li>
+            <li>The phone’s name appears here</li>
+          </ol>
+        </div>
+        <div class="addr">Phones connect to <code>http://192.168.1.20:8787</code></div>
+      </div>
+      <div class="cap"><span class="n">1</span><b>Click “Pair phone” on the computer</b><span>A QR code appears, valid for 10 minutes</span></div>
+    </div>
+
+    <div class="pair-col">
+      <div class="phone portrait">
+        <div class="cam-view">
+          <div class="monitor"><div class="qr"><img src="data:image/png;base64,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" alt="" /></div></div>
+          <div class="frame"></div>
+          <div class="link-chip"><span class="ic"><svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></svg></span><span>http://192.168.1.20:8787/pair?code=…</span></div>
+          <div class="shutter"></div>
+          <div class="tap" style="left: 92px; bottom: 70px;"></div>
+        </div>
+      </div>
+      <div class="cap"><span class="n">2</span><b>Scan it with the phone camera</b><span>Tap the link that appears</span></div>
+    </div>
+
+    <div class="pair-col">
+      <div class="phone portrait">
+        <div class="browser">
+          <div class="urlbar"><em>Not secure</em><span>192.168.1.20:8787/pair?code=…</span></div>
+          <div class="page">
+            <h4>Pair this phone</h4>
+            <p>The button opens the MultiCam Recorder app and pairs it automatically.</p>
+            <span class="go">Open the app and pair</span>
+            <h5>Don’t have the app yet?</h5>
+            <p class="note">Tap the button above, or <u>download the APK</u> directly. After installing, come back and tap “Open the app and pair” again.</p>
+          </div>
+          <div class="tap" style="left: 116px; top: 236px;"></div>
+        </div>
+      </div>
+      <div class="cap"><span class="n">3</span><b>Tap “Open the app and pair”</b><span>The app opens by itself, or download it first. The first time, allow the camera and microphone</span></div>
+    </div>
+
+    <div class="pair-col">
+      <div class="phone landscape">
+        <div class="phone-screen">
+          <div class="preview"><div class="scene"><div class="window"></div><div class="lamp"></div><div class="person"><div class="body"></div><div class="head"></div><div class="hair"></div></div><div class="desk"></div></div></div>
+          <div class="pill" style="left: 14px; top: 14px;"><b>Pixel11Pro</b><span class="ok">Connected to the computer</span></div>
+          <div class="toast">Paired: Pixel11Pro</div>
+        </div>
+      </div>
+      <div class="cap"><span class="n">4</span><b>Done!</b><span>The dashboard adds a monitor for this phone, and from now on the computer starts and stops it</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ App 畫面說明 ============ -->
+<section id="app" class="canvas">
+  <div class="kicker">PHONE APP</div>
+  <div class="title">The phone app: set it up once, then leave it alone</div>
+  <div class="stage">
+    <div class="phone landscape">
+      <div class="phone-screen">
+        <div class="preview"><div class="scene"><div class="window"></div><div class="lamp"></div><div class="plant"></div><div class="person"><div class="body"></div><div class="head"></div><div class="hair"></div></div><div class="desk"></div><div class="mic"></div></div><div class="guide"><span>9:16</span></div></div>
+        <div class="pill" style="left: 22px; top: 16px;"><b>ROG6D</b><span class="ok">Connected to the computer</span></div>
+        <div class="pill timer">● REC 12:34 / 30:00</div>
+        <div class="pill" style="right: 22px; top: 16px;">Mic: USB (USB Audio)<br />Zoom: 1.4×</div>
+        <div class="pill" style="left: 22px; bottom: 16px;">Uploading while recording</div>
+        <div style="position: absolute; right: 22px; bottom: 16px; display: flex; gap: 8px;">
+          <span class="btn off">Clear uploaded videos (3)</span><span class="btn">Dim screen</span><span class="btn off">Scan QR code</span>
+        </div>
+      </div>
+    </div>
+    <span class="badge" style="left: 6px; top: -12px;">1</span>
+    <span class="badge" style="left: 366px; top: -12px;">2</span>
+    <span class="badge" style="right: 6px; top: -12px;">3</span>
+    <span class="badge" style="left: 6px; bottom: -12px;">4</span>
+    <span class="badge" style="right: 152px; bottom: -12px;">5</span>
+    <span class="badge" style="right: 6px; bottom: -12px;">6</span>
+    <span class="badge" style="left: 640px; top: 220px;">7</span>
+  </div>
+  <div class="legend-row">
+    <div><span class="badge">1</span><span><b>Phone name, connection</b>Rename it on the computer; the name is also used in file names</span></div>
+    <div><span class="badge">2</span><span><b>Recording timer</b>Started and stopped from the computer; auto-stops at 30 min</span></div>
+    <div><span class="badge">3</span><span><b>Mic and zoom</b>USB or headset mics take over; zoom is set on the computer</span></div>
+    <div><span class="badge">4</span><span><b>Upload status</b>Uploading while recording, finishing, or “All videos are on the computer”</span></div>
+    <div><span class="badge">5</span><span><b>Dim screen</b>The app stays open, so dim it to save power and heat on long takes</span></div>
+    <div><span class="badge">6</span><span><b>Scan, clear files</b>Disabled while recording, so a stray tap can’t interrupt it</span></div>
+    <div><span class="badge">7</span><span><b>Framing guide</b>Pick 9:16, 4:5 or 1:1 on the computer; the full frame is still recorded</span></div>
+  </div>
+  <div class="warn-strip"><span class="sample">● REC 27:12 / 30:00 · 02:48 left</span>In the last 3 minutes the timer turns amber and shows the time left, and the dashboard shows an alert with a chime</div>
+</section>
+
+<!-- 俯視示意圖共用的人、手機（橫拿、直拿）；視野的顏色：CAM A 藍、CAM B 紅、CAM C 黃 -->
+<svg width="0" height="0" style="position: absolute" aria-hidden="true">
+  <defs>
+    <g id="p-top">
+      <ellipse rx="24" ry="13" fill="#2f6f9e" />
+      <circle cy="2" r="11.5" fill="#e3b590" />
+      <path d="M-11.5 2 A11.5 11.5 0 0 1 11.5 2 Z" fill="#2b211b" />
+    </g>
+    <g id="cam-l">
+      <rect x="-17" y="-10" width="34" height="20" rx="4" fill="#050505" stroke="currentColor" stroke-width="2.4" />
+      <circle cx="-10" cy="0" r="2.6" fill="currentColor" />
+    </g>
+    <g id="cam-p">
+      <rect x="-10" y="-17" width="20" height="34" rx="4" fill="#050505" stroke="currentColor" stroke-width="2.4" />
+      <circle cx="0" cy="-10" r="2.6" fill="currentColor" />
+    </g>
+  </defs>
+</svg>
+<style>
+  .fov { stroke-width: 1.5; stroke-dasharray: 4 5; }
+  .fov.a { fill: rgba(89, 194, 255, 0.15); stroke: rgba(89, 194, 255, 0.7); }
+  .fov.b { fill: rgba(255, 123, 123, 0.14); stroke: rgba(255, 123, 123, 0.7); }
+  .fov.c { fill: rgba(255, 176, 0, 0.13); stroke: rgba(255, 176, 0, 0.7); }
+  .uc-map .lbl { paint-order: stroke; stroke: #0e1114; stroke-width: 5px; stroke-linejoin: round; }
+  .uc-map .lbl.a { fill: #59c2ff; }
+  .uc-map .lbl.b { fill: #ff7b7b; }
+  .uc-map .lbl.c { fill: #ffb000; }
+  .uc-map .who { paint-order: stroke; stroke: #0e1114; stroke-width: 5px; stroke-linejoin: round; }
+  .table { fill: #5a4331; stroke: #84634a; stroke-width: 2; }
+</style>
+
+<!-- ============ 使用情境：四種拍法 ============ -->
+<section id="use-cases" class="canvas">
+  <div class="kicker">USE CASES</div>
+  <div class="title">The phones you already own make a multi-camera rig for all of these</div>
+  <div class="uc-grid">
+    <div class="uc">
+      <svg class="uc-map" viewBox="0 0 540 220" aria-hidden="true">
+        <rect class="table" x="204" y="84" width="132" height="56" rx="26" />
+        <polygon class="fov a" points="472,46 134,68 152,158" />
+        <polygon class="fov b" points="68,46 406,68 388,158" />
+        <path d="M298 104 C 360 94, 420 76, 456 56" fill="none" stroke="#ffb000" stroke-width="2" stroke-dasharray="3 4" />
+        <circle cx="292" cy="106" r="7" fill="#111" stroke="#ffb000" stroke-width="2" />
+        <use href="#p-top" transform="translate(170 112) rotate(-90)" />
+        <use href="#p-top" transform="translate(370 112) rotate(90)" />
+        <use href="#cam-l" transform="translate(472 46)" style="color: #59c2ff" />
+        <use href="#cam-l" transform="translate(68 46)" style="color: #ff7b7b" />
+        <text class="lbl a" x="522" y="22" text-anchor="end">CAM A · on the host</text>
+        <text class="lbl b" x="18" y="22">CAM B · on the guest</text>
+        <text class="who" x="170" y="160" text-anchor="middle">Host</text>
+        <text class="who" x="370" y="160" text-anchor="middle">Guest</text>
+        <text class="lbl c" x="292" y="196" text-anchor="middle">External mic on CAM A</text>
+      </svg>
+      <div class="uc-text">
+        <div class="uc-n">01</div>
+        <b>Interviews and podcasts</b>
+        <p>One phone on the host and one on the guest, with an external mic on one of them as the main audio. Cut between angles anytime and never miss a reaction.</p>
+        <div class="uc-tags"><span>2 phones, landscape</span><span>External mic</span></div>
+      </div>
+    </div>
+
+    <div class="uc">
+      <svg class="uc-map" viewBox="0 0 540 220" aria-hidden="true">
+        <rect class="table" x="198" y="80" width="144" height="24" rx="6" />
+        <polygon class="fov a" points="196,184 98,26 398,26" />
+        <polygon class="fov b" points="344,184 228,34 318,34" />
+        <use href="#p-top" transform="translate(270 56)" />
+        <use href="#cam-l" transform="translate(196 186)" style="color: #59c2ff" />
+        <use href="#cam-p" transform="translate(344 186)" style="color: #ff7b7b" />
+        <text class="lbl a" x="18" y="178">CAM A · landscape 16:9</text>
+        <text class="who" x="18" y="198">→ YouTube video</text>
+        <text class="lbl b" x="372" y="178">CAM B · portrait 9:16</text>
+        <text class="who" x="372" y="198">→ Reels / Shorts</text>
+      </svg>
+      <div class="uc-text">
+        <div class="uc-n">02</div>
+        <b>Long-form video and shorts at once</b>
+        <p>One phone sideways records 16:9 for YouTube, one upright records 9:16 for Reels, Shorts and TikTok: both versions of a take, no cropping needed.</p>
+        <div class="uc-tags"><span>Landscape 16:9</span><span>Portrait 9:16</span></div>
+      </div>
+    </div>
+
+    <div class="uc">
+      <svg class="uc-map" viewBox="0 0 540 220" aria-hidden="true">
+        <rect x="150" y="14" width="240" height="9" rx="3" fill="#cfd6de" />
+        <polygon class="fov a" points="270,198 118,12 422,12" />
+        <polygon class="fov b" points="484,68 196,28 212,94" />
+        <use href="#p-top" transform="translate(222 60)" />
+        <g fill="#353c45">
+          <circle cx="160" cy="128" r="9" /><circle cx="198" cy="128" r="9" /><circle cx="236" cy="128" r="9" />
+          <circle cx="304" cy="128" r="9" /><circle cx="342" cy="128" r="9" /><circle cx="380" cy="128" r="9" />
+          <circle cx="160" cy="160" r="9" /><circle cx="198" cy="160" r="9" /><circle cx="236" cy="160" r="9" />
+          <circle cx="304" cy="160" r="9" /><circle cx="342" cy="160" r="9" /><circle cx="380" cy="160" r="9" />
+        </g>
+        <use href="#cam-l" transform="translate(270 198)" style="color: #59c2ff" />
+        <use href="#cam-l" transform="translate(484 68)" style="color: #ff7b7b" />
+        <text class="lbl a" x="298" y="204">CAM A · wide shot</text>
+        <text class="lbl b" x="522" y="102" text-anchor="end">CAM B · speaker close-up</text>
+        <text class="who" x="404" y="40">Whiteboard</text>
+        <text class="who" x="270" y="186" text-anchor="middle">Audience</text>
+      </svg>
+      <div class="uc-text">
+        <div class="uc-n">03</div>
+        <b>Classes and talks</b>
+        <p>One phone at the back for the wide shot, one at the side on the speaker and the whiteboard. Wherever the speaker goes, there’s a shot, so no reshoots.</p>
+        <div class="uc-tags"><span>Wide + close-up</span><span>Up to 30 min per take</span></div>
+      </div>
+    </div>
+
+    <div class="uc">
+      <svg class="uc-map" viewBox="0 0 540 220" aria-hidden="true">
+        <rect class="table" x="150" y="70" width="240" height="96" rx="10" />
+        <polygon class="fov a" points="270,202 188,30 352,30" />
+        <polygon class="fov c" points="484,150 290,102 292,142" />
+        <use href="#p-top" transform="translate(270 44)" />
+        <rect x="248" y="104" width="44" height="32" rx="4" fill="#d9dde3" />
+        <circle cx="270" cy="120" r="42" fill="rgba(255, 123, 123, 0.12)" stroke="rgba(255, 123, 123, 0.8)" stroke-width="2" stroke-dasharray="4 5" />
+        <use href="#cam-p" transform="translate(270 120)" style="color: #ff7b7b; opacity: 0.92" />
+        <use href="#cam-l" transform="translate(270 202)" style="color: #59c2ff" />
+        <use href="#cam-p" transform="translate(484 150)" style="color: #ffb000" />
+        <text class="lbl a" x="298" y="208">CAM A · front</text>
+        <text class="lbl b" x="140" y="196" text-anchor="end">CAM B · overhead</text>
+        <path d="M144 190 Q 210 178 236 146" fill="none" stroke="rgba(255, 123, 123, 0.8)" stroke-width="1.5" />
+        <text class="lbl c" x="522" y="186" text-anchor="end">CAM C · close-up</text>
+      </svg>
+      <div class="uc-text">
+        <div class="uc-n">04</div>
+        <b>Product shots and unboxing</b>
+        <p>Record the front, a top-down shot and a side close-up at the same time and get every angle in one go. Connect up to 10 phones.</p>
+        <div class="uc-tags"><span>3 or more phones</span><span>Overhead</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 直拿時的 App ============ -->
+<section id="app-portrait" class="canvas">
+  <div class="kicker">PHONE APP · PORTRAIT</div>
+  <div class="title">Hold it upright and the app turns with it</div>
+  <div class="ap">
+    <div style="position: relative">
+      <div class="phone portrait">
+        <div class="phone-screen">
+          <div class="pv"><div class="scene close"><div class="window"></div><div class="lamp"></div><div class="person"><div class="body"></div><div class="head"></div><div class="hair"></div></div><div class="desk"></div><div class="mic"></div></div></div>
+          <div class="pill" style="left: 12px; top: 30px"><b>Pixel11Pro</b><span class="ok">Connected to the computer</span></div>
+          <div class="pill" style="right: 12px; top: 30px">Mic: Built-in<br />Zoom: 1.0×</div>
+          <div class="pill timer2">● REC 12:34 / 30:00</div>
+          <div class="pill" style="left: 12px; bottom: 64px">Uploading while recording</div>
+          <div class="btn-row"><span class="btn off">Clear uploaded (3)</span><span class="btn">Dim screen</span><span class="btn off">Scan QR code</span></div>
+        </div>
+      </div>
+      <span class="badge" style="left: -16px; top: 34px">1</span>
+      <span class="badge" style="right: -16px; top: 96px">2</span>
+      <span class="badge" style="left: -16px; bottom: 18px">3</span>
+    </div>
+    <div class="ap-notes">
+      <div><span class="badge">1</span><span><b>Name and mic at the top</b>Connection, microphone and zoom, the same as in landscape</span></div>
+      <div><span class="badge">2</span><span><b>Timer on the next line</b>There’s no room beside the name in portrait, so the timer moves below it</span></div>
+      <div><span class="badge">3</span><span><b>Buttons in one even row</b>Upload status sits above them, and the clear button is shortened to “Clear uploaded”</span></div>
+      <div><span class="badge" style="background: var(--amber); box-shadow: 0 0 0 4px rgba(255, 176, 0, 0.25)">
+        <svg width="14" height="16" viewBox="0 0 14 16" aria-hidden="true"><rect x="1" y="7" width="12" height="8" rx="2" fill="#1b1200" /><path d="M3.5 7V5a3.5 3.5 0 0 1 7 0v2" fill="none" stroke="#1b1200" stroke-width="2" /></svg>
+      </span><span><b>Orientation locked while recording</b>It doesn’t rotate from start to stop, then follows the phone again</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 網路設定 ============ -->
+<section id="network" class="canvas">
+  <div class="kicker">NETWORK</div>
+  <div class="title">How to connect for the fastest uploads</div>
+  <div class="net">
+    <div class="net-card good">
+      <svg viewBox="0 0 360 190" aria-hidden="true">
+        <g transform="translate(62 104)">
+          <rect x="-34" y="-42" width="68" height="44" rx="4" fill="#0a0b0d" stroke="#8b919a" stroke-width="2" />
+          <circle cx="0" cy="-20" r="6" fill="#ff3b3b" />
+          <path d="M-44 4 H44 L38 12 H-38 Z" fill="#2a2e34" />
+        </g>
+        <g transform="translate(184 100)">
+          <line x1="-22" y1="-14" x2="-30" y2="-44" stroke="#8b919a" stroke-width="3" stroke-linecap="round" />
+          <line x1="22" y1="-14" x2="30" y2="-44" stroke="#8b919a" stroke-width="3" stroke-linecap="round" />
+          <rect x="-38" y="-14" width="76" height="28" rx="7" fill="#1b1f25" stroke="#8b919a" stroke-width="2" />
+          <circle cx="-18" cy="0" r="3" fill="#3ddc84" /><circle cx="-6" cy="0" r="3" fill="#3ddc84" /><circle cx="6" cy="0" r="3" fill="#59c2ff" />
+        </g>
+        <path d="M108 108 H146" stroke="#3ddc84" stroke-width="5" stroke-linecap="round" />
+        <text x="127" y="128" fill="#3ddc84" text-anchor="middle">Ethernet</text>
+        <g fill="#050505" stroke="#8b919a" stroke-width="2"><rect x="292" y="34" width="26" height="44" rx="5" /><rect x="292" y="112" width="26" height="44" rx="5" /></g>
+        <path d="M224 92 Q 258 66 286 58" fill="none" stroke="#59c2ff" stroke-width="2.5" stroke-dasharray="5 5" />
+        <path d="M224 108 Q 258 128 286 134" fill="none" stroke="#59c2ff" stroke-width="2.5" stroke-dasharray="5 5" />
+        <text x="250" y="102" fill="#59c2ff" text-anchor="middle">Wi-Fi</text>
+        <text x="62" y="140" fill="#8b919a" text-anchor="middle">Computer</text>
+        <text x="184" y="140" fill="#8b919a" text-anchor="middle">Router</text>
+        <text x="305" y="176" fill="#8b919a" text-anchor="middle">Phones</text>
+      </svg>
+      <div class="net-text"><div class="verdict">✓ BEST</div><b>Computer on Ethernet</b><p>Phones on Wi-Fi, the computer wired to the router. Footage crosses the air only once (phone → router), the fastest and most stable setup.</p></div>
+    </div>
+
+    <div class="net-card good">
+      <svg viewBox="0 0 360 190" aria-hidden="true">
+        <g transform="translate(62 104)">
+          <rect x="-34" y="-42" width="68" height="44" rx="4" fill="#0a0b0d" stroke="#8b919a" stroke-width="2" />
+          <circle cx="0" cy="-20" r="6" fill="#ff3b3b" />
+          <path d="M-44 4 H44 L38 12 H-38 Z" fill="#2a2e34" />
+        </g>
+        <g transform="translate(184 100)">
+          <line x1="-22" y1="-14" x2="-30" y2="-44" stroke="#8b919a" stroke-width="3" stroke-linecap="round" />
+          <line x1="22" y1="-14" x2="30" y2="-44" stroke="#8b919a" stroke-width="3" stroke-linecap="round" />
+          <rect x="-38" y="-14" width="76" height="28" rx="7" fill="#1b1f25" stroke="#8b919a" stroke-width="2" />
+          <circle cx="-18" cy="0" r="3" fill="#3ddc84" /><circle cx="-6" cy="0" r="3" fill="#ffb000" /><circle cx="6" cy="0" r="3" fill="#59c2ff" />
+        </g>
+        <path d="M108 96 Q 126 84 144 96" fill="none" stroke="#ffb000" stroke-width="2.5" stroke-dasharray="5 5" />
+        <text x="126" y="74" fill="#ffb000" text-anchor="middle">5 GHz</text>
+        <g fill="#050505" stroke="#8b919a" stroke-width="2"><rect x="292" y="34" width="26" height="44" rx="5" /><rect x="292" y="112" width="26" height="44" rx="5" /></g>
+        <path d="M224 92 Q 258 66 286 58" fill="none" stroke="#59c2ff" stroke-width="2.5" stroke-dasharray="5 5" />
+        <path d="M224 108 Q 258 128 286 134" fill="none" stroke="#59c2ff" stroke-width="2.5" stroke-dasharray="5 5" />
+        <text x="252" y="102" fill="#59c2ff" text-anchor="middle">2.4 GHz</text>
+        <text x="62" y="140" fill="#8b919a" text-anchor="middle">Computer</text>
+        <text x="184" y="140" fill="#8b919a" text-anchor="middle">Router</text>
+        <text x="305" y="176" fill="#8b919a" text-anchor="middle">Phones</text>
+      </svg>
+      <div class="net-text"><div class="verdict">✓ ALSO GOOD</div><b>Split the Wi-Fi bands</b><p>For example, phones on 2.4&nbsp;GHz and the computer on 5&nbsp;GHz, so they don’t share a channel. If both bands share one Wi-Fi name, split them in the router settings.</p></div>
+    </div>
+
+    <div class="net-card bad">
+      <svg viewBox="0 0 360 190" aria-hidden="true">
+        <g transform="translate(62 104)">
+          <rect x="-34" y="-42" width="68" height="44" rx="4" fill="#0a0b0d" stroke="#8b919a" stroke-width="2" />
+          <circle cx="0" cy="-20" r="6" fill="#ff3b3b" />
+          <path d="M-44 4 H44 L38 12 H-38 Z" fill="#2a2e34" />
+        </g>
+        <g transform="translate(184 100)">
+          <line x1="-22" y1="-14" x2="-30" y2="-44" stroke="#8b919a" stroke-width="3" stroke-linecap="round" />
+          <line x1="22" y1="-14" x2="30" y2="-44" stroke="#8b919a" stroke-width="3" stroke-linecap="round" />
+          <rect x="-38" y="-14" width="76" height="28" rx="7" fill="#1b1f25" stroke="#8b919a" stroke-width="2" />
+          <circle cx="-18" cy="0" r="3" fill="#ff3b3b" /><circle cx="-6" cy="0" r="3" fill="#ff3b3b" /><circle cx="6" cy="0" r="3" fill="#ff3b3b" />
+        </g>
+        <path d="M108 96 Q 126 84 144 96" fill="none" stroke="#ff7b7b" stroke-width="2.5" stroke-dasharray="5 5" />
+        <g fill="#050505" stroke="#8b919a" stroke-width="2"><rect x="292" y="34" width="26" height="44" rx="5" /><rect x="292" y="112" width="26" height="44" rx="5" /></g>
+        <path d="M224 92 Q 258 66 286 58" fill="none" stroke="#ff7b7b" stroke-width="2.5" stroke-dasharray="5 5" />
+        <path d="M224 108 Q 258 128 286 134" fill="none" stroke="#ff7b7b" stroke-width="2.5" stroke-dasharray="5 5" />
+        <text x="184" y="34" fill="#ff7b7b" text-anchor="middle">One band: footage crosses the air twice</text>
+        <text x="62" y="140" fill="#8b919a" text-anchor="middle">Computer</text>
+        <text x="184" y="140" fill="#8b919a" text-anchor="middle">Router</text>
+        <text x="305" y="176" fill="#8b919a" text-anchor="middle">Phones</text>
+      </svg>
+      <div class="net-text"><div class="verdict">✕ AVOID</div><ul>
+        <li><strong>Everything on one band</strong>Footage crosses the same channel twice (phone → router → computer), so it can slow down or stall</li>
+        <li><strong>Guest networks</strong>Devices are usually isolated from each other, so phones can’t reach the computer</li>
+        <li><strong>A VPN on the computer</strong>It may block local connections; turn it off or allow local network access</li>
+      </ul></div>
+    </div>
+  </div>
+  <div class="net-note">Two phones recording 4K need about 80 Mbps in total, more with more phones. Uploads that fall behind finish after you stop; the dashboard shows each phone’s speed.</div>
+</section>
+
+<!-- ============ 分享預覽圖（1280×640，到 GitHub 的 Settings → Social preview 上傳） ============ -->
+<section id="social" class="canvas">
+  <img class="logo" src="images/logo.svg" alt="" />
+  <div class="name">MultiCam Recorder</div>
+  <div class="tag-line">Control every Android phone from your computer and record in sync</div>
+  <div class="chips"><span class="hot">Live view</span><span>Phone-native 4K</span><span>Portrait + landscape</span><span>Uploads while recording</span><span>Free and open source</span></div>
+  <div class="foot">github.com/dean9703111/multicam-recorder</div>
+  <img class="shot" src="images/console-en.png" alt="" />
+</section>
+
+</body>
+</html>

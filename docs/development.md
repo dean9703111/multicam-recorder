@@ -48,9 +48,11 @@ Windows 上請改用 `cd android` 再 `gradlew.bat :app:assembleDebug`（`JAVA_H
 `tools/fake-phone.ts` 是模擬手機，會用 ffmpeg 產生測試影片：流動的漸層加上一圈刻度，白點每 3 秒繞一圈，下方有音量表，聲音是每秒嗶一聲。兩支模擬手機同時開始時，白點的位置和嗶聲都會對齊；顏色依手機名稱而定，方便分辨。它也會送即時畫面、支援 1× 到 4× 的變焦，加上 `--orientation portrait` 就是直拿的手機，走的流程和真正的手機完全一樣（需要先安裝 ffmpeg，例如 `brew install ffmpeg`）。啟動電腦端後，另外開兩個終端機：
 
 ```sh
-npm run fake-phone -- --model "ASUS_AI2203" --tone 440 --mic "外接 USB（USB Audio）"
-npm run fake-phone -- --model "Pixel 11 Pro" --tone 660 --mic "手機內建" --orientation portrait
+npm run fake-phone -- --model "ASUS_AI2203" --tone 440 --mic usb --mic-name "USB Audio"
+npm run fake-phone -- --model "Pixel 11 Pro" --tone 660 --orientation portrait
 ```
+
+`--mic` 是回報給電腦的收音來源（`builtin`、`usb`、`wired`、`other`，預設 `builtin`），`--mic-name` 是外接麥克風的名稱；`--lang en` 模擬系統語言是英文的手機（預設 `zh-TW`），電腦送給它的訊息就會是英文。
 
 測試用的環境變數：
 
@@ -65,7 +67,7 @@ npm run fake-phone -- --model "Pixel 11 Pro" --tone 660 --mic "手機內建" --o
 
 ## 自動測試
 
-`npm run smoke-test` 會自己開一個伺服器和兩支模擬手機（一支橫拿、一支直拿），把配對、即時畫面、變焦、人像設定、兩支同時錄影、裁剪、傳檔驗證、專案、標記、移到垃圾桶、刪檔同步、改名、移除手機都跑一遍，大約 15 秒。測試資料放在暫存資料夾，跑完就清掉；只有兩支幾秒鐘的測試影片會留在系統的垃圾桶裡。
+`npm run smoke-test` 會自己開一個伺服器和兩支模擬手機（一支橫拿、一支直拿），把配對、即時畫面、變焦、人像設定、兩支同時錄影、裁剪、傳檔驗證、專案、標記、移到垃圾桶、刪檔同步、改名、移除手機、中英文訊息都跑一遍，大約 15 秒。測試資料放在暫存資料夾，跑完就清掉；只有兩支幾秒鐘的測試影片會留在系統的垃圾桶裡。
 
 GitHub Actions 每次推送都會在 Windows、macOS、Linux 上各跑一次（[`.github/workflows/ci.yml`](../.github/workflows/ci.yml)），Windows 上也會確認中文的資料夾路徑、NTFS 偵測和資源回收筒。
 
@@ -96,6 +98,15 @@ adb shell dumpsys media.camera | grep -A3 "availableSceneModes\|aeLockAvailable\
 - 新檔放在同一個資料夾，檔名是原檔名加 `_1`，已經有就 `_2`、`_3`…（`trimmedName`）；先寫成 `.part` 再改名。新檔屬於新的一段（新的 `takeId`），`trimmedFrom` 記著原本那支，原檔不動。裁出來的影片不會觸發「錄完自動播放」，只有按下裁剪的那一台會換成播放新檔。
 - `npm run smoke-test` 會裁兩次同一段，確認每台都產生 `_1`、`_2`、長度合理、原檔還在，也確認少於 1 秒的範圍會被擋下。
 
+## 介面語言（繁體中文、英文）
+
+控制台、伺服器的訊息、配對網頁和手機 App 都有繁體中文和英文。中文（不分地區）一律用繁體中文，其他語言一律用英文。
+
+- **控制台**：文字集中在 [`server/public/i18n.js`](../server/public/i18n.js)，用 `tr(key, params)` 取用；句子裡有按鈕或標籤的寫成函式，回傳 htm 片段。語言照「設定」裡選的（自動、繁體中文、English），自動時跟著瀏覽器，右上角的按鈕可以一鍵切換。上次用的語言記在 localStorage，連上伺服器之前先用它，畫面才不會閃一下另一種語言。
+- **伺服器**：錯誤訊息、配對網頁、終端機的訊息集中在 [`server/i18n.ts`](../server/i18n.ts)，用 `m(key, params)` 取用。每個請求用自己的語言（AsyncLocalStorage）：控制台送 `X-Lang`，手機的瀏覽器和 App 送 `Accept-Language`。推給控制台的狀態依每個分頁的語言各算一次；影片失敗的原因存成代碼（`errorCode`、`errorParams`），送出時才換成那個分頁的語言。終端機用設定的語言，自動時看電腦的系統語言。
+- **手機 App**：文字在 `res/values/strings.xml`（英文，手機是其他語言時也用它）和 `res/values-zh/`（繁體中文）；直拿時比較窄，短一點的字在 `values-port/`、`values-zh-port/`。Android 13 起可以在系統設定單獨替 App 選語言（`res/xml/locales_config.xml`）。送給電腦的請求都帶 `Accept-Language`，`hello` 也帶 `lang`；錄影失敗用代碼回報（`code`、`detail`），由電腦換成控制台的語言。
+- **新增或修改文字**：兩種語言要一起改。英文少了某一句時會退回顯示中文，不會出錯，所以要自己切到英文看一遍；`npm run smoke-test` 會檢查錯誤訊息、配對網頁和狀態文字有跟著語言走。
+
 ## 開發時不用掃 QR Code
 
 App 的 debug 版可以用 adb 直接傳入 QR Code 的網址：
@@ -121,14 +132,16 @@ server/                    電腦端（Node.js 24 直接執行 TypeScript，不�
   uploads.ts               邊錄邊傳、分段雜湊驗證
   store.ts                 配對、專案、影片清單、設定的存檔（data/db.json）
   platform.ts              各作業系統不一樣的地方：硬碟格式、垃圾桶、PowerShell
-  public/                  網頁控制台（Preact + htm，不用打包）
+  i18n.ts                  伺服器送出的文字（錯誤訊息、配對網頁、終端機），繁體中文和英文
+  public/                  網頁控制台（Preact + htm，不用打包），文字在 public/i18n.js
 android/app/src/main/
   kotlin/.../CameraRecorder.kt   Camera2 預覽與錄影、變焦、選擇麥克風
   kotlin/.../ServerLink.kt       和電腦的 WebSocket 連線、對時、送即時畫面
   kotlin/.../Uploader.kt         邊錄邊傳、驗證、補傳
   kotlin/.../GuideOverlay.kt     預覽上的構圖輔助框
   kotlin/.../MainActivity.kt     畫面與整體流程、跟著手機轉向、擷取即時畫面
-  res/layout/overlay.xml         橫拿時的狀態列；直拿的在 layout-port/，直拿時的短字在 values-port/
+  res/layout/overlay.xml         橫拿時的狀態列；直拿的在 layout-port/
+  res/values/strings.xml         App 的文字（英文）；繁體中文在 values-zh/，直拿時的短字在 values-port/、values-zh-port/
 tools/
   fake-phone.ts            模擬手機，也是通訊格式的參考實作
   smoke-test.ts            端對端測試，CI 在三種作業系統上跑
@@ -163,11 +176,12 @@ llms.txt                   給 AI 工具讀的專案摘要
 
 ## 更新 README 的圖
 
-- **示意圖**（how-it-works、pairing、phone-app、phone-app-portrait、use-cases、network、social-preview）的原稿都在 [`docs/mockups.html`](mockups.html)。在專案根目錄執行 `python3 -m http.server`，打開 <http://localhost:8000/docs/mockups.html>，把每個 section 各自截圖存到 `docs/images/`。
+- **示意圖**（how-it-works、pairing、phone-app、phone-app-portrait、use-cases、network、social-preview）的原稿都在 [`docs/mockups.html`](mockups.html)，英文版在 [`docs/mockups-en.html`](mockups-en.html)，**版面要兩份一起改**。在專案根目錄執行 `python3 -m http.server`，打開 <http://localhost:8000/docs/mockups.html>，用裝置像素比 1.5 把每個 section 各自截圖存到 `docs/images/`（social-preview 用 1 倍，剛好 1280×640）。截出來的上下邊緣如果多了一條灰線（section 的高度有小數），裁掉再存。
 - **對比圖**（compare-sync、compare-pixels、compare-face-priority、compare-exposure-lock、compare-upload、compare-streaming）是從產品網站的中文頁截的：視窗 1440 寬、裝置像素比 1.5、開啟「減少動態效果」讓動畫直接停在最後一格，再各自截那個區塊。compare-streaming 截之前，先把左邊那張設成訊號變差的樣子（畫面模糊、方格、「畫質下降」、Wi-Fi 剩一格）。
 - **控制台的截圖**（console、spec-guide、portrait-settings、trim、select-trash、setup）是用模擬手機實際操作截的；portrait-settings 是規格選單「人像」那一段的放大特寫：視窗開成 2160×1140、`html` 設 `zoom: 1.5` 再截，版面和 1440×760 一樣但比較清楚。電腦的硬碟空間不夠時，控制台上方會出現提醒，截圖前可以先把 `.alerts` 藏起來。
-- 截圖裡不要出現自己電腦的使用者名稱或私人路徑，例如錄影資料夾的完整路徑。
-- `social-preview.png`（1280×640）是分享連結時顯示的預覽圖，要到 GitHub 專案的 **Settings → General → Social preview** 手動上傳。
+- **英文版的圖**檔名後面加 `-en`（例如 `console-en.png`），英文網站和 README 的英文段落用這些。控制台的截圖照同樣的步驟，只是把控制台切到英文、模擬手機加上 `--lang en`。中文版沒有對應英文圖的（trim、select-trash、對比圖）只用在 README 的中文段落。
+- 截圖裡不要出現自己電腦的使用者名稱或私人路徑，例如錄影資料夾的完整路徑。用 CSS 換掉顯示的文字（例如 `.setup code { font-size: 0 } .setup code::before { content: "~/Movies/MultiCamRecorder" }`），直接改 DOM 的文字會在畫面重繪時被換回來。視窗有捲軸時加上 `* { scrollbar-width: none }`，版面才是完整的寬度。
+- `social-preview.png`（1280×640）是分享連結時顯示的預覽圖，要到 GitHub 專案的 **Settings → General → Social preview** 手動上傳；`social-preview-en.png` 是英文網站的分享預覽圖。
 
 ## 發佈新版
 

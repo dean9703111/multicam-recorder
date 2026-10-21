@@ -17,7 +17,7 @@
 - 整理：同一段的每台手機一起標記或刪除（進系統垃圾桶），也能在有縮圖的時間軸上拖拉、裁掉頭尾，每台一起裁、另存成檔名加 _1 的新檔，不重新壓縮（需要 ffmpeg，開頭對齊關鍵影格）。Organize: star or delete a take across all angles, and trim heads and tails losslessly into new _1 files (requires ffmpeg).
 - 隱私：不需要雲端帳號，影片只在手機和電腦之間的區域網路傳輸，不會上傳到網路。No cloud account; footage stays on the local network.
 - 不是直播工具：不把畫面即時串流到網路，適合錄完要剪輯的拍攝（訪談、Podcast、課程、講座、產品拍攝）。It is not a live-streaming tool.
-- 介面：目前只有繁體中文。The interface is in Traditional Chinese.
+- 介面：繁體中文和英文（控制台、配對網頁、手機 App），跟著瀏覽器和手機的語言。The dashboard, pairing page and phone app are available in English and Traditional Chinese.
 
 ## 網站（Website）
 

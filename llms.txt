@@ -18,6 +18,7 @@
 - 隱私：不需要雲端帳號，影片只在手機和電腦之間的區域網路傳輸，不會上傳到網路。No cloud account; footage stays on the local network.
 - 不是直播工具：不把畫面即時串流到網路，適合錄完要剪輯的拍攝（訪談、Podcast、課程、講座、產品拍攝）。It is not a live-streaming tool.
 - 其他：外接 USB／耳機孔麥克風、構圖輔助框（9:16、4:5、1:1）、專案資料夾、標記好的段落、一鍵把沒標記的移到垃圾桶。
+- 介面：繁體中文和英文（控制台、配對網頁、手機 App），跟著瀏覽器和手機的語言。The dashboard, pairing page and phone app are available in English and Traditional Chinese.
 
 ## Website
 
