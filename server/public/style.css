@@ -1922,6 +1922,22 @@ kbd {
   }
 }
 
+/* 頂列在筆電寬度也排成一列：先縮小間距，再收起品牌文字只留標誌（分頁標題還看得到名稱） */
+@media (max-width: 1439px) {
+  .topbar {
+    column-gap: 18px;
+  }
+  .readouts {
+    gap: 16px;
+  }
+}
+
+@media (max-width: 1365px) {
+  .brand-text {
+    display: none;
+  }
+}
+
 @media (max-width: 760px) {
   .topbar {
     padding: 12px 16px;

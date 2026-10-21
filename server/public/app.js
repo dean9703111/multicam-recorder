@@ -319,7 +319,7 @@ function App() {
     <header class="topbar">
       <div class="brand">
         <span class="brand-mark" aria-hidden="true"></span>
-        <div>
+        <div class="brand-text">
           <div class="brand-name">${tr('brand.name')}</div>
           <div class="brand-sub">${tr('brand.sub')}</div>
         </div>
@@ -513,7 +513,7 @@ function ProjectControl({ state, open, recording, onToggle, onNew, onEnd, onOpen
   const unmarkedTakes = countTakes(state.files.filter((f) => canTrash(f) && !f.marked));
   return html`<div class="readout menu-anchor">
     <span class="label">${tr('project.label')}</span>
-    <button class=${`picker ${p ? '' : 'unset'}`} aria-haspopup="menu" aria-expanded=${open} onClick=${onToggle}>
+    <button class=${`picker ${p ? '' : 'unset'}`} title=${p?.name} aria-haspopup="menu" aria-expanded=${open} onClick=${onToggle}>
       <span class="picker-value">${p ? p.name : tr('project.none')}</span>
       <span class="caret" aria-hidden="true"></span>
     </button>

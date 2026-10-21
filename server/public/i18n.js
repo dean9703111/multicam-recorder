@@ -28,11 +28,16 @@ export const getLang = () => lang;
 
 export function setLang(next) {
   lang = next;
-  document.documentElement.lang = next === 'en' ? 'en' : 'zh-Hant-TW';
-  document.title = tr('page.title');
+  applyToDocument();
   try {
     localStorage.setItem(STORE_KEY, next);
   } catch {}
+}
+
+// 分頁標題和 <html lang> 跟著語言。index.html 寫的是中文，所以載入時也要套用一次（在檔案最後）
+function applyToDocument() {
+  document.documentElement.lang = lang === 'en' ? 'en' : 'zh-Hant-TW';
+  document.title = tr('page.title');
 }
 
 export function tr(key, p = {}) {
@@ -359,7 +364,7 @@ const STRINGS = {
     'trash.kept': (p) => `${plural(p.n, 'starred take', 'starred takes')} will be kept.`,
     'trash.allUnmarked': (p) => `Nothing in this project is starred, so every clip will be moved to the ${p.trash}.`,
     'trash.takeStarred': 'This take is starred.',
-    'trash.someStarred': (p) => `${p.n} of them belong to starred takes.`,
+    'trash.someStarred': (p) => (p.n === 1 ? '1 of them belongs to a starred take.' : `${p.n} of them belong to starred takes.`),
     'trash.onlyOne': 'To delete just one phone’s clip, use “Select clips to delete…” in the Project menu.',
     'trash.recover': (p) => `You can restore them from the ${p.trash} later. The originals on the phones are not affected.`,
 
@@ -389,8 +394,8 @@ const STRINGS = {
     'spec.label': 'Recording spec',
     'spec.guideTag': (p) => `${p.guide} guide`,
     'spec.lockTag': 'Exposure lock',
-    'spec.noteRecording': 'Only the guide can change while recording',
-    'spec.noteNext': (p) => `Applies from the next take · ${p.dur} ≈ ${p.size}`,
+    'spec.noteRecording': 'Only the guide can change mid-take',
+    'spec.noteNext': (p) => `From the next take · ${p.dur} ≈ ${p.size}`,
     'spec.resolution': 'Resolution',
     'spec.locked': ' (locked while recording)',
     'spec.perTake': (p) => `${p.dur} ≈ ${p.size}`,
@@ -463,7 +468,7 @@ const STRINGS = {
     'trim.out': 'Out point',
     'trim.hint': (p) =>
       `Drag the handles to set the in and out points; the player jumps to that frame as you drag, and clicking the timeline jumps there. ${
-        p.angles > 1 ? `All ${p.angles} clips in this take are trimmed together into new files` : 'The trimmed clip is saved as a new file'
+        p.angles > 1 ? `${p.angles === 2 ? 'Both clips' : `All ${p.angles} clips`} in this take are trimmed together into new files` : 'The trimmed clip is saved as a new file'
       } ending in _1, and the originals are kept. Nothing is re-encoded, so quality is unchanged; the start snaps to the previous keyframe, usually at most 1 second earlier.`,
     'trim.busy': 'Trimming…',
     'trim.submit': 'Trim',
@@ -532,3 +537,5 @@ const STRINGS = {
     'settings.languageHint': 'Applies to this dashboard and messages from the computer. The phone app follows the phone’s system language.',
   },
 };
+
+applyToDocument();
