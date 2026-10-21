@@ -118,6 +118,7 @@ class CameraRecorder(private val context: Context, private val listener: Listene
     private var wantedScene = Scene()
     private var lockExposure = false // 這次錄影要不要鎖定曝光和白平衡，開始錄影時才用到
     private var bokehFailed = false // 開著背景虛化建不起 session 的手機，之後就不開
+    private var sessionGeneration = 0 // 每建一次 session 加一，只理會最新那個 session 的回報
     private var fps = 30
     private var prepared: MediaRecorder? = null // 準備好了，等開始時間到
     private var recorder: MediaRecorder? = null // 錄影中
@@ -146,12 +147,24 @@ class CameraRecorder(private val context: Context, private val listener: Listene
         else -> "其他（${mic.productName}）"
     }
 
-    @SuppressLint("MissingPermission") // MainActivity 確認過權限才會呼叫
     fun open(surface: Surface, size: Size) = handler.post {
         previewSurface = surface
         wantedSize = size
-        if (device == null) manager.openCamera(cameraId, executor, deviceCallback) else createSession()
+        if (device == null) openDevice() else createSession()
     }
+
+    // 打不開時（例如 App 在螢幕關著時啟動，系統把它當成在背景、不給開相機）過一下再試，預覽還在才試
+    @SuppressLint("MissingPermission") // MainActivity 確認過權限才會呼叫 open
+    private fun openDevice() {
+        handler.removeCallbacks(retryOpen)
+        try {
+            manager.openCamera(cameraId, executor, deviceCallback)
+        } catch (e: Exception) {
+            handler.postDelayed(retryOpen, 2000)
+        }
+    }
+
+    private val retryOpen = Runnable { if (device == null && previewSurface != null) openDevice() }
 
     // 電腦改了解析度或人像設定：沒在錄影就先把 session 準備好，開始時才不用等
     fun configure(size: Size, scene: Scene) = handler.post {
@@ -233,6 +246,7 @@ class CameraRecorder(private val context: Context, private val listener: Listene
 
     private fun closeCamera() {
         handler.removeCallbacksAndMessages(startToken)
+        handler.removeCallbacks(retryOpen)
         pendingStart = null
         prepared?.release()
         prepared = null
@@ -283,15 +297,21 @@ class CameraRecorder(private val context: Context, private val listener: Listene
         }
         sessionScene = wantedScene
         bokehActive = sessionScene.bokeh && !bokehFailed && bokehMaxSize?.let { fits(size, it) } == true
+        val generation = ++sessionGeneration
         val outputs = listOf(OutputConfiguration(preview), OutputConfiguration(recorderSurface!!))
         val callback = object : CameraCaptureSession.StateCallback() {
             override fun onConfigured(s: CameraCaptureSession) {
-                if (device !== camera) {
+                // 相機換了，或已經建了新的 session（系統會關掉舊的，但舊的這個回報還是會晚到）
+                if (device !== camera || generation != sessionGeneration) {
                     s.close()
                     return
                 }
                 session = s
-                s.setRepeatingRequest(request(record = false), null, handler)
+                try {
+                    s.setRepeatingRequest(request(record = false), null, handler)
+                } catch (e: Exception) {
+                    return // 相機剛好斷線或出錯，deviceCallback 會處理
+                }
                 setReady(true)
                 pendingStart?.let {
                     pendingStart = null
@@ -300,8 +320,9 @@ class CameraRecorder(private val context: Context, private val listener: Listene
             }
 
             override fun onConfigureFailed(s: CameraCaptureSession) {
+                if (device !== camera || generation != sessionGeneration) return
                 // 開著背景虛化建不起來，就關掉虛化再建一次
-                if (bokehActive && device === camera) {
+                if (bokehActive) {
                     bokehFailed = true
                     createSession()
                     return
@@ -313,7 +334,11 @@ class CameraRecorder(private val context: Context, private val listener: Listene
         val config = SessionConfiguration(SessionConfiguration.SESSION_REGULAR, outputs, executor, callback)
         // 場景模式在部分手機（例如 Pixel）是 session 參數，建 session 時先帶上，第一個 request 才不用重新設定相機
         config.sessionParameters = request(record = false)
-        camera.createCaptureSession(config)
+        try {
+            camera.createCaptureSession(config)
+        } catch (e: Exception) {
+            // 相機剛好斷線或出錯，deviceCallback 會處理
+        }
     }
 
     private fun request(record: Boolean): CaptureRequest {
