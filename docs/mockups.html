@@ -6,7 +6,7 @@
 <title>README 示意圖</title>
 <!-- README 示意圖的原稿：每個 section 對應 docs/images/ 裡的一張圖
      architecture → how-it-works.png、pairing → pairing.png、app → phone-app.png、app-portrait → phone-app-portrait.png、
-     use-cases → use-cases.png、long-short → long-short.png、network → network.png、
+     use-cases → use-cases.png、network → network.png、
      social → social-preview.png（GitHub 的 Settings → Social preview 要自己上傳）。
      在專案根目錄執行 python3 -m http.server，打開 http://localhost:8000/docs/mockups.html，把每個 section 各自截圖。
      console.png、spec-guide.png、select-trash.png、setup.png 是用模擬手機實際操作控制台截的圖。 -->
@@ -214,39 +214,11 @@ body { margin: 0; padding: 30px; background: #333; font-family: var(--body); col
 .uc-tags { display: flex; gap: 8px; margin-top: 12px; }
 .uc-tags span { padding: 2px 9px; border: 1px solid var(--line-hi); border-radius: 3px; font-size: 12.5px; color: var(--text); }
 
-/* ---------- 長影片＋短影音 ---------- */
-#long-short { width: 1240px; padding: 36px 44px 40px; }
-.ls { display: grid; grid-template-columns: 1fr 300px; gap: 40px; margin-top: 28px; align-items: start; }
-.ls .phone.landscape { width: 640px; height: 300px; border-radius: 30px; }
-.ls .phone.portrait { width: 280px; height: 598px; border-radius: 34px; }
-.ls .phone .scene { inset: 0; }
-.ls-cap { margin-top: 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.ls-cap .cam { font: 700 15px var(--label); letter-spacing: 0.12em; padding: 2px 8px; border-radius: 3px; }
-.ls-cap .cam.a { color: #06121b; background: var(--cyan); }
-.ls-cap .cam.b { color: #1b0606; background: #ff7b7b; }
-.ls-cap b { font: 700 21px var(--label); letter-spacing: 0.03em; }
-.ls-cap .arrow { color: var(--faint); font-size: 18px; }
-.ls-cap .out { font-size: 15px; color: var(--text); }
-.ls-cap .out small { display: block; color: var(--muted); font: 500 12px var(--mono); margin-top: 2px; }
-.ls .rec-chip { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 6; font: 500 13px var(--mono); color: var(--red); background: rgba(10, 11, 13, 0.75); padding: 4px 10px; border-radius: 4px; white-space: nowrap; }
 /* 直拿那台拍得近一點：人比較大，只拍到胸口 */
 .scene.close .person { width: 80%; height: 46%; }
 .scene.close .person .body { height: 72%; }
 .scene.close .desk { height: 12%; }
 .scene.close .mic { left: 64%; bottom: 8%; }
-.ls .phone.portrait .rec-chip { top: 38px; }
-.px { margin-top: 30px; padding: 18px 22px 20px; border: 1px solid var(--line-hi); border-radius: 10px; background: rgba(18, 21, 25, 0.86); }
-.px-title { font: 700 21px var(--label); letter-spacing: 0.03em; }
-.px-title em { font-style: normal; color: var(--amber); }
-.px-row { display: flex; align-items: flex-end; gap: 46px; margin-top: 16px; }
-.px-item { display: flex; align-items: flex-end; gap: 14px; }
-.px-frame { position: relative; border: 2px solid var(--line-hi); background: repeating-linear-gradient(45deg, #15191e 0 6px, #111418 6px 12px); }
-.px-frame .crop { position: absolute; top: -2px; bottom: -2px; left: 50%; transform: translateX(-50%); border: 2px solid #ff7b7b; background: rgba(255, 123, 123, 0.22); }
-.px-frame.native { border-color: #ff7b7b; background: rgba(255, 123, 123, 0.22); }
-.px-label { font-size: 14px; color: var(--muted); line-height: 1.55; }
-.px-label b { display: block; color: var(--text); font: 700 17px var(--label); letter-spacing: 0.03em; }
-.px-label code { font: 500 13px var(--mono); color: var(--text); }
-.px-vs { align-self: center; font: 700 22px var(--label); color: var(--faint); }
 
 /* ---------- 直拿時的 App ---------- */
 #app-portrait { width: 760px; padding: 36px 44px 40px; }
@@ -591,43 +563,6 @@ body { margin: 0; padding: 30px; background: #333; font-family: var(--body); col
         <p>正面、正上方俯拍、側面特寫同時錄，一次就拿到所有需要的角度。最多可以接 10 台手機。</p>
         <div class="uc-tags"><span>3 台以上</span><span>俯拍</span></div>
       </div>
-    </div>
-  </div>
-</section>
-
-<!-- ============ 長影片＋短影音 ============ -->
-<section id="long-short" class="canvas">
-  <div class="kicker">LONG-FORM + SHORTS</div>
-  <div class="title">一次錄好長影片和短影音：一台橫拿、一台直拿</div>
-  <div class="ls">
-    <div>
-      <div class="phone landscape">
-        <div class="scene"><div class="window"></div><div class="lamp"></div><div class="plant"></div><div class="person"><div class="body"></div><div class="head"></div><div class="hair"></div></div><div class="desk"></div><div class="mic"></div></div>
-        <div class="rec-chip">● REC 12:34</div>
-      </div>
-      <div class="ls-cap"><span class="cam a">CAM A</span><b>橫拿・16:9</b><span class="arrow">→</span><span class="out">YouTube 長影片<small>4K：3840×2160</small></span></div>
-      <div class="px">
-        <div class="px-title">為什麼不從橫的畫面裁出直的？<em>直接直拿錄，畫素多約 3 倍</em></div>
-        <div class="px-row">
-          <div class="px-item">
-            <div class="px-frame" style="width: 211px; height: 119px"><div class="crop" style="width: 67px"></div></div>
-            <div class="px-label"><b>從 4K 橫的畫面裁切</b><code>1215×2160</code><br />約 262 萬畫素</div>
-          </div>
-          <div class="px-vs">vs</div>
-          <div class="px-item">
-            <div class="px-frame native" style="width: 119px; height: 211px"></div>
-            <div class="px-label"><b>直接直拿錄 4K</b><code>2160×3840</code><br />約 829 萬畫素</div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div>
-      <div class="phone portrait">
-        <div class="scene close"><div class="window"></div><div class="lamp"></div><div class="person"><div class="body"></div><div class="head"></div><div class="hair"></div></div><div class="desk"></div><div class="mic"></div></div>
-        <div class="rec-chip">● REC 12:34</div>
-      </div>
-      <div class="ls-cap"><span class="cam b">CAM B</span><b>直拿・9:16</b></div>
-      <div class="ls-cap" style="margin-top: 6px"><span class="arrow">→</span><span class="out">Reels／Shorts／TikTok 短影音<small>4K：2160×3840</small></span></div>
     </div>
   </div>
 </section>

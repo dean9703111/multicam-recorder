@@ -155,12 +155,15 @@ llms.txt                   給 AI 工具讀的專案摘要
 - `index.html`、`en/index.html`：中英文頁面，內容和 README 一致；`assets/` 是共用的樣式、字型（Barlow、Martian Mono，OFL 授權）和圖示，圖片直接用 `docs/images/`。
 - 每頁的 `<head>` 有 SEO 標籤（title、description、canonical、hreflang、Open Graph）和 JSON-LD（SoftwareApplication、FAQPage）。**改了頁面上的常見問題，JSON-LD 裡的 FAQPage 也要跟著改**，兩邊的文字要一樣。
 - `sitemap.xml`、`llms.txt`（給 AI 工具讀的摘要）、`404.html`；`.nojekyll` 讓 GitHub Pages 不經過 Jekyll，直接發佈檔案。
+- 頁面上的對比圖（各自按 vs 按一次 R、裁切 vs 直拿、一般自動 vs 臉部優先、不鎖定 vs 鎖定、錄完再傳 vs 邊錄邊傳、串流 vs 在手機上錄）是直接寫在 HTML 裡的 SVG 加 CSS 動畫，不是圖片，所以中英文頁各有一份，**文字要兩頁一起改**。訪談場景的插圖放在頁首的 `<svg class="sprite">`（`#sc-land` 橫、`#sc-port` 直），用 `<use>` 重複使用。
+- 動畫的規則寫在 `assets/site.css` 的「動態效果」和 `assets/site.js`：捲到畫面裡才播（`.viz` 加上 `.is-playing`），播一次就停在最後一格，旁邊有「重播」。`<head>` 的一行程式判斷系統的「減少動態效果」；沒有 JavaScript 或要求減少動態效果時，直接顯示最後一格，所以**元素平常的樣式就要是最後一格的樣子**，動畫只負責從頭播到那裡。
 - 本機預覽：在 `docs/` 執行 `python3 -m http.server`，打開 <http://localhost:8000/>。
 - 搜尋引擎只讀網域根目錄的 robots.txt，這個網站的 robots.txt 由 deanlin.net 那邊管理。
 
 ## 更新 README 的圖
 
-- **示意圖**（how-it-works、pairing、phone-app、phone-app-portrait、use-cases、long-short、network、social-preview）的原稿都在 [`docs/mockups.html`](mockups.html)。在專案根目錄執行 `python3 -m http.server`，打開 <http://localhost:8000/docs/mockups.html>，把每個 section 各自截圖存到 `docs/images/`。
+- **示意圖**（how-it-works、pairing、phone-app、phone-app-portrait、use-cases、network、social-preview）的原稿都在 [`docs/mockups.html`](mockups.html)。在專案根目錄執行 `python3 -m http.server`，打開 <http://localhost:8000/docs/mockups.html>，把每個 section 各自截圖存到 `docs/images/`。
+- **對比圖**（compare-sync、compare-pixels、compare-face-priority、compare-exposure-lock、compare-upload、compare-streaming）是從產品網站的中文頁截的：視窗 1440 寬、裝置像素比 1.5、開啟「減少動態效果」讓動畫直接停在最後一格，再各自截那個區塊。compare-streaming 截之前，先把左邊那張設成訊號變差的樣子（畫面模糊、方格、「畫質下降」、Wi-Fi 剩一格）。
 - **控制台的截圖**（console、spec-guide、portrait-settings、trim、select-trash、setup）是用模擬手機實際操作截的；portrait-settings 是規格選單「人像」那一段的放大特寫：視窗開成 2160×1140、`html` 設 `zoom: 1.5` 再截，版面和 1440×760 一樣但比較清楚。電腦的硬碟空間不夠時，控制台上方會出現提醒，截圖前可以先把 `.alerts` 藏起來。
 - 截圖裡不要出現自己電腦的使用者名稱或私人路徑，例如錄影資料夾的完整路徑。
 - `social-preview.png`（1280×640）是分享連結時顯示的預覽圖，要到 GitHub 專案的 **Settings → General → Social preview** 手動上傳。

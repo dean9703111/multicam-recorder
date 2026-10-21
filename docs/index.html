@@ -32,6 +32,7 @@
 <meta name="twitter:description" content="免費開源的手機多機位錄影工具：即時畫面、手機原生 4K、直式＋橫式同時錄，影片邊錄邊傳回電腦。">
 <meta name="twitter:image" content="https://deanlin.net/multicam-recorder/images/social-preview.png">
 <link rel="preload" href="assets/fonts/barlow-condensed-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
+<script>matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.classList.add('motion');</script>
 <link rel="stylesheet" href="assets/site.css">
 <script type="application/ld+json">
 {
@@ -123,6 +124,44 @@
 </head>
 <body>
 <a class="skip" href="#main">跳到主要內容</a>
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="sc-wall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b4a5c"/><stop offset="1" stop-color="#55657a"/></linearGradient>
+    <linearGradient id="sc-floor" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a2622"/><stop offset="1" stop-color="#3a322b"/></linearGradient>
+    <linearGradient id="sc-sky" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#cfe3f5"/><stop offset="1" stop-color="#8fb3d6"/></linearGradient>
+    <radialGradient id="sc-lamp"><stop offset="0" stop-color="#ffe2a0" stop-opacity="0.95"/><stop offset="0.7" stop-color="#ffd278" stop-opacity="0"/></radialGradient>
+    <radialGradient id="sc-plant" cx="0.5" cy="0.3" r="0.75"><stop offset="0" stop-color="#4f8a55"/><stop offset="1" stop-color="#2f5a36"/></radialGradient>
+    <linearGradient id="sc-shirt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f6f9e"/><stop offset="1" stop-color="#255a82"/></linearGradient>
+    <pattern id="px-hatch" width="90" height="90" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="90" height="90" fill="#060709" fill-opacity="0.72"/><rect width="20" height="90" fill="#ffb000" fill-opacity="0.2"/></pattern>
+    <symbol id="sc-land" viewBox="0 0 3840 2160">
+      <rect width="3840" height="1188" fill="url(#sc-wall)"/>
+      <rect y="1188" width="3840" height="972" fill="url(#sc-floor)"/>
+      <rect x="327" y="236" width="805" height="694" fill="url(#sc-sky)" stroke="#2a3542" stroke-width="40"/>
+      <circle cx="3380" cy="360" r="300" fill="url(#sc-lamp)"/>
+      <path d="M3170 1500V1190C3170 1080 3245 1010 3320 1010C3395 1010 3470 1080 3470 1190V1500Z" fill="url(#sc-plant)"/>
+      <path d="M1290 2160V1650C1290 1330 1590 1150 1920 1150C2250 1150 2550 1330 2550 1650V2160Z" fill="url(#sc-shirt)"/>
+      <circle cx="1920" cy="930" r="230" fill="#e3b590"/>
+      <path d="M1680 900C1680 760 1790 680 1920 680C2050 680 2160 760 2160 900C2160 940 2135 960 2100 960H1740C1705 960 1680 940 1680 900Z" fill="#2b211b"/>
+      <rect y="1771" width="3840" height="389" fill="#6b4f3a"/>
+      <rect y="1771" width="3840" height="26" fill="#84634a"/>
+      <rect x="2360" y="1500" width="44" height="300" rx="22" fill="#1b1b1b"/>
+      <circle cx="2382" cy="1490" r="74" fill="#111"/>
+    </symbol>
+    <symbol id="sc-port" viewBox="0 0 2160 3840">
+      <rect width="2160" height="2112" fill="url(#sc-wall)"/>
+      <rect y="2112" width="2160" height="1728" fill="url(#sc-floor)"/>
+      <rect x="190" y="400" width="440" height="1260" fill="url(#sc-sky)" stroke="#2a3542" stroke-width="40"/>
+      <circle cx="1860" cy="640" r="300" fill="url(#sc-lamp)"/>
+      <path d="M200 3840V3150C200 2760 600 2560 1080 2560C1560 2560 1960 2760 1960 3150V3840Z" fill="url(#sc-shirt)"/>
+      <circle cx="1080" cy="2280" r="300" fill="#e3b590"/>
+      <path d="M770 2230C770 2050 910 1950 1080 1950C1250 1950 1390 2050 1390 2230C1390 2280 1360 2300 1320 2300H840C800 2300 770 2280 770 2230Z" fill="#2b211b"/>
+      <rect y="3380" width="2160" height="460" fill="#6b4f3a"/>
+      <rect y="3380" width="2160" height="30" fill="#84634a"/>
+      <rect x="1540" y="3040" width="60" height="360" rx="30" fill="#1b1b1b"/>
+      <circle cx="1570" cy="3020" r="96" fill="#111"/>
+    </symbol>
+  </defs>
+</svg>
 
 <header class="site-nav">
   <div class="wrap">
@@ -162,9 +201,10 @@
       </ul>
       <figure class="monitor-frame">
         <img src="images/console.png" width="1440" height="960" fetchpriority="high" alt="多機錄影控制台截圖：兩支 Android 手機同步用 4K 錄影，左邊橫拿 16:9、右邊直拿 9:16，監看區顯示即時畫面，下方是邊錄邊傳回電腦的影片清單">
+        <span class="mf-corner tl" aria-hidden="true"></span><span class="mf-corner tr" aria-hidden="true"></span><span class="mf-corner bl" aria-hidden="true"></span><span class="mf-corner br" aria-hidden="true"></span>
       </figure>
       <figcaption>電腦上的控制台：兩支手機同時錄 4K，左邊橫拿 16:9、右邊直拿 9:16，每台都看得到即時畫面（畫面中的漸層來自開發用的模擬手機）。</figcaption>
-      <ul class="readouts" aria-label="規格重點">
+      <ul class="readouts reveal" aria-label="規格重點">
         <li><span class="v">10<small>台</small></span><span class="k">最多同時控制的手機</span></li>
         <li><span class="v">4K</span><span class="k">手機原生畫質、每秒 30 格</span></li>
         <li><span class="v">9:16＋16:9</span><span class="k">直式、橫式同一次錄</span></li>
@@ -178,10 +218,64 @@
       <span class="kicker">WHAT IT IS</span>
       <h2 id="what-title">多機錄影是什麼？</h2>
       <p class="definition"><strong>多機錄影（MultiCam Recorder）是一套免費、開源的多機位錄影工具，把手邊的 Android 手機變成可以同步錄影的攝影機。</strong>在電腦（macOS 或 Windows）上打開網頁控制台，就能同時看到每支手機的即時畫面、各自調整變焦，按一個鍵讓所有手機在同一刻開始錄影。影片在每支手機上用原生畫質錄，錄影中就一邊傳回電腦，停止後很快就能播放檢查。整個過程只用 Wi-Fi 區域網路，<strong>不需要雲端帳號，影片也不會上傳到網路</strong>。</p>
-      <div class="table-wrap">
+      <div class="viz-group">
+        <div class="versus">
+          <figure class="vs vs-bad viz reveal">
+            <figcaption class="vs-head"><span class="vs-mark" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M3 3l8 8M11 3l-8 8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></span>每支手機各自按錄影</figcaption>
+            <svg class="vs-svg" viewBox="0 0 520 250" role="img" aria-label="示意：CAM A、B、C 三支手機一支一支按下錄影，開始的時間各差好幾秒">
+              <path class="vz-grid" d="M120 40V212M160 40V212M200 40V212M240 40V212M280 40V212M320 40V212M360 40V212M400 40V212M440 40V212M480 40V212"/>
+              <path class="vz-lane" d="M120 64H500M120 124H500M120 184H500"/>
+              <rect class="vz-phone" x="14" y="52" width="40" height="24" rx="5"/><rect class="vz-phone" x="22" y="106" width="24" height="36" rx="5"/><rect class="vz-phone" x="14" y="172" width="40" height="24" rx="5"/>
+              <circle class="vz-tally a-on" cx="46" cy="59" r="3" style="--d:.47s"/><circle class="vz-tally a-on" cx="39" cy="112" r="3" style="--d:1.44s"/><circle class="vz-tally a-on" cx="46" cy="179" r="3" style="--d:2.41s"/>
+              <text class="vz-cam" x="66" y="69">CAM A</text><text class="vz-cam" x="66" y="129">CAM B</text><text class="vz-cam" x="66" y="189">CAM C</text>
+              <path class="vz-guide a-fade" d="M146 40V212" style="--d:.47s;--t:.3s"/><path class="vz-guide a-fade" d="M238 40V212" style="--d:1.44s;--t:.3s"/><path class="vz-guide a-fade" d="M330 40V212" style="--d:2.41s;--t:.3s"/>
+              <rect class="vz-bar a-grow-x" x="146" y="54" width="354" height="20" rx="4" style="--d:.47s;--t:3.73s"/>
+              <rect class="vz-bar a-grow-x" x="238" y="114" width="262" height="20" rx="4" style="--d:1.44s;--t:2.76s"/>
+              <rect class="vz-bar a-grow-x" x="330" y="174" width="170" height="20" rx="4" style="--d:2.41s;--t:1.79s"/>
+              <text class="vz-bar-label a-fade" x="154" y="68.5" style="--d:.8s">REC</text><text class="vz-bar-label a-fade" x="246" y="128.5" style="--d:1.75s">REC</text><text class="vz-bar-label a-fade" x="338" y="188.5" style="--d:2.7s">REC</text>
+              <circle class="vz-tap a-ring" cx="34" cy="64" r="22" style="--d:.4s"/><circle class="vz-tap a-ring" cx="34" cy="124" r="24" style="--d:1.37s"/><circle class="vz-tap a-ring" cx="34" cy="184" r="22" style="--d:2.34s"/>
+              <g class="a-fade" style="--d:2.7s;--t:.4s"><path class="vz-bracket" d="M146 216v8H330v-8"/><text class="vz-warn" x="238" y="246" text-anchor="middle">差好幾秒</text></g>
+              <g class="vz-playhead" style="--d:.2s;--t:4s;--to:380px"><path d="M120 46V212"/><path d="M114 36h12v6l-6 6l-6-6z"/></g>
+            </svg>
+            <p class="vs-note">一支一支跑去按，每支開始的時間都不一樣。</p>
+          </figure>
+          <span class="vs-badge" aria-hidden="true">VS</span>
+          <figure class="vs vs-good viz reveal">
+            <figcaption class="vs-head"><span class="vs-mark" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 15 15"><path d="M3 7.8l3 3 6-6.6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>用多機錄影</figcaption>
+            <svg class="vs-svg" viewBox="0 0 520 250" role="img" aria-label="示意：按一次 R，CAM A、B、C 三支手機在同一刻一起開始錄影">
+              <defs>
+                <linearGradient id="vz-rec" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ff3b3b"/><stop offset="1" stop-color="#cf2020"/></linearGradient>
+                <filter id="vz-glow" x="-10%" y="-80%" width="120%" height="260%"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+              </defs>
+              <path class="vz-grid" d="M120 40V212M160 40V212M200 40V212M240 40V212M280 40V212M320 40V212M360 40V212M400 40V212M440 40V212M480 40V212"/>
+              <path class="vz-lane" d="M120 64H500M120 124H500M120 184H500"/>
+              <rect class="vz-phone" x="14" y="52" width="40" height="24" rx="5"/><rect class="vz-phone" x="22" y="106" width="24" height="36" rx="5"/><rect class="vz-phone" x="14" y="172" width="40" height="24" rx="5"/>
+              <circle class="vz-tally a-on" cx="46" cy="59" r="3" style="--d:.94s"/><circle class="vz-tally a-on" cx="39" cy="112" r="3" style="--d:.94s"/><circle class="vz-tally a-on" cx="46" cy="179" r="3" style="--d:.94s"/>
+              <text class="vz-cam" x="66" y="69">CAM A</text><text class="vz-cam" x="66" y="129">CAM B</text><text class="vz-cam" x="66" y="189">CAM C</text>
+              <g filter="url(#vz-glow)">
+                <rect class="vz-bar a-grow-x" x="190" y="54" width="310" height="20" rx="4" style="--d:.94s;--t:3.26s"/>
+                <rect class="vz-bar a-grow-x" x="190" y="114" width="310" height="20" rx="4" style="--d:.94s;--t:3.26s"/>
+                <rect class="vz-bar a-grow-x" x="190" y="174" width="310" height="20" rx="4" style="--d:.94s;--t:3.26s"/>
+              </g>
+              <text class="vz-bar-label a-fade" x="198" y="68.5" style="--d:1.2s">REC</text><text class="vz-bar-label a-fade" x="198" y="128.5" style="--d:1.2s">REC</text><text class="vz-bar-label a-fade" x="198" y="188.5" style="--d:1.2s">REC</text>
+              <path class="vz-sync a-grow-y" d="M190 34V212" style="--d:.78s;--t:.16s"/>
+              <circle class="vz-ripple a-ring" cx="190" cy="64" r="16" style="--d:.9s"/><circle class="vz-ripple a-ring" cx="190" cy="124" r="16" style="--d:.9s"/><circle class="vz-ripple a-ring" cx="190" cy="184" r="16" style="--d:.9s"/>
+              <g class="vz-key a-press" style="--d:.62s"><rect x="176" y="4" width="28" height="26" rx="5"/><text x="190" y="22" text-anchor="middle">R</text></g>
+              <text class="vz-sync-label a-fade" x="214" y="23" style="--d:1s">同一刻開始</text>
+              <g class="vz-playhead" style="--d:.2s;--t:4s;--to:380px"><path d="M120 46V212"/><path d="M114 36h12v6l-6 6l-6-6z"/></g>
+            </svg>
+            <p class="vs-note">按一次 <kbd>R</kbd>：電腦先和每支手機對時，<strong>約好同一刻一起開始</strong>。</p>
+          </figure>
+        </div>
+        <div class="viz-foot">
+          <p>示意圖：同一條時間軸上，三支手機各在什麼時候開始錄。</p>
+          <button class="viz-replay" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.4v3.7H9.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>重播</button>
+        </div>
+      </div>
+      <div class="table-wrap compare-wrap reveal">
         <table class="compare">
           <caption class="visually-hidden">每支手機各自錄和用多機錄影的比較</caption>
-          <thead><tr><th scope="col"></th><th scope="col">每支手機各自錄</th><th scope="col">用多機錄影</th></tr></thead>
+          <thead><tr><th scope="col"></th><th scope="col" class="bad-col">每支手機各自錄</th><th scope="col" class="good-col">用多機錄影</th></tr></thead>
           <tbody>
             <tr><th scope="row">開始錄影</th><td class="bad">一支一支跑去按，開始時間差好幾秒</td><td class="good">按一次 <kbd>R</kbd>，所有手機約好同一刻開始</td></tr>
             <tr><th scope="row">看畫面</th><td class="bad">只看得到眼前那一支</td><td class="good">電腦上同時看每支的即時畫面</td></tr>
@@ -198,12 +292,12 @@
       <span class="kicker">USE CASES</span>
       <h2 id="use-cases-title">適合哪些情境？</h2>
       <p class="section-lead">需要多個角度、又不想租攝影機和導播機的拍攝，都可以用手邊的手機搞定。</p>
-      <div class="figure"><img src="images/use-cases.png" width="1860" height="1490" loading="lazy" decoding="async" alt="多機錄影的四種使用情境俯視圖：訪談與 Podcast 雙機位、一台橫拿一台直拿同時做長影片和短影音、課程講座的全景加講者近景、產品拍攝的正面俯拍與特寫"></div>
+      <div class="figure reveal"><img src="images/use-cases.png" width="1860" height="1490" loading="lazy" decoding="async" alt="多機錄影的四種使用情境俯視圖：訪談與 Podcast 雙機位、一台橫拿一台直拿同時做長影片和短影音、課程講座的全景加講者近景、產品拍攝的正面俯拍與特寫"></div>
       <div class="cards four">
-        <article class="card"><div class="n">01</div><h3>訪談、Podcast</h3><p>主持人和來賓各一台，外接麥克風接在其中一台當主音軌，剪輯時隨時切換角度。</p></article>
-        <article class="card hot"><div class="n">02</div><h3>長影片＋短影音</h3><p>一台橫拿錄 YouTube 用的 16:9，一台直拿錄 Reels、Shorts、TikTok 用的 9:16，一次錄好兩種版本。</p></article>
-        <article class="card"><div class="n">03</div><h3>課程、講座</h3><p>一台在後面拍全景，一台在側邊拍講者和白板，講者走到哪都有畫面。</p></article>
-        <article class="card"><div class="n">04</div><h3>產品拍攝、開箱</h3><p>正面、正上方俯拍、側面特寫同時錄，最多可以接 10 台手機。</p></article>
+        <article class="card reveal"><div class="n">01</div><h3>訪談、Podcast</h3><p>主持人和來賓各一台，外接麥克風接在其中一台當主音軌，剪輯時隨時切換角度。</p></article>
+        <article class="card reveal hot"><div class="n">02</div><h3>長影片＋短影音</h3><p>一台橫拿錄 YouTube 用的 16:9，一台直拿錄 Reels、Shorts、TikTok 用的 9:16，一次錄好兩種版本。</p></article>
+        <article class="card reveal"><div class="n">03</div><h3>課程、講座</h3><p>一台在後面拍全景，一台在側邊拍講者和白板，講者走到哪都有畫面。</p></article>
+        <article class="card reveal"><div class="n">04</div><h3>產品拍攝、開箱</h3><p>正面、正上方俯拍、側面特寫同時錄，最多可以接 10 台手機。</p></article>
       </div>
     </div>
   </section>
@@ -216,28 +310,28 @@
 
       <h3 class="group-title">錄影</h3>
       <div class="cards four">
-        <article class="card hot"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.8" fill="currentColor" stroke="none"/></svg></div><h3>一鍵同步開始</h3><p>按 <kbd>R</kbd> 全部開始、<kbd>S</kbd> 全部停止。電腦先和每台手機對時，約好同一刻一起開始，清單上顯示實際的時間差。</p></article>
-        <article class="card"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><text x="12" y="15.2" text-anchor="middle" font-size="7.5" font-weight="700" fill="currentColor" stroke="none" font-family="Barlow Condensed, sans-serif">4K</text></svg></div><h3>手機原生畫質</h3><p>4K、2K、1080p、720p 可選，所有手機一起套用。單段最長 30 分鐘，剩 3 分鐘網頁和手機都會提醒。</p></article>
-        <article class="card"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="7.5" width="11" height="8" rx="1.5"/><rect x="16" y="3.5" width="5.5" height="17" rx="1.5"/></svg></div><h3>直式、橫式都能錄</h3><p>手機橫拿錄 16:9、直拿錄 9:16，App 自動跟著轉，錄影中鎖住方向，不會錄成一半直一半橫。</p></article>
-        <article class="card"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="2.5" width="6" height="11.5" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5v4M8.5 21.5h7"/></svg></div><h3>外接麥克風</h3><p>接上 USB 或耳機孔麥克風會自動改用它收音，App 和網頁都會顯示目前用的是哪一支。</p></article>
+        <article class="card reveal hot"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.8" fill="currentColor" stroke="none"/></svg></div><h3>一鍵同步開始</h3><p>按 <kbd>R</kbd> 全部開始、<kbd>S</kbd> 全部停止。電腦先和每台手機對時，約好同一刻一起開始，清單上顯示實際的時間差。</p></article>
+        <article class="card reveal"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><text x="12" y="15.2" text-anchor="middle" font-size="7.5" font-weight="700" fill="currentColor" stroke="none" font-family="Barlow Condensed, sans-serif">4K</text></svg></div><h3>手機原生畫質</h3><p>4K、2K、1080p、720p 可選，所有手機一起套用。單段最長 30 分鐘，剩 3 分鐘網頁和手機都會提醒。</p></article>
+        <article class="card reveal"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="7.5" width="11" height="8" rx="1.5"/><rect x="16" y="3.5" width="5.5" height="17" rx="1.5"/></svg></div><h3>直式、橫式都能錄</h3><p>手機橫拿錄 16:9、直拿錄 9:16，App 自動跟著轉，錄影中鎖住方向，不會錄成一半直一半橫。</p></article>
+        <article class="card reveal"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="2.5" width="6" height="11.5" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5v4M8.5 21.5h7"/></svg></div><h3>外接麥克風</h3><p>接上 USB 或耳機孔麥克風會自動改用它收音，App 和網頁都會顯示目前用的是哪一支。</p></article>
       </div>
 
       <h3 class="group-title">監看</h3>
       <div class="cards four">
-        <article class="card"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="4.5" width="19" height="13" rx="2"/><path d="M8 21h8M12 17.5V21"/><circle cx="17" cy="8.5" r="1.7" fill="currentColor" stroke="none"/></svg></div><h3>即時畫面</h3><p>每台手機的畫面每秒約 5 張，用來確認構圖。按下開始錄影時監看區一律切回即時畫面。</p></article>
-        <article class="card"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5l5.5 5.5M10.5 7.5v6M7.5 10.5h6"/></svg></div><h3>各別變焦</h3><p>常用倍率的按鈕加上滑桿，每台各自設定；有超廣角或望遠鏡頭的手機會自動換鏡頭。</p></article>
-        <article class="card"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 8V5a2.5 2.5 0 0 1 2.5-2.5h3M16 2.5h3A2.5 2.5 0 0 1 21.5 5v3M21.5 16v3a2.5 2.5 0 0 1-2.5 2.5h-3M8 21.5H5A2.5 2.5 0 0 1 2.5 19v-3"/><rect x="9" y="6" width="6" height="12" rx="1"/></svg></div><h3>構圖輔助框</h3><p>在手機預覽、即時畫面和播放器上疊 9:16、4:5 或 1:1 的框，架機時就照最後要出的比例構圖。</p></article>
-        <article class="card"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="7.5" width="16" height="9" rx="2"/><path d="M21.5 10.5v3"/><rect x="5" y="10" width="7.5" height="4" rx="1" fill="currentColor" stroke="none"/></svg></div><h3>狀態一目瞭然</h3><p>每台的電量、溫度、剩餘空間、還能錄幾分鐘、傳輸速度；硬碟快滿、傳輸停住、手機斷線都會提示。</p></article>
+        <article class="card reveal"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="4.5" width="19" height="13" rx="2"/><path d="M8 21h8M12 17.5V21"/><circle cx="17" cy="8.5" r="1.7" fill="currentColor" stroke="none"/></svg></div><h3>即時畫面</h3><p>每台手機的畫面每秒約 5 張，用來確認構圖。按下開始錄影時監看區一律切回即時畫面。</p></article>
+        <article class="card reveal"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5l5.5 5.5M10.5 7.5v6M7.5 10.5h6"/></svg></div><h3>各別變焦</h3><p>常用倍率的按鈕加上滑桿，每台各自設定；有超廣角或望遠鏡頭的手機會自動換鏡頭。</p></article>
+        <article class="card reveal"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 8V5a2.5 2.5 0 0 1 2.5-2.5h3M16 2.5h3A2.5 2.5 0 0 1 21.5 5v3M21.5 16v3a2.5 2.5 0 0 1-2.5 2.5h-3M8 21.5H5A2.5 2.5 0 0 1 2.5 19v-3"/><rect x="9" y="6" width="6" height="12" rx="1"/></svg></div><h3>構圖輔助框</h3><p>在手機預覽、即時畫面和播放器上疊 9:16、4:5 或 1:1 的框，架機時就照最後要出的比例構圖。</p></article>
+        <article class="card reveal"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="7.5" width="16" height="9" rx="2"/><path d="M21.5 10.5v3"/><rect x="5" y="10" width="7.5" height="4" rx="1" fill="currentColor" stroke="none"/></svg></div><h3>狀態一目瞭然</h3><p>每台的電量、溫度、剩餘空間、還能錄幾分鐘、傳輸速度；硬碟快滿、傳輸停住、手機斷線都會提示。</p></article>
       </div>
 
       <h3 class="group-title">傳檔與整理</h3>
       <div class="cards three">
-        <article class="card"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M10 8.3l5.6 3.7-5.6 3.7z" fill="currentColor"/></svg></div><h3>錄完馬上看</h3><p>錄影中就邊錄邊傳，停止後只補最後一小段，再用 SHA-256 分段比對，確認和手機上的檔案一模一樣。</p></article>
-        <article class="card"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 9a15 15 0 0 1 20 0M5.5 12.5a10 10 0 0 1 13 0M9 16a5 5 0 0 1 6 0"/><circle cx="12" cy="19.5" r="1.4" fill="currentColor" stroke="none"/></svg></div><h3>斷線也不怕</h3><p>Wi-Fi 斷掉時手機照常錄影，連回來會自動續傳，影片不會遺失。</p></article>
-        <article class="card"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 7A2.5 2.5 0 0 1 5 4.5h4l2 2h8A2.5 2.5 0 0 1 21.5 9v8a2.5 2.5 0 0 1-2.5 2.5H5A2.5 2.5 0 0 1 2.5 17z"/></svg></div><h3>用專案整理</h3><p>影片存進「錄影資料夾／專案名稱」，檔名是時間加手機名稱，同一段的檔案會排在一起。</p></article>
-        <article class="card"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3.2l2.7 5.5 6 .9-4.4 4.2 1.1 6-5.4-2.9-5.4 2.9 1.1-6-4.4-4.2 6-.9z"/></svg></div><h3>標記好的段落</h3><p>點星號標記好的段落，同一段的每台手機一起標，剪輯時一眼就找到。</p></article>
-        <article class="card"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.2 8.2L20 20M8.2 15.8L20 4"/></svg></div><h3>裁掉頭尾</h3><p>在有縮圖的時間軸上拖拉開頭和結尾，每台手機一起裁，另存成加 _1 的新檔，原本的不動；不重新壓縮，畫質不變。</p></article>
-        <article class="card"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9.5 7V4.5h5V7M6 7l1 12.5a1.5 1.5 0 0 0 1.5 1.4h7a1.5 1.5 0 0 0 1.5-1.4L18 7M10 11v6M14 11v6"/></svg></div><h3>刪掉不要的</h3><p>每一列的垃圾桶刪掉那一段，沒標記的也能一鍵清掉；都進系統的垃圾桶，刪錯也救得回來。</p></article>
+        <article class="card reveal"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M10 8.3l5.6 3.7-5.6 3.7z" fill="currentColor"/></svg></div><h3>錄完馬上看</h3><p>錄影中就邊錄邊傳，停止後只補最後一小段，再用 SHA-256 分段比對，確認和手機上的檔案一模一樣。</p></article>
+        <article class="card reveal"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 9a15 15 0 0 1 20 0M5.5 12.5a10 10 0 0 1 13 0M9 16a5 5 0 0 1 6 0"/><circle cx="12" cy="19.5" r="1.4" fill="currentColor" stroke="none"/></svg></div><h3>斷線也不怕</h3><p>Wi-Fi 斷掉時手機照常錄影，連回來會自動續傳，影片不會遺失。</p></article>
+        <article class="card reveal"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 7A2.5 2.5 0 0 1 5 4.5h4l2 2h8A2.5 2.5 0 0 1 21.5 9v8a2.5 2.5 0 0 1-2.5 2.5H5A2.5 2.5 0 0 1 2.5 17z"/></svg></div><h3>用專案整理</h3><p>影片存進「錄影資料夾／專案名稱」，檔名是時間加手機名稱，同一段的檔案會排在一起。</p></article>
+        <article class="card reveal"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3.2l2.7 5.5 6 .9-4.4 4.2 1.1 6-5.4-2.9-5.4 2.9 1.1-6-4.4-4.2 6-.9z"/></svg></div><h3>標記好的段落</h3><p>點星號標記好的段落，同一段的每台手機一起標，剪輯時一眼就找到。</p></article>
+        <article class="card reveal"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.2 8.2L20 20M8.2 15.8L20 4"/></svg></div><h3>裁掉頭尾</h3><p>在有縮圖的時間軸上拖拉開頭和結尾，每台手機一起裁，另存成加 _1 的新檔，原本的不動；不重新壓縮，畫質不變。</p></article>
+        <article class="card reveal"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9.5 7V4.5h5V7M6 7l1 12.5a1.5 1.5 0 0 0 1.5 1.4h7a1.5 1.5 0 0 0 1.5-1.4L18 7M10 11v6M14 11v6"/></svg></div><h3>刪掉不要的</h3><p>每一列的垃圾桶刪掉那一段，沒標記的也能一鍵清掉；都進系統的垃圾桶，刪錯也救得回來。</p></article>
       </div>
     </div>
   </section>
@@ -246,9 +340,37 @@
     <div class="wrap">
       <span class="kicker">LONG-FORM + SHORTS</span>
       <h2 id="long-short-title">一次錄好長影片和短影音</h2>
-      <p class="section-lead">一台<strong>橫拿</strong>錄 16:9 剪 YouTube 長片，一台<strong>直拿</strong>錄 9:16 剪 Reels、Shorts、TikTok。直接錄直的，不用從橫的畫面裁切：4K 直拿是 2160×3840，從 4K 橫畫面裁出來只剩約 1215×2160，<strong>畫素差了約 3 倍</strong>。</p>
-      <div class="figure"><img src="images/long-short.png" width="1860" height="1283" loading="lazy" decoding="async" alt="一次錄好長影片和短影音：CAM A 橫拿錄 16:9 給 YouTube 長影片、CAM B 直拿錄 9:16 給 Reels、Shorts、TikTok；直接直拿錄的 2160×3840 比從 4K 橫畫面裁切的 1215×2160 畫素多約 3 倍"></div>
-      <ol class="checks num">
+      <p class="section-lead">一台<strong>橫拿</strong>錄 16:9 剪 YouTube 長片，一台<strong>直拿</strong>錄 9:16 剪 Reels、Shorts、TikTok。短影音直接錄直的，不用從橫的畫面裁切。</p>
+      <div class="pixels viz reveal">
+        <div class="px-say">
+          <p class="px-big">直接直拿錄，<br>畫素多約 <b><span class="a-pop" style="--d:2.9s">3</span></b> 倍</p>
+          <p class="px-small">同樣是 9:16，從 4K 橫畫面裁出來只有 1215×2160；直拿錄的 4K 是 2160×3840。左右兩張用同一個比例尺畫。</p>
+        </div>
+        <figure class="px-land">
+          <div class="px-frame">
+            <svg viewBox="0 0 3840 2160" role="img" aria-label="CAM A 橫拿錄的 4K 畫面 3840×2160，中間框出能裁成 9:16 的範圍 1215×2160，兩側約 68% 的畫面要裁掉">
+              <use href="#sc-land"/>
+              <g class="a-fade" style="--d:1s;--t:.6s"><rect class="px-hatch" width="1312" height="2160"/><rect class="px-hatch" x="2528" width="1312" height="2160"/></g>
+              <path class="px-crop a-draw" d="M1312 12H2528V2148H1312Z" pathLength="1" style="--d:.3s;--t:.9s"/>
+            </svg>
+            <span class="px-tag">CAM A・橫拿 16:9</span>
+            <span class="px-cutnote a-fade" style="--d:1.2s">裁掉約 68%</span>
+          </div>
+          <figcaption class="px-cap"><span class="k">從 4K 橫畫面裁成 9:16</span><span class="v"><b>262</b> 萬畫素</span><span class="d">1215×2160</span></figcaption>
+        </figure>
+        <figure class="px-port">
+          <div class="px-frame">
+            <svg viewBox="0 0 2160 3840" role="img" aria-label="CAM B 直拿錄的 4K 畫面 2160×3840，和左邊用同一個比例尺畫">
+              <path class="px-ghost" d="M5 5H2155V3835H5Z"/>
+              <g class="px-grow"><use href="#sc-port"/><path class="px-native" d="M12 12H2148V3828H12Z"/></g>
+            </svg>
+            <span class="px-tag rec">CAM B・直拿 9:16</span>
+          </div>
+          <figcaption class="px-cap"><span class="k">直接直拿錄 4K</span><span class="v"><b data-count-from="262" data-count-delay="1.6" data-count-dur="1.3">829</b> 萬畫素</span><span class="d">2160×3840</span></figcaption>
+        </figure>
+        <button class="viz-replay" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.4v3.7H9.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>重播</button>
+      </div>
+      <ol class="checks num reveal">
         <li><strong>照想要的方向架好手機</strong>：App 會跟著手機轉，系統的「自動旋轉」關著也一樣；四個方向都可以，錄出來都是正的。</li>
         <li><strong>在控制台確認方向</strong>：直放那台的監看區會變成直的，下方寫著「即時畫面・直式 9:16」。</li>
         <li><strong>看即時畫面構圖</strong>：橫的那台可以開 9:16 輔助框，看看之後裁成直式時主角會不會出框；直的那台可以開 4:5 或 1:1，看 IG 貼文的範圍。</li>
@@ -263,11 +385,106 @@
       <span class="kicker">PORTRAIT</span>
       <h2 id="portrait-title">人像設定：臉部優先、鎖定曝光</h2>
       <p class="section-lead">拍訪談、Podcast、課程這類以人為主的內容時，在「錄影規格」選單打開就好，所有手機一起套用。全部交給手機的相機處理，<strong>解析度、位元率和每秒格數都不變</strong>。</p>
-      <div class="figure small"><img src="images/portrait-settings.png" width="540" height="280" loading="lazy" decoding="async" alt="錄影規格選單最下面的「人像」：臉部優先打勾（對焦、曝光、白平衡以人臉為準），錄影時鎖定曝光和白平衡沒勾（亮度和顏色不會在錄到一半時變動，適合燈光固定的室內）"></div>
-      <div class="cards three">
-        <article class="card"><h3>臉部優先（預設開）</h3><p>對焦、曝光、白平衡以人臉為準：背後有亮窗時臉不會黑掉，對焦也不會跑到背景。光線平均、人在畫面中間時，看起來和一般的自動模式一樣。</p></article>
-        <article class="card"><h3>錄影時鎖定曝光和白平衡</h3><p>按下開始的那一刻鎖住，到停止前亮度和顏色都不變，有人走過也不會飄。適合燈光固定的室內；戶外或燈光會變的場合請關掉。</p></article>
-        <article class="card"><h3>沒有背景虛化和濾鏡</h3><p>背景虛化只有少數手機做得到，還有解析度上限，效果不穩定；濾鏡會燒進影片、改不回來。這裡負責錄出乾淨、各台一致的畫面，調色交給剪輯軟體。</p></article>
+      <div class="pt-row">
+        <figure class="wipe viz reveal">
+          <div class="wipe-layer wipe-a">
+            <svg viewBox="0 0 640 360" aria-hidden="true">
+              <defs><linearGradient id="fp-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#78aee2"/><stop offset="1" stop-color="#cde4f8"/></linearGradient></defs>
+              <rect width="640" height="360" fill="#1b222c"/>
+              <rect x="150" y="34" width="340" height="226" fill="url(#fp-sky)"/>
+              <path d="M150 214C186 198 220 206 250 192C282 178 312 196 346 186C382 176 418 196 452 184C468 178 482 182 490 186V260H150Z" fill="#4a785a"/>
+              <path d="M150 34H490V260H150ZM320 34V260M150 147H490" fill="none" stroke="#121820" stroke-width="10"/>
+              <path d="M196 360V322C196 274 254 244 320 244C386 244 444 274 444 322V360Z" fill="#111a24"/>
+              <circle cx="320" cy="190" r="50" fill="#3b2e27"/>
+              <path d="M268 182C268 152 292 132 320 132C348 132 372 152 372 182C372 190 366 194 358 194H282C274 194 268 190 268 182Z" fill="#120d0a"/>
+              <path d="M271 166C278 145 297 132 320 132C343 132 362 145 369 166M206 298C222 268 264 247 320 244C376 247 418 268 434 298" fill="none" stroke="#e6f2fc" stroke-opacity="0.5" stroke-width="2"/>
+              <rect y="318" width="640" height="42" fill="#1a1511"/>
+              <rect class="fp-meter" x="172" y="52" width="128" height="80" rx="3"/>
+            </svg>
+            <span class="wipe-tag">一般自動</span>
+            <span class="wipe-note" style="left:28.5%;top:29%">以窗外為準</span>
+          </div>
+          <div class="wipe-layer wipe-b">
+            <svg viewBox="0 0 640 360" aria-hidden="true">
+              <defs>
+                <radialGradient id="fp-bloom" cx="0.5" cy="0.42" r="0.55"><stop offset="0" stop-color="#fff" stop-opacity="0.95"/><stop offset="0.6" stop-color="#fff" stop-opacity="0.35"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+                <linearGradient id="fp-shirt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3478a8"/><stop offset="1" stop-color="#28608a"/></linearGradient>
+              </defs>
+              <rect width="640" height="360" fill="#5d6e84"/>
+              <rect x="150" y="34" width="340" height="226" fill="#f7fafd"/>
+              <path d="M150 214C186 198 220 206 250 192C282 178 312 196 346 186C382 176 418 196 452 184C468 178 482 182 490 186V260H150Z" fill="#e4ece7"/>
+              <path d="M150 34H490V260H150ZM320 34V260M150 147H490" fill="none" stroke="#8a98a9" stroke-width="10"/>
+              <rect width="640" height="300" fill="url(#fp-bloom)" opacity="0.6"/>
+              <path d="M196 360V322C196 274 254 244 320 244C386 244 444 274 444 322V360Z" fill="url(#fp-shirt)"/>
+              <circle cx="320" cy="190" r="50" fill="#e3b590"/>
+              <path d="M268 182C268 152 292 132 320 132C348 132 372 152 372 182C372 190 366 194 358 194H282C274 194 268 190 268 182Z" fill="#2b211b"/>
+              <rect y="318" width="640" height="42" fill="#6b4f3a"/>
+              <rect y="318" width="640" height="4" fill="#84634a"/>
+              <path class="fp-face a-pop" d="M258 148V128H278M362 128H382V148M382 232V252H362M278 252H258V232" style="--d:1.5s"/>
+            </svg>
+            <span class="wipe-tag">臉部優先</span>
+            <span class="wipe-note a-fade" style="left:61%;top:60%;--d:1.7s">以臉為準</span>
+          </div>
+          <input class="wipe-input" type="range" min="0" max="100" value="50" aria-label="左右拖拉，比較一般自動和臉部優先">
+          <span class="wipe-line" aria-hidden="true"><span class="wipe-knob"><svg width="20" height="14" viewBox="0 0 20 14"><path d="M6 2L1 7l5 5M14 2l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span>
+          <figcaption class="visually-hidden">示意圖：人背對亮窗時，一般自動以窗外的亮度為準，臉變得很暗；臉部優先以臉為準，臉拍得清楚，窗外變亮。</figcaption>
+        </figure>
+        <div class="pt-text reveal">
+          <h3>臉部優先<span class="pill">預設開</span></h3>
+          <p>對焦、曝光、白平衡以人臉為準。人背對亮窗時，一般自動會照顧窗外的亮度，臉就黑掉；臉部優先先把臉拍對，對焦也不會跑到背景。</p>
+          <p>光線平均、人在畫面中間時，看起來和一般的自動模式一樣。大部分手機都做得到；做不到的那台會照一般自動錄，選單裡也會提醒。</p>
+          <p class="hint">示意圖，左右拖拉可以比較。</p>
+        </div>
+      </div>
+      <div class="pt-row flip">
+        <figure class="lock viz reveal">
+          <div class="lock-chart bad">
+            <p class="lock-head"><span class="lock-tag">不鎖定</span>一直被自動調整，兩台還各變各的</p>
+            <svg viewBox="0 0 520 186" role="img" aria-label="示意：不鎖定時，有人走過、窗外雲飄過，兩支手機的曝光和白平衡都跟著變，而且變得不一樣">
+              <defs><linearGradient id="lk-wb-a" gradientUnits="userSpaceOnUse" x1="70" y1="0" x2="510" y2="0"><stop offset="0" stop-color="#f2dcb6"/><stop offset="0.27" stop-color="#efe2cc"/><stop offset="0.3" stop-color="#d3e2f4"/><stop offset="0.37" stop-color="#f1ddbd"/><stop offset="0.64" stop-color="#efe0c8"/><stop offset="0.68" stop-color="#c8daf3"/><stop offset="0.77" stop-color="#e3e6ee"/><stop offset="0.83" stop-color="#f3dcb8"/><stop offset="1" stop-color="#efe1ca"/></linearGradient></defs>
+              <text x="0" y="78">曝光</text><text x="0" y="157">白平衡</text>
+              <path class="axis" d="M70 126H510"/>
+              <g class="a-fade" style="--d:.9s"><path class="ev-line" d="M200 28V126"/><text class="ev" x="200" y="18" text-anchor="middle">有人走過</text></g>
+              <g class="a-fade" style="--d:1.8s"><path class="ev-line" d="M370 28V126"/><text class="ev" x="370" y="18" text-anchor="middle">窗外雲飄過</text></g>
+              <path class="start" d="M106 28V166"/><text x="112" y="182">按下開始</text>
+              <path class="wb a-draw" d="M70 152H510" stroke="url(#lk-wb-a)" pathLength="1" style="--d:.2s;--t:2.4s"/>
+              <path class="ca a-draw" d="M70 62C90 58 100 66 120 62S160 58 180 62C190 64 196 86 206 88C216 90 226 66 244 62S300 58 330 60C344 62 356 66 366 76C376 86 384 94 394 92C410 88 420 66 450 62S496 58 510 60" pathLength="1" style="--d:.2s;--t:2.4s"/>
+              <path class="cb a-draw" d="M70 82C96 86 110 78 140 82S180 84 194 84C204 84 210 70 220 68C236 66 246 84 270 82S330 78 356 82C370 84 378 104 394 102C410 100 420 82 446 80S494 84 510 82" pathLength="1" style="--d:.2s;--t:2.4s"/>
+            </svg>
+          </div>
+          <div class="lock-chart good">
+            <p class="lock-head"><span class="lock-tag on">鎖定</span>按下開始的那一刻鎖住，到停止都不變</p>
+            <svg viewBox="0 0 520 186" role="img" aria-label="示意：鎖定時，從按下開始的那一刻起，兩支手機的曝光和白平衡都維持不變">
+              <defs><linearGradient id="lk-wb-b" gradientUnits="userSpaceOnUse" x1="70" y1="0" x2="510" y2="0"><stop offset="0" stop-color="#f2dcb6"/><stop offset="0.08" stop-color="#ece2d1"/><stop offset="1" stop-color="#ece2d1"/></linearGradient></defs>
+              <text x="0" y="78">曝光</text><text x="0" y="157">白平衡</text>
+              <path class="axis" d="M70 126H510"/>
+              <g class="a-fade" style="--d:.9s" opacity="0.6"><path class="ev-line" d="M200 28V126"/><text class="ev" x="200" y="18" text-anchor="middle">有人走過</text></g>
+              <g class="a-fade" style="--d:1.8s" opacity="0.6"><path class="ev-line" d="M370 28V126"/><text class="ev" x="370" y="18" text-anchor="middle">窗外雲飄過</text></g>
+              <path class="start" d="M106 28V166"/><text class="start-label" x="112" y="182">按下開始，鎖住</text>
+              <path class="lockicon a-pop" d="M101 13v-3a5 5 0 0 1 10 0v3h1.5a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5h-13a1.5 1.5 0 0 1-1.5-1.5v-8a1.5 1.5 0 0 1 1.5-1.5zm2.5 0h5v-3a2.5 2.5 0 0 0-5 0z" style="--d:.4s"/>
+              <path class="wb a-draw" d="M70 152H510" stroke="url(#lk-wb-b)" pathLength="1" style="--d:.2s;--t:2.4s"/>
+              <path class="ca a-draw" d="M70 62C82 58 94 66 106 62H510" pathLength="1" style="--d:.2s;--t:2.4s"/>
+              <path class="cb a-draw" d="M70 82C84 86 96 78 106 80H510" pathLength="1" style="--d:.2s;--t:2.4s"/>
+            </svg>
+          </div>
+          <div class="viz-foot">
+            <p class="lock-legend"><span><i class="ca"></i>CAM A 的曝光</span><span><i class="cb"></i>CAM B 的曝光</span><span><i class="wb"></i>白平衡（顏色）</span></p>
+            <button class="viz-replay" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.4v3.7H9.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>重播</button>
+          </div>
+        </figure>
+        <div class="pt-text reveal">
+          <h3>錄影時鎖定曝光和白平衡<span class="pill off">預設關</span></h3>
+          <p>平常手機會一直自動調整亮度和顏色：有人走過、窗外的雲飄過，畫面就跟著變，兩台手機還會各變各的，剪輯時很難對色。</p>
+          <p>打開後，每台在<strong>按下開始的那一刻</strong>鎖住，到停止前亮度和顏色都不變。適合燈光固定的室內；<strong>戶外或燈光會變的場合請關掉</strong>。</p>
+        </div>
+      </div>
+      <div class="pt-row">
+        <div class="figure reveal"><img src="images/portrait-settings.png" width="540" height="280" loading="lazy" decoding="async" alt="錄影規格選單最下面的「人像」：臉部優先打勾（對焦、曝光、白平衡以人臉為準），錄影時鎖定曝光和白平衡沒勾（亮度和顏色不會在錄到一半時變動，適合燈光固定的室內）"></div>
+        <div class="pt-text reveal">
+          <h3>沒有背景虛化和濾鏡</h3>
+          <p>背景虛化只有少數手機做得到，還有解析度上限，效果不穩定；濾鏡會燒進影片、改不回來。這裡負責錄出<strong>乾淨、各台一致</strong>的畫面，調色交給剪輯軟體，一次套到所有機位。</p>
+          <p class="hint">兩個設定都在「錄影規格」選單最下面的「人像」。</p>
+        </div>
       </div>
     </div>
   </section>
@@ -276,11 +493,62 @@
     <div class="wrap">
       <span class="kicker">HOW IT WORKS</span>
       <h2 id="how-title">運作方式</h2>
-      <div class="figure"><img src="images/how-it-works.png" width="1860" height="1025" loading="lazy" decoding="async" alt="運作方式示意圖：電腦當控制台，手機當攝影機，全部走同一個 Wi-Fi；指令和即時畫面走 WebSocket，影片邊錄邊傳、停止後分段驗證"></div>
+      <div class="figure reveal"><img src="images/how-it-works.png" width="1860" height="1025" loading="lazy" decoding="async" alt="運作方式示意圖：電腦當控制台，手機當攝影機，全部走同一個 Wi-Fi；指令和即時畫面走 WebSocket，影片邊錄邊傳、停止後分段驗證"></div>
       <div class="cards three">
-        <article class="card"><h3>電腦是控制台</h3><p>電腦上跑一個本機伺服器，同時提供網頁控制台。控制台只能在這台電腦上開，同一個網路的其他裝置打不開。</p></article>
-        <article class="card"><h3>手機是攝影機</h3><p>錄影在手機上進行（Camera2＋MediaRecorder），所以畫質不受 Wi-Fi 影響；Wi-Fi 只負責傳檔和控制。</p></article>
-        <article class="card"><h3>檔案一模一樣</h3><p>影片用 HTTP 分段傳回電腦，停止後雙方用 SHA-256 分段比對，不一樣的地方自動補傳，直到完全相同。</p></article>
+        <article class="card reveal"><h3>電腦是控制台</h3><p>電腦上跑一個本機伺服器，同時提供網頁控制台。控制台只能在這台電腦上開，同一個網路的其他裝置打不開。</p></article>
+        <article class="card reveal"><h3>手機是攝影機</h3><p>錄影在手機上進行（Camera2＋MediaRecorder），所以畫質不受 Wi-Fi 影響；Wi-Fi 只負責傳檔和控制。</p></article>
+        <article class="card reveal"><h3>檔案一模一樣</h3><p>影片用 HTTP 分段傳回電腦，停止後雙方用 SHA-256 分段比對，不一樣的地方自動補傳，直到完全相同。</p></article>
+      </div>
+      <figure class="flow viz reveal">
+        <figcaption class="flow-title">按下停止之後，多久才看得到影片？</figcaption>
+        <div class="flow-row bad">
+          <p class="flow-name"><span class="vs-mark" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 14 14"><path d="M3 3l8 8M11 3l-8 8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></span>各自錄，錄完再傳</p>
+          <div class="flow-track" aria-hidden="true">
+            <span class="flow-stop"><span>停止</span></span>
+            <span class="seg rec a-wipe-x" style="--from:0;--to:52;--d:.3s;--t:2.6s">錄影</span>
+            <span class="seg wait a-wipe-x" style="--from:52;--to:84;--d:2.9s;--t:1.6s">傳檔、改檔名</span>
+            <span class="flow-mark a-pop" style="--at:84;--d:4.5s"></span>
+            <span class="flow-head vz-playhead" style="--d:.3s;--t:4.2s;--to:84%"></span>
+          </div>
+          <p class="flow-out">停止之後，還要把每支手機的影片傳到電腦、改好檔名，才能開始看。</p>
+        </div>
+        <div class="flow-row good">
+          <p class="flow-name"><span class="vs-mark" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 15 15"><path d="M3 7.8l3 3 6-6.6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>多機錄影，邊錄邊傳</p>
+          <div class="flow-track" aria-hidden="true">
+            <span class="flow-stop"></span>
+            <span class="seg rec a-wipe-x" style="--from:0;--to:52;--d:.3s;--t:2.6s">錄影</span>
+            <span class="seg up a-wipe-x" style="--from:1;--to:52;--d:.35s;--t:2.55s">邊錄邊傳回電腦</span>
+            <span class="seg tail a-wipe-x" style="--from:52;--to:55;--d:2.9s;--t:.15s"></span>
+            <span class="flow-mark a-pop" style="--at:55;--d:3.05s"></span>
+            <span class="flow-head vz-playhead" style="--d:.3s;--t:4.2s;--to:84%"></span>
+          </div>
+          <p class="flow-out">停止之後只補最後一小段、用 SHA-256 驗證完，<strong>馬上就能播放</strong>（30 分鐘的 4K 大約多等十幾秒）。</p>
+        </div>
+        <div class="viz-foot">
+          <p>示意圖，長度不是實際比例。</p>
+          <button class="viz-replay" type="button"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.4v3.7H9.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>重播</button>
+        </div>
+      </figure>
+      <h3 class="sub-title reveal">和「把手機畫面串流到電腦」有什麼不同？</h3>
+      <div class="sv-pair">
+        <figure class="sv bad viz-loop reveal">
+          <div class="sv-screen">
+            <svg viewBox="0 0 3840 2160" aria-hidden="true"><use href="#sc-land"/></svg>
+            <span class="sv-mosaic" aria-hidden="true"></span>
+            <span class="sv-chip">LIVE</span>
+            <span class="sv-warn">畫質下降</span>
+          </div>
+          <div class="sv-status" aria-hidden="true"><span class="sv-wifi"><i></i><i></i><i></i><i></i></span><span>Wi-Fi</span></div>
+          <figcaption><strong>把手機畫面串流到電腦</strong>畫面即時傳過去，畫質跟著網路走：Wi-Fi 一擠，畫面就變糊、卡住。適合直播。</figcaption>
+        </figure>
+        <figure class="sv good viz-loop reveal">
+          <div class="sv-screen">
+            <svg viewBox="0 0 3840 2160" aria-hidden="true"><use href="#sc-land"/></svg>
+            <span class="sv-chip">● REC 4K</span>
+          </div>
+          <div class="sv-status" aria-hidden="true"><span class="sv-wifi"><i></i><i></i><i></i><i></i></span><span class="sv-up"><i></i></span><span>傳到電腦</span></div>
+          <figcaption><strong>多機錄影</strong>每支手機錄原生畫質，Wi-Fi 只負責傳檔：網路慢只是傳得比較久，畫質不變。適合錄完要剪輯的拍攝。</figcaption>
+        </figure>
       </div>
     </div>
   </section>
@@ -291,7 +559,7 @@
       <h2 id="start-title">三步驟開始使用</h2>
       <p class="section-lead">第一次設定大約 10 分鐘。之後每次只要在電腦執行 <code>npm start</code>、打開手機上的 App。</p>
       <ol class="steps">
-        <li class="step">
+        <li class="step reveal">
           <div>
             <h3>在電腦上安裝並啟動</h3>
             <ul>
@@ -304,17 +572,17 @@ cd multicam-recorder
 npm install
 npm start</pre></div>
             <p>看到 <code>控制台：http://localhost:8787</code> 就成功了。用瀏覽器打開 <code>http://localhost:8787</code>，畫面上的「開始使用」會帶你確認錄影資料夾（建議選外接 SSD）、配對手機、新增專案。<code>npm install</code> 只有第一次需要；要關掉時在終端機按 <kbd>Ctrl</kbd>＋<kbd>C</kbd>。</p>
-            <div class="figure"><img src="images/setup.png" width="1240" height="530" loading="lazy" decoding="async" alt="控制台的「開始使用」畫面：確認錄影資料夾、配對手機、新增專案三個步驟"></div>
+            <div class="figure reveal"><img src="images/setup.png" width="1240" height="530" loading="lazy" decoding="async" alt="控制台的「開始使用」畫面：確認錄影資料夾、配對手機、新增專案三個步驟"></div>
           </div>
         </li>
-        <li class="step">
+        <li class="step reveal">
           <div>
             <h3>在手機上安裝 App，掃 QR Code 配對</h3>
             <p>到 <a href="https://github.com/dean9703111/multicam-recorder/releases/latest">Releases</a> 下載 <strong>MultiCamRecorder.apk</strong> 安裝（第一次會要你允許「安裝不明應用程式」）。接著在電腦網頁按「配對手機」，用手機相機掃 QR Code，在打開的網頁按「打開 App 並配對」就完成了。還沒裝 App 的話，掃完打開的網頁裡也有下載連結。<strong>每支手機只要配對一次。</strong></p>
-            <div class="figure"><img src="images/pairing.png" width="2130" height="1235" loading="lazy" decoding="async" alt="配對流程：電腦顯示 QR Code、用手機相機掃描、按「打開 App 並配對」、配對完成"></div>
+            <div class="figure reveal"><img src="images/pairing.png" width="2130" height="1235" loading="lazy" decoding="async" alt="配對流程：電腦顯示 QR Code、用手機相機掃描、按「打開 App 並配對」、配對完成"></div>
           </div>
         </li>
-        <li class="step">
+        <li class="step reveal">
           <div>
             <h3>新增專案，按 R 開始錄影</h3>
             <ul>
@@ -323,7 +591,7 @@ npm start</pre></div>
               <li>按 <kbd>R</kbd> 所有手機一起開始、<kbd>S</kbd> 一起停止；停止後影片傳完會自動在監看區播放。</li>
               <li>錄影時 App 要一直開在前景，螢幕不能關；長時間錄影可以按 App 上的「調暗螢幕」。</li>
             </ul>
-            <div class="figure"><img src="images/spec-guide.png" width="1440" height="740" loading="lazy" decoding="async" alt="錄影規格選單：4K、2K、1080p、720p 和構圖輔助框，橫拿那台的即時畫面上疊著 9:16 的框，直拿那台本來就是 9:16"></div>
+            <div class="figure reveal"><img src="images/spec-guide.png" width="1440" height="740" loading="lazy" decoding="async" alt="錄影規格選單：4K、2K、1080p、720p 和構圖輔助框，橫拿那台的即時畫面上疊著 9:16 的框，直拿那台本來就是 9:16"></div>
           </div>
         </li>
       </ol>
@@ -336,7 +604,7 @@ npm start</pre></div>
       <span class="kicker">PHONE APP</span>
       <h2 id="app-title">手機 App：架好之後就不用再碰它</h2>
       <p class="section-lead">開始和停止都由電腦控制。App 畫面上清楚顯示連線狀態、錄影計時、收音來源、變焦倍率和傳輸進度；直拿時畫面也會跟著轉直。</p>
-      <div class="app-shots">
+      <div class="app-shots reveal">
         <img src="images/phone-app.png" width="1860" height="1348" loading="lazy" decoding="async" alt="手機 App 畫面說明（橫拿）：名稱與連線、錄影計時、收音來源與變焦、傳輸狀態、調暗螢幕、掃描與清除、構圖輔助框">
         <img src="images/phone-app-portrait.png" width="1140" height="1213" loading="lazy" decoding="async" alt="手機 App 直拿時的畫面：名稱和收音在上面、錄影計時在下一行、三個按鈕在最下面排成一列，錄影中方向鎖住">
       </div>
@@ -347,8 +615,8 @@ npm start</pre></div>
     <div class="wrap">
       <span class="kicker">NETWORK</span>
       <h2 id="network-title">網路怎麼接，影片傳得最快</h2>
-      <div class="figure"><img src="images/network.png" width="1860" height="991" loading="lazy" decoding="async" alt="網路怎麼接最快：最推薦電腦接網路線；也可以讓電腦連 5 GHz、手機連 2.4 GHz；避免全部擠在同一個頻段、訪客網路和 VPN"></div>
-      <ul class="checks">
+      <div class="figure reveal"><img src="images/network.png" width="1860" height="991" loading="lazy" decoding="async" alt="網路怎麼接最快：最推薦電腦接網路線；也可以讓電腦連 5 GHz、手機連 2.4 GHz；避免全部擠在同一個頻段、訪客網路和 VPN"></div>
+      <ul class="checks reveal">
         <li><strong>最好讓電腦接網路線</strong>：每支手機的影片在空中只要走一段。</li>
         <li><strong>或讓手機和電腦分開頻段</strong>：例如手機連 2.4 GHz、電腦連 5 GHz，兩邊不搶同一個頻道。</li>
         <li><strong>不要用訪客網路</strong>：裝置之間通常被隔離，手機會連不到電腦；開著 VPN 也可能連不到。</li>
@@ -361,7 +629,7 @@ npm start</pre></div>
     <div class="wrap">
       <span class="kicker">SPECS</span>
       <h2 id="specs-title">規格一覽</h2>
-      <div class="table-wrap">
+      <div class="table-wrap reveal">
         <table>
           <caption class="visually-hidden">多機錄影的規格</caption>
           <tbody>
@@ -408,7 +676,8 @@ npm start</pre></div>
 
   <section class="section" aria-labelledby="final-title">
     <div class="wrap">
-      <div class="final">
+      <div class="final reveal">
+        <div class="tally" aria-hidden="true"><i class="l"></i><i class="p"></i><i class="l"></i><i class="p"></i><i class="l"></i></div>
         <h2 id="final-title">讓手邊的手機，變成多機位攝影機</h2>
         <p>免費、開源，不用註冊。下載 App、在電腦上啟動控制台，十分鐘內就能開始錄。</p>
         <div class="cta-row">
