@@ -368,6 +368,8 @@ function App() {
               run=${run}
               selection=${selection}
               onToggleSelected=${toggleSelected}
+              onTrashTake=${(takeId) =>
+                setModal({ kind: 'trash', take: true, ids: state.files.filter((f) => f.takeId === takeId && canTrash(f)).map((f) => f.id) })}
             />`,
           )
         : html`<${Setup} state=${state} onModal=${(kind) => setModal({ kind })} />`}
@@ -403,7 +405,14 @@ function App() {
       html`<p class="hint warn">這支手機還有影片沒傳完，移除後就傳不過來了，影片會留在手機上。</p>`}
     <//>`}
     ${modal?.kind === 'trash' &&
-    html`<${TrashModal} state=${state} ids=${modal.ids} unmarked=${modal.unmarked} onClose=${closeModal} onConfirm=${() => trash(modal.ids)} />`}
+    html`<${TrashModal}
+      state=${state}
+      ids=${modal.ids}
+      unmarked=${modal.unmarked}
+      take=${modal.take}
+      onClose=${closeModal}
+      onConfirm=${() => trash(modal.ids)}
+    />`}
     ${selection &&
     html`<${SelectionBar}
       state=${state}
@@ -434,11 +443,14 @@ function SelectionBar({ state, selection, setSelection, onTrash }) {
   </div>`;
 }
 
-function TrashModal({ state, ids, unmarked, onClose, onConfirm }) {
+// unmarked：清掉沒標記的；take：清單上的垃圾桶按鈕，同一段的每台手機一起刪
+function TrashModal({ state, ids, unmarked, take, onClose, onConfirm }) {
   const files = state.files.filter((f) => ids.includes(f.id));
   const kept = countTakes(state.files.filter((f) => f.marked));
   const markedPicked = files.filter((f) => f.marked).length;
-  const what = unmarked ? `沒標記的 ${countTakes(files)} 段（${files.length} 支影片）` : ` ${files.length} 支影片`;
+  let what = ` ${files.length} 支影片`;
+  if (unmarked) what = `沒標記的 ${countTakes(files)} 段（${files.length} 支影片）`;
+  else if (take) what = files.length > 1 ? `這一段的 ${files.length} 支影片（每台手機各一支）` : '這支影片';
   return html`<${ConfirmModal}
     title=${`移到${state.trashName}`}
     confirmLabel=${`移到${state.trashName}`}
@@ -455,7 +467,8 @@ function TrashModal({ state, ids, unmarked, onClose, onConfirm }) {
     (kept
       ? html`<p class="hint">標記為好的 ${kept} 段會留下。</p>`
       : html`<p class="hint warn">這個專案還沒有標記任何一段，會把全部的影片都移到${state.trashName}。</p>`)}
-    ${!unmarked && markedPicked > 0 && html`<p class="hint warn">其中 ${markedPicked} 支屬於標記為好的段落。</p>`}
+    ${!unmarked && markedPicked > 0 && html`<p class="hint warn">${take ? '這一段已經標記為好的段落。' : `其中 ${markedPicked} 支屬於標記為好的段落。`}</p>`}
+    ${take && files.length > 1 && html`<p class="hint">只想刪其中一台的，請用「專案」選單裡的「選取要刪除的影片…」。</p>`}
     <p class="hint">之後還可以從${state.trashName}救回來。手機上的原檔不受影響。</p>
   <//>`;
 }
@@ -514,7 +527,7 @@ const PORTRAIT_OPTIONS = [
 const bokehLimit = (state, camera) =>
   camera?.bokehMax ? state.resolutions.find((x) => x.width <= camera.bokehMax[0] && x.height <= camera.bokehMax[1]) : undefined;
 
-// 開著的人像設定有哪幾台做不到。手機會略過做不到的項目，照常錄影。
+// 開著的人像設定有哪幾台做不到。手機會略過做不到的項目，照常錄影。解析度太高的附上改成多少就能虛化。
 function portraitNotes(state) {
   const s = state.settings;
   const r = resolutionOf(state);
@@ -522,14 +535,14 @@ function portraitNotes(state) {
   for (const d of state.devices.filter((x) => x.online)) {
     const c = d.camera;
     if (!c) {
-      notes.push(`${d.name} 的 App 版本太舊，更新後才能用人像設定`);
+      notes.push({ text: `${d.name} 的 App 版本太舊，更新後才能用人像設定` });
       continue;
     }
     const limit = bokehLimit(state, c);
-    if (s.facePriority && !c.facePriority) notes.push(`${d.name} 做不到臉部優先`);
-    if (s.bokeh && !limit) notes.push(`${d.name} 做不到背景虛化`);
-    else if (s.bokeh && limit.width < r.width) notes.push(`${d.name} 的背景虛化最高 ${limit.label}，現在選 ${r.label} 不會虛化`);
-    if (s.lockExposure && !c.lockExposure) notes.push(`${d.name} 做不到鎖定曝光和白平衡`);
+    if (s.facePriority && !c.facePriority) notes.push({ text: `${d.name} 做不到臉部優先` });
+    if (s.bokeh && !limit) notes.push({ text: `${d.name} 做不到背景虛化` });
+    else if (s.bokeh && limit.width < r.width) notes.push({ text: `${d.name} 的背景虛化最高 ${limit.label}，現在選 ${r.label} 不會虛化`, fix: limit });
+    if (s.lockExposure && !c.lockExposure) notes.push({ text: `${d.name} 做不到鎖定曝光和白平衡` });
   }
   return notes;
 }
@@ -596,7 +609,13 @@ function SpecControl({ state, open, recording, onToggle, run }) {
           <small class="toggle-note">${noteOf(o)}</small>
         </button>`,
       )}
-      ${portraitNotes(state).map((n) => html`<p class="menu-hint warn">${n}</p>`)}
+      ${portraitNotes(state).map(
+        (n) => html`<p class="menu-hint warn">
+          ${n.text}${n.fix &&
+          !recording &&
+          html` <button class="btn-link" onClick=${() => run(() => post('/api/settings', { resolution: n.fix.id }))}>改成 ${n.fix.label}</button>`}
+        </p>`,
+      )}
     </div>`}
   </div>`;
 }
@@ -707,7 +726,7 @@ function Setup({ state, onModal }) {
   </section>`;
 }
 
-function Bay({ state, device, letter, t, compact, onStart, onStop, onRemove, notify, run, selection, onToggleSelected }) {
+function Bay({ state, device, letter, t, compact, onStart, onStop, onRemove, notify, run, selection, onToggleSelected, onTrashTake }) {
   const files = state.files.filter((f) => f.deviceId === device.id).sort((a, b) => b.createdAt - a.createdAt);
   const active = files.find(isActive);
   const recording = active?.state === 'recording' && active.startedAt;
@@ -721,7 +740,7 @@ function Bay({ state, device, letter, t, compact, onStart, onStop, onRemove, not
   const [selectedId, setSelectedId] = useState(null); // null 表示看即時畫面
   const videoRef = useRef(null);
   const prevLatest = useRef(undefined); // 第一次載入時不切換，先看即時畫面
-  const latestReady = files.find((f) => f.state === 'ready')?.id ?? null;
+  const latestReady = files.find((f) => f.state === 'ready' && !f.trimmedFrom)?.id ?? null; // 裁剪出來的不算，不會自動切過去
   const selected = files.find((f) => f.id === selectedId && f.state === 'ready');
   // 監看區的方向：播影片時照那支影片，看即時畫面時照手機現在怎麼拿（舊版 App 沒有回報，當成橫的）
   const portrait = (selected ? selected.orientation : device.status.orientation) === 'portrait';
@@ -736,6 +755,8 @@ function Bay({ state, device, letter, t, compact, onStart, onStop, onRemove, not
   useEffect(() => {
     if (active) setSelectedId(null);
   }, [active?.id]);
+  const [trimming, setTrimming] = useState(false);
+  useEffect(() => setTrimming(false), [selected?.id]);
 
   const tally = recording ? 'on' : device.online && st.cameraReady !== false ? 'ready' : '';
   // 連得上但相機沒開：通常是 App 被切到背景，或還沒允許相機權限
@@ -743,6 +764,14 @@ function Bay({ state, device, letter, t, compact, onStart, onStop, onRemove, not
   const bitrate = resolutionOf(state).bitrate;
   const minutesLeft = st.freeBytes != null ? Math.floor(st.freeBytes / (bitrate / 8) / 60) : null;
   const locked = recording && active.spec.lockExposure && device.camera?.lockExposure;
+  // 背景虛化開著卻沒套用時，直接在這台的監看區下方說原因（舊版 App 沒有回報，選單裡會提醒更新）
+  const limit = bokehLimit(state, device.camera);
+  let bokehNote = null;
+  if (state.settings.bokeh && device.online && device.camera && st.cameraReady && !st.bokeh) {
+    if (!limit) bokehNote = '這台做不到背景虛化';
+    else if (resolutionOf(state).width > limit.width) bokehNote = `背景虛化要 ${limit.label} 以下才會套用`;
+    else bokehNote = '背景虛化沒有套用';
+  }
 
   return html`
     <section class=${`bay ${recording ? 'rec' : ''} ${device.online ? '' : 'offline'}`}>
@@ -799,14 +828,26 @@ function Bay({ state, device, letter, t, compact, onStart, onStop, onRemove, not
       <div class="monitor-caption">
         ${selected
           ? html`<span>${selected.name}</span>
+              ${!trimming && html`<button class="btn-link" onClick=${() => setTrimming(true)}>裁剪…</button>`}
               <button class="btn-link" onClick=${() => run(() => post('/api/open-folder', { fileId: selected.id }))}>
                 ${revealLabel(state)}
               </button>
               <button class="btn-link" onClick=${() => setSelectedId(null)}>回到即時畫面</button>`
           : html`<span>
               即時畫面${st.orientation ? `・${ORIENTATION_LABEL[st.orientation]}` : ''}${st.bokeh ? '・背景虛化' : ''}${locked ? '・鎖定曝光' : ''}
+              ${bokehNote && html`<span class="caption-warn">・${bokehNote}</span>`}
             </span>`}
       </div>
+      ${selected &&
+      trimming &&
+      html`<${TrimBar}
+        state=${state}
+        file=${selected}
+        videoRef=${videoRef}
+        onClose=${() => setTrimming(false)}
+        onDone=${(id) => (id ? setSelectedId(id) : setTrimming(false))}
+        notify=${notify}
+      />`}
       <${ZoomControl} device=${device} run=${run} />
 
       <ul class="clips">
@@ -819,6 +860,7 @@ function Bay({ state, device, letter, t, compact, onStart, onStop, onRemove, not
                   state=${state}
                   selected=${f.id === selected?.id}
                   onPlay=${() => setSelectedId(f.id)}
+                  onTrash=${() => onTrashTake(f.takeId)}
                   selecting=${!!selection}
                   picked=${!!selection?.has(f.id)}
                   onPick=${() => onToggleSelected(f.id)}
@@ -853,6 +895,59 @@ function LiveView({ device }) {
   else if (device.status.cameraReady === false) reason = '相機未就緒：請把手機上的 App 開在前景';
   return html`<img ref=${imgRef} class="live" alt=${`${device.name} 的即時畫面`} />
     ${fresh ? html`<span class="live-badge">即時</span>` : html`<div class="monitor-empty">${reason}</div>`}`;
+}
+
+// 裁剪：在監看區播放時設定開頭和結尾。同一段的每台手機一起裁，另存成檔名加 _1 的新檔，原本的不動。
+// 用 ffmpeg 串流複製、不重新壓縮，所以開頭只能從關鍵影格開始（手機大多每 1 秒一個）。
+const fmtSec = (s) => `${fmtClock(s * 1000)}.${Math.floor((s % 1) * 10)}`;
+
+function TrimBar({ state, file, videoRef, onClose, onDone, notify }) {
+  const duration = (file.durationMs ?? 0) / 1000;
+  const [[start, end], setRange] = useState([0, duration]);
+  const [busy, setBusy] = useState(false);
+  const angles = state.files.filter((g) => g.takeId === file.takeId && g.state === 'ready').length;
+  const here = () => videoRef.current?.currentTime ?? 0;
+  const seek = (s) => {
+    if (videoRef.current) videoRef.current.currentTime = s;
+  };
+  const submit = async () => {
+    setBusy(true);
+    try {
+      const r = await post(`/api/takes/${file.takeId}/trim`, { fileId: file.id, start, end });
+      notify(`裁好了：${r.files.map((x) => x.name).join('、')}${r.skipped.length ? `（${r.skipped.join('、')}）` : ''}`);
+      onDone(r.files.find((x) => x.from === file.id)?.id);
+    } catch (e) {
+      notify(e.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (!state.ffmpeg) {
+    return html`<div class="trim">
+      <p class="hint warn">
+        裁剪要用到 ffmpeg：macOS 在終端機執行 <code>brew install ffmpeg</code>，Windows 執行 <code>winget install Gyan.FFmpeg</code>，裝好後重新 <code>npm start</code>。
+      </p>
+      <div class="trim-actions"><button class="btn-ghost btn-small" onClick=${onClose}>關閉</button></div>
+    </div>`;
+  }
+  return html`<div class="trim" role="group" aria-label="裁剪頭尾">
+    <div class="trim-points">
+      <span class="label">開頭</span>
+      <button class="trim-time" title="跳到這裡" onClick=${() => seek(start)}>${fmtSec(start)}</button>
+      <button class="btn-ghost btn-small" onClick=${() => setRange([Math.max(0, Math.min(here(), end - 1)), end])}>設成目前位置</button>
+      <span class="label">結尾</span>
+      <button class="trim-time" title="跳到這裡" onClick=${() => seek(end)}>${fmtSec(end)}</button>
+      <button class="btn-ghost btn-small" onClick=${() => setRange([start, Math.min(duration, Math.max(here(), start + 1))])}>設成目前位置</button>
+    </div>
+    <p class="hint">
+      留下 ${fmtSec(end - start)}${angles > 1 ? `，這一段的 ${angles} 支影片一起裁` : ''}，另存成檔名後面加 _1 的新檔，原本的不動。
+      不重新壓縮，畫質不變；開頭會從前一個關鍵影格開始，通常最多早 1 秒。
+    </p>
+    <div class="trim-actions">
+      <button class="btn-ghost btn-small" disabled=${busy} onClick=${onClose}>取消</button>
+      <button class="btn-primary btn-small" disabled=${busy || end - start < 1} onClick=${submit}>${busy ? '裁剪中…' : '裁剪'}</button>
+    </div>
+  </div>`;
 }
 
 const roundZoom = (z) => Math.round(z * 10) / 10;
@@ -926,7 +1021,7 @@ function useTransferRate(bytes) {
   return { rate, idleMs: now - last.at };
 }
 
-function Clip({ f, state, selected, onPlay, selecting, picked, onPick, run }) {
+function Clip({ f, state, selected, onPlay, onTrash, selecting, picked, onPick, run }) {
   const progress = f.size ? Math.min(1, f.receivedBytes / f.size) : null;
   const { rate, idleMs } = useTransferRate(f.receivedBytes);
   const sending = f.state === 'recording' || (f.state === 'finishing' && progress < 1);
@@ -941,7 +1036,7 @@ function Clip({ f, state, selected, onPlay, selecting, picked, onPick, run }) {
   else if (f.state === 'recording') detail = `邊錄邊傳，已傳 ${fmtBytes(f.receivedBytes)}${speed}`;
   else if (f.state === 'finishing') detail = progress >= 1 ? '驗證檔案中' : `收尾傳輸 ${Math.floor((progress ?? 0) * 100)}%${speed}`;
   else if (f.state === 'ready') {
-    detail = `${fmtClock(f.durationMs ?? 0)}・${fmtBytes(f.size)}${actual ? `・${actual}` : ''}${f.orientation === 'portrait' ? '・直式' : ''}${STOP_NOTE[f.stopReason] ?? ''}`;
+    detail = `${fmtClock(f.durationMs ?? 0)}・${fmtBytes(f.size)}${actual ? `・${actual}` : ''}${f.orientation === 'portrait' ? '・直式' : ''}${f.bokeh ? '・背景虛化' : ''}${f.trimmedFrom ? '・裁剪過' : ''}${STOP_NOTE[f.stopReason] ?? ''}`;
   } else detail = f.error || '錄影失敗';
 
   // 同一次錄影的另一台，顯示開始時間差多少
@@ -954,26 +1049,32 @@ function Clip({ f, state, selected, onPlay, selecting, picked, onPick, run }) {
     sync = ms === 0 ? `和 ${peerName} 同時開始` : `比 ${peerName} ${diff > 0 ? '晚' : '早'} ${ms} ms`;
   }
 
-  // 選取模式：整列都可以點；錄影中、傳輸中的不能選
+  // 平常整列都可以點，點了就在監看區播放；選取模式中點整列是勾選，錄影中、傳輸中的不能選
   const pickable = selecting && canTrash(f);
+  const playable = !selecting && f.state === 'ready';
   const pick = (e) => {
     e.stopPropagation();
     onPick();
   };
-  return html`<li class=${`clip ${selected ? 'selected' : ''} ${pickable ? 'pickable' : ''} ${picked ? 'picked' : ''}`} onClick=${pickable ? onPick : undefined}>
+  const info = html`<span class="clip-name" title=${joinPath(state, f.dir, f.name)}>${f.name}</span>
+    <span class="clip-meta">
+      <span class=${`chip ${f.state}`}>${STATE_LABEL[f.state]}</span>
+      <span>${detail}</span>
+      ${stalled && html`<span class="clip-warn">傳輸停住了，請檢查這支手機的 Wi-Fi 訊號</span>`}
+      ${downgraded && html`<span class="clip-warn">要求 ${wanted.label}，這台只能錄 ${f.videoWidth}×${f.videoHeight}</span>`}
+      ${sync && html`<span class="clip-sync">${sync}</span>`}
+    </span>`;
+  const peers = state.files.filter((g) => g.takeId === f.takeId && canTrash(g)).length;
+  return html`<li
+    class=${`clip ${selecting ? 'selecting' : ''} ${selected ? 'selected' : ''} ${playable ? 'playable' : ''} ${pickable ? 'pickable' : ''} ${picked ? 'picked' : ''}`}
+    onClick=${pickable ? onPick : undefined}
+  >
     ${selecting
-      ? html`<button class="clip-check" role="checkbox" aria-checked=${picked} disabled=${!pickable} onClick=${pick} aria-label=${`選取 ${f.name}`}></button>`
-      : html`<button class="clip-play" disabled=${f.state !== 'ready'} onClick=${onPlay} aria-label=${`播放 ${f.name}`}></button>`}
-    <div>
-      <div class="clip-name" title=${joinPath(state, f.dir, f.name)}>${f.name}</div>
-      <div class="clip-meta">
-        <span class=${`chip ${f.state}`}>${STATE_LABEL[f.state]}</span>
-        <span>${detail}</span>
-        ${stalled && html`<span class="clip-warn">傳輸停住了，請檢查這支手機的 Wi-Fi 訊號</span>`}
-        ${downgraded && html`<span class="clip-warn">要求 ${wanted.label}，這台只能錄 ${f.videoWidth}×${f.videoHeight}</span>`}
-        ${sync && html`<span class="clip-sync">${sync}</span>`}
-      </div>
-    </div>
+      ? html`<button class="clip-check" role="checkbox" aria-checked=${picked} disabled=${!pickable} onClick=${pick} aria-label=${`選取 ${f.name}`}></button>
+          <div class="clip-info">${info}</div>`
+      : html`<button class="clip-info clip-open" disabled=${!playable} onClick=${onPlay} title=${playable ? '在監看區播放' : undefined}>
+          ${info}
+        </button>`}
     ${f.state !== 'failed' &&
     html`<button
       class=${`clip-mark ${f.marked ? 'on' : ''}`}
@@ -985,6 +1086,19 @@ function Clip({ f, state, selected, onPlay, selecting, picked, onPick, run }) {
       }}
     >
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.5 1.2 6.4L12 17.3l-5.7 3.1 1.2-6.4-4.7-4.5 6.4-.8z" /></svg>
+    </button>`}
+    ${!selecting &&
+    canTrash(f) &&
+    html`<button
+      class="clip-trash"
+      title=${peers > 1 ? `把這一段移到${state.trashName}（同一段的每台手機一起）` : `把這支影片移到${state.trashName}`}
+      aria-label=${`把 ${f.name} ${peers > 1 ? '這一段' : ''}移到${state.trashName}`}
+      onClick=${(e) => {
+        e.stopPropagation();
+        onTrash();
+      }}
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9.5 7V4.5h5V7M6 7l1 12.5a1.5 1.5 0 0 0 1.5 1.4h7a1.5 1.5 0 0 0 1.5-1.4L18 7M10 11v6M14 11v6" /></svg>
     </button>`}
     ${f.state === 'recording' && html`<div class="clip-progress"><span class="streaming"></span></div>`}
     ${f.state === 'finishing' && html`<div class="clip-progress"><span style=${{ width: `${(progress ?? 0) * 100}%` }}></span></div>`}

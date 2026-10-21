@@ -54,6 +54,8 @@ export interface FileEntry {
   videoWidth?: number; // 手機實際錄的解析度
   videoHeight?: number;
   orientation?: Orientation; // 直拿錄的是 portrait；舊版 App 沒有回報，當成橫的
+  bokeh?: boolean; // 這支有沒有套用背景虛化（開始錄影時手機回報的）
+  trimmedFrom?: string; // 裁剪出來的影片：原本那支的 ID
   marked?: boolean; // 使用者標記為好的段落；同一段（takeId）的影片一起標
 }
 

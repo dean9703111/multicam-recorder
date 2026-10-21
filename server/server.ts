@@ -156,6 +156,8 @@ function onDeviceMessage(d: Device, l: Live, m: DeviceMessage): void {
           f.videoHeight = m.height;
         }
         if (m.orientation === 'portrait' || m.orientation === 'landscape') f.orientation = m.orientation;
+        // 手機在狀態裡回報背景虛化有沒有套用，錄影中不會變，開始時記下來，錄完才看得出這支有沒有虛化
+        f.bokeh = l.status.bokeh === true;
         save();
       }
       break;
@@ -323,16 +325,28 @@ function stamp(ms: number): string {
 // 檔名裡不能有的字元（以 Windows 為準）和空白都拿掉
 const fileSafe = (name: string): string => name.replace(/[/\\:*?"<>|\s\x00-\x1f]+/g, '') || 'phone';
 
+// 清單上、資料夾裡已經有這個檔名（傳輸中的 .part 也算）
+const nameTaken = (dir: string, name: string): boolean =>
+  db.files.some((f) => f.dir === dir && f.name === name) ||
+  fs.existsSync(path.join(dir, name)) ||
+  fs.existsSync(path.join(dir, name + '.part'));
+
 function uniqueName(dir: string, name: string): string {
   const ext = path.extname(name);
   const base = name.slice(0, -ext.length);
   for (let i = 1; ; i++) {
     const candidate = i === 1 ? name : `${base}_${i}${ext}`;
-    const taken =
-      db.files.some((f) => f.dir === dir && f.name === candidate) ||
-      fs.existsSync(path.join(dir, candidate)) ||
-      fs.existsSync(path.join(dir, candidate + '.part'));
-    if (!taken) return candidate;
+    if (!nameTaken(dir, candidate)) return candidate;
+  }
+}
+
+// 裁剪出來的檔名：原檔名後面加 _1，已經有了就用 _2、_3…
+function trimmedName(dir: string, name: string): string {
+  const ext = path.extname(name);
+  const base = name.slice(0, -ext.length);
+  for (let i = 1; ; i++) {
+    const candidate = `${base}_${i}${ext}`;
+    if (!nameTaken(dir, candidate)) return candidate;
   }
 }
 
@@ -520,6 +534,7 @@ function snapshot() {
     platform: process.platform, // 網頁依系統顯示 Finder 或檔案總管
     sep: path.sep, // 顯示路徑用：Windows 是反斜線
     trashName: TRASH_NAME,
+    ffmpeg: ffmpegReady, // 有 ffmpeg 才能裁剪
     diskFormats: GOOD_FORMATS,
     settings: db.settings,
     storage: currentStorage(),
@@ -626,6 +641,116 @@ async function trashFiles(ids: unknown): Promise<{ trashed: number }> {
     throw new HttpError(500, `有 ${targets.length - gone.size} 支影片沒有移到${TRASH_NAME}${reason}`);
   }
   return { trashed: gone.size };
+}
+
+// ---------- 裁剪 ----------
+
+// 裁剪用電腦上的 ffmpeg、ffprobe 做串流複製，不重新壓縮，畫質不變。沒裝的話網頁會提示怎麼裝。
+let ffmpegReady = false;
+Promise.all(['ffmpeg', 'ffprobe'].map((cmd) => runTool(cmd, ['-version']))).then(
+  () => {
+    ffmpegReady = true;
+    changed();
+  },
+  () => {},
+);
+const trimming = new Set<string>(); // 正在裁剪的段落，避免連按兩次
+
+function runTool(cmd: string, args: string[]): Promise<string> {
+  return new Promise((resolve, reject) =>
+    execFile(cmd, args, { maxBuffer: 16 * 1024 * 1024, windowsHide: true }, (e, stdout, stderr) =>
+      e ? reject(new Error(String(stderr).trim().split('\n').pop() || e.message)) : resolve(String(stdout)),
+    ),
+  );
+}
+
+// time 秒（含）之前最近的關鍵影格。串流複製只能從關鍵影格開始，不然開頭的畫面解不出來；手機大多每 1 秒一個。
+async function keyframeBefore(file: string, time: number): Promise<number> {
+  if (time <= 0) return 0;
+  const start = Number(await runTool('ffprobe', ['-v', 'error', '-show_entries', 'format=start_time', '-of', 'csv=p=0', file])) || 0;
+  const around = `${start + Math.max(0, time - 10)}%${start + time + 0.1}`; // 只讀附近，30 分鐘的 4K 也很快
+  const packets = await runTool('ffprobe', [
+    ...['-v', 'error', '-select_streams', 'v:0', '-read_intervals', around],
+    ...['-show_entries', 'packet=pts_time,flags', '-of', 'csv=p=0', file],
+  ]);
+  let best = 0;
+  for (const line of packets.split('\n')) {
+    const [pts, flags] = line.split(',');
+    const t = Number(pts) - start;
+    if (flags?.startsWith('K') && t <= time + 0.001 && t > best) best = t;
+  }
+  return best;
+}
+
+// 只裁前後：同一段的每台手機一起裁，另存新檔（檔名加 _1），原本的不動。
+// start、end 是在 fileId 那支影片上的秒數，其他手機用開始時間差換算，裁的是同一段時間。
+async function trimTake(takeId: string, b: { fileId?: unknown; start?: unknown; end?: unknown }) {
+  if (!ffmpegReady) {
+    throw new HttpError(409, '裁剪要用到 ffmpeg：macOS 執行 brew install ffmpeg，Windows 執行 winget install Gyan.FFmpeg，裝好後重新 npm start');
+  }
+  const files = db.files.filter((f) => f.takeId === takeId && f.state === 'ready');
+  const ref = files.find((f) => f.id === b.fileId);
+  if (!ref) throw new HttpError(404, '找不到這支影片，清單可能已經更新了');
+  const start = Number(b.start);
+  const end = Number(b.end);
+  if (!(start >= 0 && end - start >= 1 && end <= (ref.durationMs ?? 0) / 1000 + 0.5)) throw new HttpError(400, '裁剪的範圍不對，至少要留 1 秒');
+  if (trimming.has(takeId)) throw new HttpError(409, '這一段正在裁剪，請稍等');
+  trimming.add(takeId);
+  try {
+    const newTake = crypto.randomUUID();
+    const made: FileEntry[] = [];
+    const skipped: string[] = [];
+    for (const f of files) {
+      const offset = f.startedAt && ref.startedAt ? (f.startedAt - ref.startedAt) / 1000 : 0;
+      const from = Math.max(0, start - offset);
+      const to = Math.min((f.durationMs ?? 0) / 1000, end - offset);
+      if (to - from < 0.5) {
+        skipped.push(`${db.devices.find((d) => d.id === f.deviceId)?.name ?? f.name} 沒有錄到這段時間`);
+        continue;
+      }
+      const src = finalPath(f);
+      const at = await keyframeBefore(src, from);
+      const name = trimmedName(f.dir, f.name);
+      const out = path.join(f.dir, name);
+      try {
+        await runTool('ffmpeg', [
+          ...['-v', 'error', '-y', '-ss', String(at), '-i', src, '-t', String(to - at)],
+          ...['-map', '0:v:0', '-map', '0:a?', '-c', 'copy', '-avoid_negative_ts', 'make_zero', '-f', 'mp4', out + '.part'],
+        ]);
+        fs.renameSync(out + '.part', out);
+      } catch (e) {
+        fs.unlink(out + '.part', () => {});
+        throw new HttpError(500, `裁剪 ${f.name} 失敗：${(e as Error).message}`);
+      }
+      const probed = Number(await runTool('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', out]));
+      const entry: FileEntry = {
+        id: crypto.randomUUID(),
+        takeId: newTake,
+        projectId: f.projectId,
+        deviceId: f.deviceId,
+        name,
+        dir: f.dir,
+        createdAt: Date.now(),
+        startedAt: f.startedAt ? f.startedAt + Math.round(at * 1000) : undefined, // 新檔實際從這裡開始
+        durationMs: Math.round((Number.isFinite(probed) ? probed : to - at) * 1000),
+        size: fs.statSync(out).size,
+        state: 'ready',
+        spec: f.spec,
+        videoWidth: f.videoWidth,
+        videoHeight: f.videoHeight,
+        orientation: f.orientation,
+        bokeh: f.bokeh,
+        trimmedFrom: f.id,
+      };
+      db.files.push(entry);
+      made.push(entry);
+      save();
+      changed();
+    }
+    return { files: made.map((f) => ({ id: f.id, name: f.name, from: f.trimmedFrom })), skipped };
+  } finally {
+    trimming.delete(takeId);
+  }
 }
 
 // 在 Finder／檔案總管打開目前的專案資料夾；有指定影片時，macOS 會直接選取那支影片
@@ -802,6 +927,11 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
       save();
       changed();
       return sendJson(res, 200, { ok: true });
+    }
+    m = /^\/api\/takes\/([\w-]+)\/trim$/.exec(p);
+    if (m) {
+      const b = await readJson<{ fileId?: unknown; start?: unknown; end?: unknown }>(req);
+      return sendJson(res, 200, await trimTake(m[1], b));
     }
     if (p === '/api/files/trash') {
       const b = await readJson<{ fileIds?: unknown }>(req);

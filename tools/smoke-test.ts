@@ -226,6 +226,7 @@ async function main(): Promise<void> {
       const local = path.join(dataDir, 'fake-phones', slugOf(PHONES[i].model), f.name);
       assert(sha256(path.join(projectDir, f.name)) === sha256(local), `${f.name} 和手機上的原檔不一樣`);
       assert(f.spec.facePriority && f.spec.bokeh && f.spec.lockExposure, `${f.name} 應該記著錄影時的人像設定`);
+      assert(f.bokeh === Boolean(PHONES[i].bokehMax), `${f.name} 記的背景虛化應該是 ${Boolean(PHONES[i].bokehMax)}，結果是 ${f.bokeh}`);
     }
   }
   step(`兩支一起錄兩段、傳到專案資料夾，和手機原檔的 SHA-256 一致，直式、橫式也記對了（共 ${takes.flat().length} 支），錄影中不能改人像設定`);
@@ -234,6 +235,28 @@ async function main(): Promise<void> {
   s = await state();
   assert(takes[0].every((t) => s.files.find((f: any) => f.id === t.id)?.marked), '第一段的兩支影片都應該被標記');
   step('標記第一段（兩支一起標）');
+
+  // 裁剪：同一段的每台手機一起裁，另存成 _1、_2，原本的不動
+  assert((await state()).ffmpeg, '伺服器應該找得到 ffmpeg');
+  const ref = takes[0][0];
+  assert((await api('POST', `/api/takes/${ref.takeId}/trim`, { fileId: ref.id, start: 1, end: 1.5 })).status === 400, '少於 1 秒的範圍應該被擋下');
+  for (const [n, range] of [[1, { start: 0.5, end: 2.5 }], [2, { start: 1, end: 2 }]] as const) {
+    const r = await ok('POST', `/api/takes/${ref.takeId}/trim`, { fileId: ref.id, ...range });
+    assert(r.files.length === devices.length, `應該裁出 ${devices.length} 支，結果是 ${r.files.length}：${r.skipped.join('、')}`);
+    s = await state();
+    const made = r.files.map((x: any) => s.files.find((f: any) => f.id === x.id));
+    assert(new Set(made.map((f: any) => f.takeId)).size === 1 && made[0].takeId !== ref.takeId, '裁出來的影片應該是新的一段');
+    for (const f of made) {
+      const from = takes[0].find((x) => x.id === f.trimmedFrom);
+      assert(from && f.name === from.name.replace(/\.mp4$/, `_${n}.mp4`), `檔名應該是原檔名加 _${n}，結果是 ${f.name}`);
+      assert(f.state === 'ready' && fs.existsSync(path.join(projectDir, f.name)), `${f.name} 應該在專案資料夾裡`);
+      // 串流複製從前一個關鍵影格開始，所以可能比要的長一點，但不會短
+      const want = (range.end - range.start) * 1000;
+      assert(f.durationMs >= want - 100 && f.durationMs <= want + 3000, `${f.name} 長度不對：${f.durationMs} ms`);
+      assert(fs.existsSync(path.join(projectDir, from.name)), `原本的 ${from.name} 應該還在`);
+    }
+  }
+  step('裁剪：兩支一起裁、另存成 _1 和 _2，原檔不動');
 
   const trashed = takes[1];
   const r = await ok('POST', '/api/files/trash', { fileIds: trashed.map((f) => f.id) });

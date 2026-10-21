@@ -65,7 +65,7 @@ npm run fake-phone -- --model "Pixel 11 Pro" --tone 660 --mic "手機內建" --o
 
 ## 自動測試
 
-`npm run smoke-test` 會自己開一個伺服器和兩支模擬手機（一支橫拿、一支直拿，直拿的做得到背景虛化），把配對、即時畫面、變焦、人像設定、兩支同時錄影、傳檔驗證、專案、標記、移到垃圾桶、刪檔同步、改名、移除手機都跑一遍，大約 15 秒。測試資料放在暫存資料夾，跑完就清掉；只有兩支幾秒鐘的測試影片會留在系統的垃圾桶裡。
+`npm run smoke-test` 會自己開一個伺服器和兩支模擬手機（一支橫拿、一支直拿，直拿的做得到背景虛化），把配對、即時畫面、變焦、人像設定、兩支同時錄影、裁剪、傳檔驗證、專案、標記、移到垃圾桶、刪檔同步、改名、移除手機都跑一遍，大約 15 秒。測試資料放在暫存資料夾，跑完就清掉；只有兩支幾秒鐘的測試影片會留在系統的垃圾桶裡。
 
 GitHub Actions 每次推送都會在 Windows、macOS、Linux 上各跑一次（[`.github/workflows/ci.yml`](../.github/workflows/ci.yml)），Windows 上也會確認中文的資料夾路徑、NTFS 偵測和資源回收筒。
 
@@ -78,6 +78,7 @@ GitHub Actions 每次推送都會在 Windows、macOS、Linux 上各跑一次（[
 - **鎖定曝光和白平衡**：`CONTROL_AE_LOCK`、`CONTROL_AWB_LOCK` 只加在錄影的 request 上，開始錄影的那一刻鎖住，停止後恢復自動。它不影響 session，切換時相機不用重開。
 - Pixel 的 `sceneMode`、`extendedSceneMode` 是 session 參數（`availableSessionKeys`），所以建 session 時用 `SessionConfiguration.sessionParameters` 先帶上；臉部優先、背景虛化改了就重建 session，和改解析度一樣只在沒錄影時做。
 - 開著背景虛化卻建不起 session 的手機，會自動關掉虛化再建一次，並回報沒有套用。
+- 開始錄影時，電腦用手機最近一次回報的狀態記下這支有沒有虛化（`FileEntry.bokeh`），清單上會標「背景虛化」；開著卻沒套用時，監看區下方會寫原因。
 
 想知道某支手機做得到哪些，接上 USB 後用唯讀的 dumpsys 查（不會改手機的設定）：
 
@@ -88,6 +89,16 @@ adb shell dumpsys media.camera | grep -A3 "availableSceneModes\|availableExtende
 `availableSceneModes` 裡有 `1` 就是做得到臉部優先。`availableExtendedSceneModeMaxSizes` 是每三個數字一組（模式、寬、高），模式 `2` 是連續背景虛化，例如 Pixel 11 Pro 是 `2 1920 1080`；`availableExtendedSceneModeZoomRatioRanges` 依同樣的順序列出變焦範圍（不含關閉的那組）。App 開著時，同一個指令輸出的「Last request sent」也看得到實際送出的 `android.control.mode`、`sceneMode`、`aeLock`。
 
 Android 模擬器的相機做得到臉部優先和鎖定曝光，但沒有連續背景虛化，背景虛化要用實機測。
+
+## 裁剪
+
+控制台的「裁剪…」呼叫 `POST /api/takes/:takeId/trim`（`{ fileId, start, end }`，秒數是在 fileId 那支影片上的位置），由電腦端的 `trimTake`（[`server/server.ts`](../server/server.ts)）處理：
+
+- 用電腦上的 ffmpeg 串流複製（`-c copy`），不重新壓縮，所以畫質不變、幾 GB 的檔案也只要幾秒。啟動時會找 `ffmpeg` 和 `ffprobe`，找不到時 `state.ffmpeg` 是 false，網頁會提示怎麼裝。
+- 串流複製只能從關鍵影格開始，所以先用 `ffprobe -read_intervals` 只讀開頭附近的封包，找到開頭（含）之前最近的關鍵影格，從那裡裁。手機的 MediaRecorder 大多每 1 秒一個關鍵影格、沒有 B 影格，結尾可以照設定的時間裁。
+- 同一段的其他手機用 `startedAt` 的差換算成各自的時間軸，裁的是同一段時間；各台的關鍵影格位置不同，裁好的幾支開始時間會差零點幾秒，新檔的 `startedAt` 記的是實際的開始時間，清單上照樣顯示時間差。
+- 新檔放在同一個資料夾，檔名是原檔名加 `_1`，已經有就 `_2`、`_3`…（`trimmedName`）；先寫成 `.part` 再改名。新檔屬於新的一段（新的 `takeId`），`trimmedFrom` 記著原本那支，原檔不動。裁出來的影片不會觸發「錄完自動播放」，只有按下裁剪的那一台會換成播放新檔。
+- `npm run smoke-test` 會裁兩次同一段，確認每台都產生 `_1`、`_2`、長度合理、原檔還在，也確認少於 1 秒的範圍會被擋下。
 
 ## 開發時不用掃 QR Code
 
@@ -109,7 +120,7 @@ adb shell am start -a android.intent.action.VIEW -d 'multicam://pair?server=http
 
 ```
 server/                    電腦端（Node.js 24 直接執行 TypeScript，不用編譯）
-  server.ts                手機連線、錄影控制、專案、接收影片、提供網頁
+  server.ts                手機連線、錄影控制、專案、接收影片、裁剪、提供網頁
   protocol.ts              手機和電腦之間的通訊格式，Android App 照這份實作
   uploads.ts               邊錄邊傳、分段雜湊驗證
   store.ts                 配對、專案、影片清單、設定的存檔（data/db.json）
@@ -154,7 +165,7 @@ llms.txt                   給 AI 工具讀的專案摘要
 ## 更新 README 的圖
 
 - **示意圖**（how-it-works、pairing、phone-app、phone-app-portrait、use-cases、long-short、network、social-preview）的原稿都在 [`docs/mockups.html`](mockups.html)。在專案根目錄執行 `python3 -m http.server`，打開 <http://localhost:8000/docs/mockups.html>，把每個 section 各自截圖存到 `docs/images/`。
-- **控制台的截圖**（console、spec-guide、portrait-settings、select-trash、setup）是用模擬手機實際操作截的；portrait-settings 是直拿那支加上 `--bokeh-max 1920x1080`，在 1080p、背景虛化和鎖定曝光都打開時錄影中截的。電腦的硬碟空間不夠時，控制台上方會出現提醒，截圖前可以先把 `.alerts` 藏起來。
+- **控制台的截圖**（console、spec-guide、portrait-settings、trim、select-trash、setup）是用模擬手機實際操作截的；portrait-settings 是直拿那支加上 `--bokeh-max 1920x1080`，在 1080p、背景虛化和鎖定曝光都打開時錄影中截的。電腦的硬碟空間不夠時，控制台上方會出現提醒，截圖前可以先把 `.alerts` 藏起來。
 - 截圖裡不要出現自己電腦的使用者名稱或私人路徑，例如錄影資料夾的完整路徑。
 - `social-preview.png`（1280×640）是分享連結時顯示的預覽圖，要到 GitHub 專案的 **Settings → General → Social preview** 手動上傳。
 
