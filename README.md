@@ -18,6 +18,7 @@
 </p>
 
 <p align="center">
+  <a href="https://deanlin.net/multicam-recorder/"><b>產品網站</b></a> ・
   <a href="#快速開始"><b>快速開始</b></a> ・
   <a href="#適合哪些情境">使用情境</a> ・
   <a href="#功能特色">功能特色</a> ・
@@ -110,14 +111,12 @@
 
 1. 安裝 [Node.js](https://nodejs.org/)（選 **LTS** 版本，需要 24 以上），照安裝程式一路按下一步。
 2. 下載這個專案：會用 Git 的話執行下面的 `git clone`；不會的話，在這個頁面上方按綠色的 **Code → Download ZIP**，再解壓縮（資料夾會叫 `multicam-recorder-main`）。
-3. 打開終端機（macOS 是「終端機」App，Windows 是「PowerShell」），進到專案的資料夾，執行：
+3. 打開終端機（macOS 是「終端機」App，Windows 是「PowerShell」），執行下面的指令。用 ZIP 下載的話，跳過前兩行，改用 `cd` 進到解壓縮出來的 `multicam-recorder-main` 資料夾；`npm install` 只有第一次需要。
 
 ```sh
-# 用 Git 下載。用 ZIP 的話跳過這兩行，改成 cd 到解壓縮出來的 multicam-recorder-main 資料夾
 git clone https://github.com/dean9703111/multicam-recorder.git
 cd multicam-recorder
-
-npm install   # 第一次才需要
+npm install
 npm start
 ```
 
@@ -369,12 +368,13 @@ Quick start:
 ```sh
 git clone https://github.com/dean9703111/multicam-recorder.git
 cd multicam-recorder
-npm install && npm start            # open http://localhost:8787
+npm install
+npm start
 ```
 
-Then download `MultiCamRecorder.apk` from [Releases](https://github.com/dean9703111/multicam-recorder/releases/latest) (or scan the pairing QR code and use the download link on the page that opens), pair each phone, create a project and press `R`.
+Open <http://localhost:8787>, then download `MultiCamRecorder.apk` from [Releases](https://github.com/dean9703111/multicam-recorder/releases/latest) (or scan the pairing QR code and use the download link on the page that opens), pair each phone, create a project and press `R`.
 
-Every push runs an end-to-end test with two simulated phones (one portrait, one landscape) on Windows, macOS and Linux in GitHub Actions; Windows has not been used with real phones yet. The phone protocol is documented in [`server/protocol.ts`](server/protocol.ts), so other phone platforms can be added. Developer notes are in [`docs/development.md`](docs/development.md). The UI is currently in Traditional Chinese.
+Every push runs an end-to-end test with two simulated phones (one portrait, one landscape) on Windows, macOS and Linux in GitHub Actions; Windows has not been used with real phones yet. The phone protocol is documented in [`server/protocol.ts`](server/protocol.ts), so other phone platforms can be added. Developer notes are in [`docs/development.md`](docs/development.md). The UI is currently in Traditional Chinese. Product site: <https://deanlin.net/multicam-recorder/en/>
 
 ## 授權
 

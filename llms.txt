@@ -15,6 +15,11 @@
 - 不是直播工具：不把畫面即時串流到網路，適合錄完要剪輯的拍攝（訪談、Podcast、課程、講座、產品拍攝）。It is not a live-streaming tool.
 - 其他：外接 USB／耳機孔麥克風、構圖輔助框（9:16、4:5、1:1）、專案資料夾、標記好的段落、一鍵把沒標記的移到垃圾桶。
 
+## Website
+
+- [產品網站（繁體中文）](https://deanlin.net/multicam-recorder/): 介紹、使用情境、功能、開始使用、規格、常見問題
+- [Product site (English)](https://deanlin.net/multicam-recorder/en/)
+
 ## Docs
 
 - [README](https://github.com/dean9703111/multicam-recorder/blob/main/README.md): 功能、規格、快速開始、使用情境、常見問題（繁體中文，附英文摘要）

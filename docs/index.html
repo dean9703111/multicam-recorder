@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>多機錄影 MultiCam Recorder｜免費的手機多機位同步錄影工具</title>
+<meta name="description" content="用電腦網頁一鍵遙控多支 Android 手機同步錄影：即時畫面、各別變焦、手機原生 4K、直式＋橫式同時錄（長影片＋短影音），影片邊錄邊傳回電腦。免費開源，支援 macOS、Windows。">
+<link rel="canonical" href="https://deanlin.net/multicam-recorder/">
+<link rel="alternate" hreflang="zh-TW" href="https://deanlin.net/multicam-recorder/">
+<link rel="alternate" hreflang="en" href="https://deanlin.net/multicam-recorder/en/">
+<link rel="alternate" hreflang="x-default" href="https://deanlin.net/multicam-recorder/">
+<link rel="alternate" type="text/plain" href="https://deanlin.net/multicam-recorder/llms.txt" title="llms.txt">
+<meta name="author" content="林鼎淵 Dean Lin">
+<meta name="theme-color" content="#0a0b0d">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="assets/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="多機錄影 MultiCam Recorder">
+<meta property="og:title" content="多機錄影｜用電腦一鍵遙控多支手機同步錄影">
+<meta property="og:description" content="免費開源的手機多機位錄影工具：即時畫面、手機原生 4K、直式＋橫式同時錄，影片邊錄邊傳回電腦。支援 macOS、Windows 與 Android 12 以上。">
+<meta property="og:url" content="https://deanlin.net/multicam-recorder/">
+<meta property="og:image" content="https://deanlin.net/multicam-recorder/images/social-preview.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="多機錄影 MultiCam Recorder：用電腦一鍵遙控多支 Android 手機同步錄影">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="多機錄影｜用電腦一鍵遙控多支手機同步錄影">
+<meta name="twitter:description" content="免費開源的手機多機位錄影工具：即時畫面、手機原生 4K、直式＋橫式同時錄，影片邊錄邊傳回電腦。">
+<meta name="twitter:image" content="https://deanlin.net/multicam-recorder/images/social-preview.png">
+<link rel="preload" href="assets/fonts/barlow-condensed-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/site.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://deanlin.net/multicam-recorder/#app",
+      "name": "多機錄影 MultiCam Recorder",
+      "alternateName": ["MultiCam Recorder", "多機錄影"],
+      "description": "免費、開源的手機多機位錄影工具：在電腦（macOS 或 Windows）的網頁控制台同步遙控多支 Android 手機錄影，有即時畫面、各別變焦、手機原生 4K、直式＋橫式同時錄，影片邊錄邊傳回電腦。",
+      "applicationCategory": "MultimediaApplication",
+      "applicationSubCategory": "多機位錄影",
+      "operatingSystem": "macOS, Windows, Android 12+",
+      "softwareVersion": "0.3.1",
+      "url": "https://deanlin.net/multicam-recorder/",
+      "downloadUrl": "https://github.com/dean9703111/multicam-recorder/releases/latest",
+      "installUrl": "https://github.com/dean9703111/multicam-recorder/releases/latest",
+      "isAccessibleForFree": true,
+      "license": "https://opensource.org/licenses/MIT",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "TWD" },
+      "inLanguage": "zh-Hant-TW",
+      "image": "https://deanlin.net/multicam-recorder/images/social-preview.png",
+      "screenshot": [
+        "https://deanlin.net/multicam-recorder/images/console.png",
+        "https://deanlin.net/multicam-recorder/images/phone-app.png",
+        "https://deanlin.net/multicam-recorder/images/pairing.png"
+      ],
+      "featureList": [
+        "一鍵讓最多 10 支 Android 手機同步開始、停止錄影",
+        "電腦上同時看每支手機的即時畫面",
+        "每支手機各自調整變焦",
+        "手機原生畫質，最高 4K、每秒 30 格",
+        "橫拿錄 16:9、直拿錄 9:16，可以同時錄長影片和短影音",
+        "影片邊錄邊傳回電腦，停止後用 SHA-256 分段驗證",
+        "支援 USB 與耳機孔外接麥克風",
+        "構圖輔助框（9:16、4:5、1:1）",
+        "專案資料夾、標記好的段落、一鍵把沒標記的移到垃圾桶",
+        "不需要雲端帳號，影片只在區域網路裡傳輸"
+      ],
+      "author": { "@type": "Person", "name": "林鼎淵 Dean Lin", "url": "https://deanlin.net/about/" },
+      "sameAs": ["https://github.com/dean9703111/multicam-recorder"]
+    },
+    {
+      "@type": "SoftwareSourceCode",
+      "name": "multicam-recorder",
+      "codeRepository": "https://github.com/dean9703111/multicam-recorder",
+      "programmingLanguage": ["TypeScript", "Kotlin"],
+      "license": "https://opensource.org/licenses/MIT",
+      "targetProduct": { "@id": "https://deanlin.net/multicam-recorder/#app" }
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://deanlin.net/multicam-recorder/#webpage",
+      "url": "https://deanlin.net/multicam-recorder/",
+      "name": "多機錄影 MultiCam Recorder｜免費的手機多機位同步錄影工具",
+      "inLanguage": "zh-Hant-TW",
+      "dateModified": "2026-10-21",
+      "about": { "@id": "https://deanlin.net/multicam-recorder/#app" },
+      "isPartOf": { "@type": "WebSite", "name": "林鼎淵 Dean Lin", "url": "https://deanlin.net/" }
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://deanlin.net/multicam-recorder/#faq",
+      "inLanguage": "zh-Hant-TW",
+      "mainEntity": [
+        { "@type": "Question", "name": "多機錄影要付費嗎？", "acceptedAnswer": { "@type": "Answer", "text": "不用。多機錄影是 MIT 授權的開源軟體，電腦端和手機 App 都免費，沒有廣告，也不用訂閱或註冊帳號。" } },
+        { "@type": "Question", "name": "可以用 iPhone 嗎？", "acceptedAnswer": { "@type": "Answer", "text": "目前只有 Android 12 以上的 App。電腦和手機之間的通訊格式是公開的，其他平台照著實作就能接上。" } },
+        { "@type": "Question", "name": "電腦端支援 Windows 嗎？", "acceptedAnswer": { "@type": "Answer", "text": "支援。每次更新程式，GitHub Actions 都會在 Windows、macOS、Linux 上用兩支模擬手機把配對、即時畫面、同時錄影、傳檔和驗證整個流程跑一遍。實際使用的是 Apple Silicon 的 Mac，Windows 還沒有人用實機錄過。" } },
+        { "@type": "Question", "name": "需要網路嗎？影片會上傳到雲端嗎？", "acceptedAnswer": { "@type": "Answer", "text": "不會上傳到雲端。錄影和傳檔只在你的手機和電腦之間進行，走同一個 Wi-Fi 的區域網路，不需要任何帳號；影片存在電腦上你選的錄影資料夾。只有第一次下載程式和 App 時需要上網。" } },
+        { "@type": "Question", "name": "錄影畫質會受 Wi-Fi 影響嗎？", "acceptedAnswer": { "@type": "Answer", "text": "不會。影片是在手機上用原生畫質錄的，Wi-Fi 只負責傳檔和控制；Wi-Fi 慢的時候只是傳得比較久，停止後會把剩下的補完。" } },
+        { "@type": "Question", "name": "和把手機畫面串流到電腦（例如當成 OBS 的攝影機）有什麼不同？", "acceptedAnswer": { "@type": "Answer", "text": "串流的做法是把畫面即時傳到電腦，畫質會受網路影響，適合直播。多機錄影是在每支手機上錄原生畫質，再把檔案傳回電腦，適合錄完要剪輯的拍攝；它沒有直播功能。" } },
+        { "@type": "Question", "name": "最多可以接幾支手機？", "acceptedAnswer": { "@type": "Answer", "text": "10 支。手機越多，Wi-Fi 頻寬需求越大，兩台 4K 一起錄合計約 80 Mbps。" } },
+        { "@type": "Question", "name": "可以同時錄直式和橫式嗎？", "acceptedAnswer": { "@type": "Answer", "text": "可以。手機直拿就錄 9:16、橫拿就錄 16:9，同一次錄影裡可以混著用，例如一台錄長影片、一台錄短影音。" } },
+        { "@type": "Question", "name": "多支手機錄的影片怎麼對齊？", "acceptedAnswer": { "@type": "Answer", "text": "電腦會先和每支手機對時，約好同一刻開始，清單上會顯示各台實際的開始時間差。要精準到同一格畫面，建議用剪輯軟體依音訊自動同步。" } },
+        { "@type": "Question", "name": "可以用外接麥克風嗎？", "acceptedAnswer": { "@type": "Answer", "text": "可以。手機接上 USB 或耳機孔麥克風時會自動改用它收音，App 和電腦網頁都會顯示目前用的是哪一支。" } },
+        { "@type": "Question", "name": "怎麼更新到新版？", "acceptedAnswer": { "@type": "Answer", "text": "手機下載新的 MultiCamRecorder.apk 直接安裝，會覆蓋舊版，配對和設定都會保留；電腦在專案資料夾執行 git pull，再重新 npm start。" } }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip" href="#main">跳到主要內容</a>
+
+<header class="site-nav">
+  <div class="wrap">
+    <a class="brand" href="./" aria-label="多機錄影 MultiCam Recorder 首頁"><img src="assets/favicon.svg" width="30" height="30" alt="">多機錄影<small>MULTICAM</small></a>
+    <nav class="nav-links" aria-label="頁面導覽">
+      <a href="#what">介紹</a>
+      <a href="#use-cases">使用情境</a>
+      <a href="#features">功能</a>
+      <a href="#start">開始使用</a>
+      <a href="#faq">常見問題</a>
+    </nav>
+    <div class="nav-tools">
+      <a class="lang" href="en/" hreflang="en" lang="en">EN</a>
+      <a class="btn btn-ghost" href="https://github.com/dean9703111/multicam-recorder"><svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg><span class="gh-label">GitHub</span></a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="wrap">
+      <div class="rec-kicker"><span class="dot" aria-hidden="true"></span><span>REC <span data-timecode>00:12:34</span></span><span class="sep" aria-hidden="true">／</span><span>免費開源・MIT 授權</span></div>
+      <p class="brandline">MULTICAM RECORDER｜多機錄影</p>
+      <h1 id="hero-title">用電腦一鍵遙控<br><em>多支手機</em>同步錄影</h1>
+      <p class="lead">免費開源的手機多機位錄影工具。在電腦上同時看每支 Android 手機的即時畫面、各自調整變焦，按一下 <kbd>R</kbd> 就讓所有手機在同一刻開始錄影。影片用手機原生畫質錄，最高 4K，一邊錄一邊傳回電腦。</p>
+      <div class="cta-row">
+        <a class="btn btn-rec" href="https://github.com/dean9703111/multicam-recorder/releases/latest"><span class="dot" aria-hidden="true"></span>下載 Android App</a>
+        <a class="btn btn-ghost" href="#start">三步驟開始使用</a>
+      </div>
+      <p class="cta-note">最新版 v0.3.1・電腦端支援 macOS、Windows・手機需要 Android 12 以上</p>
+      <ul class="chips" aria-label="重點">
+        <li>最多 10 台手機</li>
+        <li>直式＋橫式同時錄</li>
+        <li>邊錄邊傳、SHA-256 驗證</li>
+        <li>外接麥克風</li>
+        <li>不需要雲端帳號</li>
+      </ul>
+      <figure class="monitor-frame">
+        <img src="images/console.png" width="1440" height="960" fetchpriority="high" alt="多機錄影控制台截圖：兩支 Android 手機同步用 4K 錄影，左邊橫拿 16:9、右邊直拿 9:16，監看區顯示即時畫面，下方是邊錄邊傳回電腦的影片清單">
+      </figure>
+      <figcaption>電腦上的控制台：兩支手機同時錄 4K，左邊橫拿 16:9、右邊直拿 9:16，每台都看得到即時畫面（畫面中的漸層來自開發用的模擬手機）。</figcaption>
+      <ul class="readouts" aria-label="規格重點">
+        <li><span class="v">10<small>台</small></span><span class="k">最多同時控制的手機</span></li>
+        <li><span class="v">4K</span><span class="k">手機原生畫質、每秒 30 格</span></li>
+        <li><span class="v">9:16＋16:9</span><span class="k">直式、橫式同一次錄</span></li>
+        <li><span class="v">0<small>元</small></span><span class="k">免費開源，不用註冊</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="section" id="what" aria-labelledby="what-title">
+    <div class="wrap">
+      <span class="kicker">WHAT IT IS</span>
+      <h2 id="what-title">多機錄影是什麼？</h2>
+      <p class="definition"><strong>多機錄影（MultiCam Recorder）是一套免費、開源的多機位錄影工具，把手邊的 Android 手機變成可以同步錄影的攝影機。</strong>在電腦（macOS 或 Windows）上打開網頁控制台，就能同時看到每支手機的即時畫面、各自調整變焦，按一個鍵讓所有手機在同一刻開始錄影。影片在每支手機上用原生畫質錄，錄影中就一邊傳回電腦，停止後很快就能播放檢查。整個過程只用 Wi-Fi 區域網路，<strong>不需要雲端帳號，影片也不會上傳到網路</strong>。</p>
+      <div class="table-wrap">
+        <table class="compare">
+          <caption class="visually-hidden">每支手機各自錄和用多機錄影的比較</caption>
+          <thead><tr><th scope="col"></th><th scope="col">每支手機各自錄</th><th scope="col">用多機錄影</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">開始錄影</th><td class="bad">一支一支跑去按，開始時間差好幾秒</td><td class="good">按一次 <kbd>R</kbd>，所有手機約好同一刻開始</td></tr>
+            <tr><th scope="row">看畫面</th><td class="bad">只看得到眼前那一支</td><td class="good">電腦上同時看每支的即時畫面</td></tr>
+            <tr><th scope="row">拿到檔案</th><td class="bad">錄完再一支一支傳、改檔名</td><td class="good">邊錄邊傳回電腦，自動命名、確認檔案完整</td></tr>
+            <tr><th scope="row">注意狀態</th><td class="bad">電量、空間不夠時才發現</td><td class="good">電量、溫度、剩餘空間、還能錄幾分鐘一目瞭然</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="use-cases" aria-labelledby="use-cases-title">
+    <div class="wrap">
+      <span class="kicker">USE CASES</span>
+      <h2 id="use-cases-title">適合哪些情境？</h2>
+      <p class="section-lead">需要多個角度、又不想租攝影機和導播機的拍攝，都可以用手邊的手機搞定。</p>
+      <div class="figure"><img src="images/use-cases.png" width="1860" height="1490" loading="lazy" decoding="async" alt="多機錄影的四種使用情境俯視圖：訪談與 Podcast 雙機位、一台橫拿一台直拿同時做長影片和短影音、課程講座的全景加講者近景、產品拍攝的正面俯拍與特寫"></div>
+      <div class="cards four">
+        <article class="card"><div class="n">01</div><h3>訪談、Podcast</h3><p>主持人和來賓各一台，外接麥克風接在其中一台當主音軌，剪輯時隨時切換角度。</p></article>
+        <article class="card hot"><div class="n">02</div><h3>長影片＋短影音</h3><p>一台橫拿錄 YouTube 用的 16:9，一台直拿錄 Reels、Shorts、TikTok 用的 9:16，一次錄好兩種版本。</p></article>
+        <article class="card"><div class="n">03</div><h3>課程、講座</h3><p>一台在後面拍全景，一台在側邊拍講者和白板，講者走到哪都有畫面。</p></article>
+        <article class="card"><div class="n">04</div><h3>產品拍攝、開箱</h3><p>正面、正上方俯拍、側面特寫同時錄，最多可以接 10 台手機。</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="features" aria-labelledby="features-title">
+    <div class="wrap">
+      <span class="kicker">FEATURES</span>
+      <h2 id="features-title">功能特色</h2>
+      <p class="section-lead">電腦負責指揮、監看和收檔，手機專心錄影。每一個細節都是為了「錄完馬上能用」。</p>
+
+      <h3 class="group-title">錄影</h3>
+      <div class="cards four">
+        <article class="card hot"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.8" fill="currentColor" stroke="none"/></svg></div><h3>一鍵同步開始</h3><p>按 <kbd>R</kbd> 全部開始、<kbd>S</kbd> 全部停止。電腦先和每台手機對時，約好同一刻一起開始，清單上顯示實際的時間差。</p></article>
+        <article class="card"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><text x="12" y="15.2" text-anchor="middle" font-size="7.5" font-weight="700" fill="currentColor" stroke="none" font-family="Barlow Condensed, sans-serif">4K</text></svg></div><h3>手機原生畫質</h3><p>4K、2K、1080p、720p 可選，所有手機一起套用。單段最長 30 分鐘，剩 3 分鐘網頁和手機都會提醒。</p></article>
+        <article class="card"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="7.5" width="11" height="8" rx="1.5"/><rect x="16" y="3.5" width="5.5" height="17" rx="1.5"/></svg></div><h3>直式、橫式都能錄</h3><p>手機橫拿錄 16:9、直拿錄 9:16，App 自動跟著轉，錄影中鎖住方向，不會錄成一半直一半橫。</p></article>
+        <article class="card"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="2.5" width="6" height="11.5" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5v4M8.5 21.5h7"/></svg></div><h3>外接麥克風</h3><p>接上 USB 或耳機孔麥克風會自動改用它收音，App 和網頁都會顯示目前用的是哪一支。</p></article>
+      </div>
+
+      <h3 class="group-title">監看</h3>
+      <div class="cards four">
+        <article class="card"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="4.5" width="19" height="13" rx="2"/><path d="M8 21h8M12 17.5V21"/><circle cx="17" cy="8.5" r="1.7" fill="currentColor" stroke="none"/></svg></div><h3>即時畫面</h3><p>每台手機的畫面每秒約 5 張，用來確認構圖。按下開始錄影時監看區一律切回即時畫面。</p></article>
+        <article class="card"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5l5.5 5.5M10.5 7.5v6M7.5 10.5h6"/></svg></div><h3>各別變焦</h3><p>常用倍率的按鈕加上滑桿，每台各自設定；有超廣角或望遠鏡頭的手機會自動換鏡頭。</p></article>
+        <article class="card"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 8V5a2.5 2.5 0 0 1 2.5-2.5h3M16 2.5h3A2.5 2.5 0 0 1 21.5 5v3M21.5 16v3a2.5 2.5 0 0 1-2.5 2.5h-3M8 21.5H5A2.5 2.5 0 0 1 2.5 19v-3"/><rect x="9" y="6" width="6" height="12" rx="1"/></svg></div><h3>構圖輔助框</h3><p>在手機預覽、即時畫面和播放器上疊 9:16、4:5 或 1:1 的框，架機時就照最後要出的比例構圖。</p></article>
+        <article class="card"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="7.5" width="16" height="9" rx="2"/><path d="M21.5 10.5v3"/><rect x="5" y="10" width="7.5" height="4" rx="1" fill="currentColor" stroke="none"/></svg></div><h3>狀態一目瞭然</h3><p>每台的電量、溫度、剩餘空間、還能錄幾分鐘、傳輸速度；硬碟快滿、傳輸停住、手機斷線都會提示。</p></article>
+      </div>
+
+      <h3 class="group-title">傳檔與整理</h3>
+      <div class="cards four">
+        <article class="card"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M10 8.3l5.6 3.7-5.6 3.7z" fill="currentColor"/></svg></div><h3>錄完馬上看</h3><p>錄影中就邊錄邊傳，停止後只補最後一小段，再用 SHA-256 分段比對，確認和手機上的檔案一模一樣。</p></article>
+        <article class="card"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 9a15 15 0 0 1 20 0M5.5 12.5a10 10 0 0 1 13 0M9 16a5 5 0 0 1 6 0"/><circle cx="12" cy="19.5" r="1.4" fill="currentColor" stroke="none"/></svg></div><h3>斷線也不怕</h3><p>Wi-Fi 斷掉時手機照常錄影，連回來會自動續傳，影片不會遺失。</p></article>
+        <article class="card"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 7A2.5 2.5 0 0 1 5 4.5h4l2 2h8A2.5 2.5 0 0 1 21.5 9v8a2.5 2.5 0 0 1-2.5 2.5H5A2.5 2.5 0 0 1 2.5 17z"/></svg></div><h3>用專案整理</h3><p>影片存進「錄影資料夾／專案名稱」，檔名是時間加手機名稱，同一段的檔案會排在一起。</p></article>
+        <article class="card"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3.2l2.7 5.5 6 .9-4.4 4.2 1.1 6-5.4-2.9-5.4 2.9 1.1-6-4.4-4.2 6-.9z"/></svg></div><h3>標記與清理</h3><p>星號標記好的段落，同一段的每台一起標；沒標記的一鍵移到垃圾桶，刪錯了也救得回來。</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="long-short" aria-labelledby="long-short-title">
+    <div class="wrap">
+      <span class="kicker">LONG-FORM + SHORTS</span>
+      <h2 id="long-short-title">一次錄好長影片和短影音</h2>
+      <p class="section-lead">一台<strong>橫拿</strong>錄 16:9 剪 YouTube 長片，一台<strong>直拿</strong>錄 9:16 剪 Reels、Shorts、TikTok。直接錄直的，不用從橫的畫面裁切：4K 直拿是 2160×3840，從 4K 橫畫面裁出來只剩約 1215×2160，<strong>畫素差了約 3 倍</strong>。</p>
+      <div class="figure"><img src="images/long-short.png" width="1860" height="1283" loading="lazy" decoding="async" alt="一次錄好長影片和短影音：CAM A 橫拿錄 16:9 給 YouTube 長影片、CAM B 直拿錄 9:16 給 Reels、Shorts、TikTok；直接直拿錄的 2160×3840 比從 4K 橫畫面裁切的 1215×2160 畫素多約 3 倍"></div>
+      <ol class="checks num">
+        <li><strong>照想要的方向架好手機</strong>：App 會跟著手機轉，系統的「自動旋轉」關著也一樣；四個方向都可以，錄出來都是正的。</li>
+        <li><strong>在控制台確認方向</strong>：直放那台的監看區會變成直的，下方寫著「即時畫面・直式 9:16」。</li>
+        <li><strong>看即時畫面構圖</strong>：橫的那台可以開 9:16 輔助框，看看之後裁成直式時主角會不會出框；直的那台可以開 4:5 或 1:1，看 IG 貼文的範圍。</li>
+        <li><strong>按 <kbd>R</kbd> 開始</strong>：每台的監看區都會切回即時畫面，錄影中方向固定，中途碰到手機也不會轉。</li>
+        <li><strong>停止後馬上檢查</strong>：影片傳完會自動播放，直式影片直著播，清單上標「直式」；兩支錄的是同一段時間，剪輯時很好對齊。</li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="section" id="how" aria-labelledby="how-title">
+    <div class="wrap">
+      <span class="kicker">HOW IT WORKS</span>
+      <h2 id="how-title">運作方式</h2>
+      <div class="figure"><img src="images/how-it-works.png" width="1860" height="1025" loading="lazy" decoding="async" alt="運作方式示意圖：電腦當控制台，手機當攝影機，全部走同一個 Wi-Fi；指令和即時畫面走 WebSocket，影片邊錄邊傳、停止後分段驗證"></div>
+      <div class="cards three">
+        <article class="card"><h3>電腦是控制台</h3><p>電腦上跑一個本機伺服器，同時提供網頁控制台。控制台只能在這台電腦上開，同一個網路的其他裝置打不開。</p></article>
+        <article class="card"><h3>手機是攝影機</h3><p>錄影在手機上進行（Camera2＋MediaRecorder），所以畫質不受 Wi-Fi 影響；Wi-Fi 只負責傳檔和控制。</p></article>
+        <article class="card"><h3>檔案一模一樣</h3><p>影片用 HTTP 分段傳回電腦，停止後雙方用 SHA-256 分段比對，不一樣的地方自動補傳，直到完全相同。</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="start" aria-labelledby="start-title">
+    <div class="wrap">
+      <span class="kicker">GET STARTED</span>
+      <h2 id="start-title">三步驟開始使用</h2>
+      <p class="section-lead">第一次設定大約 10 分鐘。之後每次只要在電腦執行 <code>npm start</code>、打開手機上的 App。</p>
+      <ol class="steps">
+        <li class="step">
+          <div>
+            <h3>在電腦上安裝並啟動</h3>
+            <ul>
+              <li>安裝 <a href="https://nodejs.org/">Node.js</a>（選 <strong>LTS</strong> 版本，需要 24 以上），照安裝程式一路按下一步。</li>
+              <li>下載程式：會用 Git 的話執行下面的指令；不會的話，到 <a href="https://github.com/dean9703111/multicam-recorder">GitHub 專案頁</a>按綠色的 <strong>Code → Download ZIP</strong> 再解壓縮，然後跳過前兩行，改用 <code>cd</code> 進到解壓縮出來的 <code>multicam-recorder-main</code> 資料夾。</li>
+              <li>打開終端機（macOS 是「終端機」App，Windows 是「PowerShell」），執行：</li>
+            </ul>
+            <div class="code"><button type="button" data-done="已複製" data-fail="請手動複製">複製</button><pre>git clone https://github.com/dean9703111/multicam-recorder.git
+cd multicam-recorder
+npm install
+npm start</pre></div>
+            <p>看到 <code>控制台：http://localhost:8787</code> 就成功了。用瀏覽器打開 <code>http://localhost:8787</code>，畫面上的「開始使用」會帶你確認錄影資料夾（建議選外接 SSD）、配對手機、新增專案。<code>npm install</code> 只有第一次需要；要關掉時在終端機按 <kbd>Ctrl</kbd>＋<kbd>C</kbd>。</p>
+            <div class="figure"><img src="images/setup.png" width="1240" height="530" loading="lazy" decoding="async" alt="控制台的「開始使用」畫面：確認錄影資料夾、配對手機、新增專案三個步驟"></div>
+          </div>
+        </li>
+        <li class="step">
+          <div>
+            <h3>在手機上安裝 App，掃 QR Code 配對</h3>
+            <p>到 <a href="https://github.com/dean9703111/multicam-recorder/releases/latest">Releases</a> 下載 <strong>MultiCamRecorder.apk</strong> 安裝（第一次會要你允許「安裝不明應用程式」）。接著在電腦網頁按「配對手機」，用手機相機掃 QR Code，在打開的網頁按「打開 App 並配對」就完成了。還沒裝 App 的話，掃完打開的網頁裡也有下載連結。<strong>每支手機只要配對一次。</strong></p>
+            <div class="figure"><img src="images/pairing.png" width="2130" height="1235" loading="lazy" decoding="async" alt="配對流程：電腦顯示 QR Code、用手機相機掃描、按「打開 App 並配對」、配對完成"></div>
+          </div>
+        </li>
+        <li class="step">
+          <div>
+            <h3>新增專案，按 R 開始錄影</h3>
+            <ul>
+              <li>在「專案」選單新增專案，影片會存進「錄影資料夾／專案名稱」。</li>
+              <li>在「錄影規格」選解析度（4K、2K、1080p、720p）和構圖輔助框。</li>
+              <li>按 <kbd>R</kbd> 所有手機一起開始、<kbd>S</kbd> 一起停止；停止後影片傳完會自動在監看區播放。</li>
+              <li>錄影時 App 要一直開在前景，螢幕不能關；長時間錄影可以按 App 上的「調暗螢幕」。</li>
+            </ul>
+            <div class="figure"><img src="images/spec-guide.png" width="1440" height="740" loading="lazy" decoding="async" alt="錄影規格選單：4K、2K、1080p、720p 和構圖輔助框，橫拿那台的即時畫面上疊著 9:16 的框，直拿那台本來就是 9:16"></div>
+          </div>
+        </li>
+      </ol>
+      <p class="note"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg><span>更完整的說明（播放、標記、移到垃圾桶、疑難排解）都在 <a href="https://github.com/dean9703111/multicam-recorder#readme">GitHub 的 README</a>。</span></p>
+    </div>
+  </section>
+
+  <section class="section" id="app" aria-labelledby="app-title">
+    <div class="wrap">
+      <span class="kicker">PHONE APP</span>
+      <h2 id="app-title">手機 App：架好之後就不用再碰它</h2>
+      <p class="section-lead">開始和停止都由電腦控制。App 畫面上清楚顯示連線狀態、錄影計時、收音來源、變焦倍率和傳輸進度；直拿時畫面也會跟著轉直。</p>
+      <div class="app-shots">
+        <img src="images/phone-app.png" width="1860" height="1348" loading="lazy" decoding="async" alt="手機 App 畫面說明（橫拿）：名稱與連線、錄影計時、收音來源與變焦、傳輸狀態、調暗螢幕、掃描與清除、構圖輔助框">
+        <img src="images/phone-app-portrait.png" width="1140" height="1213" loading="lazy" decoding="async" alt="手機 App 直拿時的畫面：名稱和收音在上面、錄影計時在下一行、三個按鈕在最下面排成一列，錄影中方向鎖住">
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="network" aria-labelledby="network-title">
+    <div class="wrap">
+      <span class="kicker">NETWORK</span>
+      <h2 id="network-title">網路怎麼接，影片傳得最快</h2>
+      <div class="figure"><img src="images/network.png" width="1860" height="991" loading="lazy" decoding="async" alt="網路怎麼接最快：最推薦電腦接網路線；也可以讓電腦連 5 GHz、手機連 2.4 GHz；避免全部擠在同一個頻段、訪客網路和 VPN"></div>
+      <ul class="checks">
+        <li><strong>最好讓電腦接網路線</strong>：每支手機的影片在空中只要走一段。</li>
+        <li><strong>或讓手機和電腦分開頻段</strong>：例如手機連 2.4 GHz、電腦連 5 GHz，兩邊不搶同一個頻道。</li>
+        <li><strong>不要用訪客網路</strong>：裝置之間通常被隔離，手機會連不到電腦；開著 VPN 也可能連不到。</li>
+        <li>兩台都錄 4K 時合計約 80 Mbps。錄影中傳不完沒關係，停止後會自動補完。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="section" id="specs" aria-labelledby="specs-title">
+    <div class="wrap">
+      <span class="kicker">SPECS</span>
+      <h2 id="specs-title">規格一覽</h2>
+      <div class="table-wrap">
+        <table>
+          <caption class="visually-hidden">多機錄影的規格</caption>
+          <tbody>
+            <tr><th scope="row">價格</th><td><strong>免費</strong>，MIT 授權開源</td></tr>
+            <tr><th scope="row">電腦</th><td>macOS、Windows，需要 Node.js 24 以上</td></tr>
+            <tr><th scope="row">手機</th><td>Android 12 以上，<strong>最多 10 台</strong>；目前沒有 iPhone 版</td></tr>
+            <tr><th scope="row">解析度</th><td>4K（3840×2160）、2K（2560×1440）、1080p、720p，每秒 30 格；直拿時寬高對調</td></tr>
+            <tr><th scope="row">影片格式</th><td>MP4（H.264 影像、AAC 聲音），4K 約 40 Mbps</td></tr>
+            <tr><th scope="row">單段長度</th><td>最長 30 分鐘；4K 每台約 9 GB</td></tr>
+            <tr><th scope="row">連線方式</th><td>手機和電腦連同一個 Wi-Fi，影片只在區域網路裡傳輸</td></tr>
+            <tr><th scope="row">收音</th><td>手機內建麥克風，或 USB、耳機孔外接麥克風</td></tr>
+            <tr><th scope="row">即時畫面</th><td>每秒約 5 張（橫拿 640×360、直拿 360×640）</td></tr>
+            <tr><th scope="row">介面語言</th><td>繁體中文</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="faq" aria-labelledby="faq-title">
+    <div class="wrap">
+      <span class="kicker">FAQ</span>
+      <h2 id="faq-title">常見問題</h2>
+      <div class="faq">
+        <details open><summary>多機錄影要付費嗎？</summary><div class="answer"><p><strong>不用。</strong>多機錄影是 MIT 授權的開源軟體，電腦端和手機 App 都免費，沒有廣告，也不用訂閱或註冊帳號。</p></div></details>
+        <details><summary>可以用 iPhone 嗎？</summary><div class="answer"><p><strong>目前只有 Android 12 以上的 App。</strong>電腦和手機之間的通訊格式是公開的（<a href="https://github.com/dean9703111/multicam-recorder/blob/main/server/protocol.ts">server/protocol.ts</a>），其他平台照著實作就能接上。</p></div></details>
+        <details><summary>電腦端支援 Windows 嗎？</summary><div class="answer"><p><strong>支援。</strong>每次更新程式，GitHub Actions 都會在 Windows、macOS、Linux 上用兩支模擬手機把配對、即時畫面、同時錄影、傳檔和驗證整個流程跑一遍。實際使用的是 Apple Silicon 的 Mac，Windows 還沒有人用實機錄過，遇到問題歡迎<a href="https://github.com/dean9703111/multicam-recorder/issues">開 issue</a>。</p></div></details>
+        <details><summary>需要網路嗎？影片會上傳到雲端嗎？</summary><div class="answer"><p><strong>不會上傳到雲端。</strong>錄影和傳檔只在你的手機和電腦之間進行，走同一個 Wi-Fi 的區域網路，不需要任何帳號；影片存在電腦上你選的錄影資料夾。只有第一次下載程式和 App 時需要上網。</p></div></details>
+        <details><summary>錄影畫質會受 Wi-Fi 影響嗎？</summary><div class="answer"><p><strong>不會。</strong>影片是在手機上用原生畫質錄的，Wi-Fi 只負責傳檔和控制；Wi-Fi 慢的時候只是傳得比較久，停止後會把剩下的補完。</p></div></details>
+        <details><summary>和把手機畫面串流到電腦（例如當成 OBS 的攝影機）有什麼不同？</summary><div class="answer"><p>串流的做法是把畫面即時傳到電腦，畫質會受網路影響，適合直播。<strong>多機錄影是在每支手機上錄原生畫質，再把檔案傳回電腦</strong>，適合錄完要剪輯的拍攝；它沒有直播功能。</p></div></details>
+        <details><summary>最多可以接幾支手機？</summary><div class="answer"><p><strong>10 支。</strong>手機越多，Wi-Fi 頻寬需求越大，兩台 4K 一起錄合計約 80 Mbps，請參考<a href="#network">網路設定</a>。</p></div></details>
+        <details><summary>可以同時錄直式和橫式嗎？</summary><div class="answer"><p><strong>可以。</strong>手機直拿就錄 9:16、橫拿就錄 16:9，同一次錄影裡可以混著用，例如一台錄長影片、一台錄短影音，做法請看<a href="#long-short">這一節</a>。</p></div></details>
+        <details><summary>多支手機錄的影片怎麼對齊？</summary><div class="answer"><p>電腦會先和每支手機對時，<strong>約好同一刻開始</strong>，清單上會顯示各台實際的開始時間差。要精準到同一格畫面，建議用剪輯軟體依音訊自動同步。</p></div></details>
+        <details><summary>可以用外接麥克風嗎？</summary><div class="answer"><p><strong>可以。</strong>手機接上 USB 或耳機孔麥克風時會自動改用它收音，App 和電腦網頁都會顯示目前用的是哪一支。</p></div></details>
+        <details><summary>怎麼更新到新版？</summary><div class="answer"><p>手機下載新的 <strong>MultiCamRecorder.apk</strong> 直接安裝，會覆蓋舊版，配對和設定都會保留；電腦在專案資料夾執行 <code>git pull</code>，再重新 <code>npm start</code>。</p></div></details>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="final-title">
+    <div class="wrap">
+      <div class="final">
+        <h2 id="final-title">讓手邊的手機，變成多機位攝影機</h2>
+        <p>免費、開源，不用註冊。下載 App、在電腦上啟動控制台，十分鐘內就能開始錄。</p>
+        <div class="cta-row">
+          <a class="btn btn-rec" href="https://github.com/dean9703111/multicam-recorder/releases/latest"><span class="dot" aria-hidden="true"></span>下載 Android App</a>
+          <a class="btn btn-ghost" href="https://github.com/dean9703111/multicam-recorder">在 GitHub 查看原始碼</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <a class="brand" href="./"><img src="assets/favicon.svg" width="30" height="30" alt="">多機錄影<small>MULTICAM</small></a>
+        <p>免費開源的手機多機位錄影工具：用電腦一鍵遙控多支 Android 手機同步錄影。</p>
+      </div>
+      <div>
+        <h4>專案</h4>
+        <ul>
+          <li><a href="https://github.com/dean9703111/multicam-recorder">GitHub 原始碼</a></li>
+          <li><a href="https://github.com/dean9703111/multicam-recorder/releases/latest">下載 App（Releases）</a></li>
+          <li><a href="https://github.com/dean9703111/multicam-recorder#readme">完整說明（README）</a></li>
+          <li><a href="https://github.com/dean9703111/multicam-recorder/issues">回報問題</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>更多</h4>
+        <ul>
+          <li><a href="https://github.com/dean9703111/multicam-recorder/blob/main/docs/development.md">開發者文件</a></li>
+          <li><a href="https://github.com/dean9703111/multicam-recorder/blob/main/server/protocol.ts">通訊格式</a></li>
+          <li><a href="llms.txt">llms.txt</a></li>
+          <li><a href="en/" hreflang="en" lang="en">English</a></li>
+        </ul>
+      </div>
+    </div>
+    <p class="fine">MIT 授權・由 <a href="https://deanlin.net/about/">林鼎淵 Dean Lin</a> 開發・最後更新 2026-10-21（v0.3.1）</p>
+  </div>
+</footer>
+<script src="assets/site.js" defer></script>
+</body>
+</html>

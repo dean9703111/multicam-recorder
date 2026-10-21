@@ -32,9 +32,11 @@ echo "sdk.dir=$HOME/Library/Android/sdk" > android/local.properties
 用 USB 線接上電腦，手機跳出「要允許 USB 偵錯嗎？」時，勾選「一律允許」後按「允許」，然後執行：
 
 ```sh
-npm run android:build     # 產生 android/app/build/outputs/apk/debug/app-debug.apk
-npm run android:install   # 安裝到所有已接上、已允許偵錯的手機
+npm run android:build
+npm run android:install
 ```
+
+`android:build` 會產生 `android/app/build/outputs/apk/debug/app-debug.apk`，`android:install` 會把它裝到所有已接上、已允許偵錯的手機。
 
 Windows 上請改用 `cd android` 再 `gradlew.bat :app:assembleDebug`（`JAVA_HOME` 要指到 JDK 21，`android/local.properties` 寫上 Android SDK 的位置），再用 `adb install -r app\build\outputs\apk\debug\app-debug.apk` 安裝。
 
@@ -104,8 +106,10 @@ tools/
   fake-phone.ts            模擬手機，也是通訊格式的參考實作
   smoke-test.ts            端對端測試，CI 在三種作業系統上跑
   install-android.sh       把 APK 裝到所有接上的手機
-docs/
-  images/                  README 的截圖和示意圖
+docs/                      產品網站（GitHub Pages），也放 README 的圖和文件
+  index.html、en/          產品網站的中英文頁面
+  assets/                  網站的樣式、字型、圖示
+  images/                  README 和網站共用的截圖和示意圖
   mockups.html             示意圖的原稿
   development.md           這份文件
 llms.txt                   給 AI 工具讀的專案摘要
@@ -116,6 +120,16 @@ llms.txt                   給 AI 工具讀的專案摘要
 1. 錄影中：手機每次把檔案已經寫好的部分用 `PUT /api/upload/:fileId?offset=N` 傳給電腦，最後 256 KB 先保留，因為可能還在寫入。
 2. 停止後：傳完剩下的部分 → `POST finish` → 雙方同時把整個檔案以 16 MB 分段算 SHA-256 → `POST verify`。不一樣的分段會補傳，直到完全相同。MP4 在停止時會改寫檔頭，所以第 0 段幾乎一定要補傳一次。
 3. 驗證通過後，電腦把 `.part` 改名成 `.mp4`，網頁就能播放。
+
+## 產品網站
+
+`docs/` 整個資料夾就是產品網站，由 GitHub Pages 從 `main` 分支的 `/docs` 發佈。作者的 GitHub 個人網站設了自訂網域，所以網址是 <https://deanlin.net/multicam-recorder/>（英文版在 `/en/`）。
+
+- `index.html`、`en/index.html`：中英文頁面，內容和 README 一致；`assets/` 是共用的樣式、字型（Barlow、Martian Mono，OFL 授權）和圖示，圖片直接用 `docs/images/`。
+- 每頁的 `<head>` 有 SEO 標籤（title、description、canonical、hreflang、Open Graph）和 JSON-LD（SoftwareApplication、FAQPage）。**改了頁面上的常見問題，JSON-LD 裡的 FAQPage 也要跟著改**，兩邊的文字要一樣。
+- `sitemap.xml`、`llms.txt`（給 AI 工具讀的摘要）、`404.html`；`.nojekyll` 讓 GitHub Pages 不經過 Jekyll，直接發佈檔案。
+- 本機預覽：在 `docs/` 執行 `python3 -m http.server`，打開 <http://localhost:8000/>。
+- 搜尋引擎只讀網域根目錄的 robots.txt，這個網站的 robots.txt 由 deanlin.net 那邊管理。
 
 ## 更新 README 的圖
 
@@ -129,3 +143,4 @@ llms.txt                   給 AI 工具讀的專案摘要
 - 手機 App 改了，就要遞增 `android/app/build.gradle.kts` 的 `versionCode` 和 `versionName`，以及 `ServerLink.kt` 的 `APP_VERSION`。
 - 正式版用專用金鑰簽章，設定在 `android/keystore.properties`（不放進 git，沒有這個檔案就只能編 debug 版）。編譯：`cd android && ./gradlew :app:assembleRelease`。
 - Release 附的檔案名稱固定叫 `MultiCamRecorder.apk`，不要帶版號：配對網頁的下載連結指向 `releases/latest/download/MultiCamRecorder.apk`。
+- 產品網站上的版本號和日期也要更新：`docs/index.html`、`docs/en/index.html`（頁面上的「最新版」、頁尾和 JSON-LD 的 `softwareVersion`、`dateModified`），以及 `docs/sitemap.xml` 的 `lastmod`。

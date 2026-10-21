@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="96" height="96" role="img" aria-label="MultiCam Recorder 多機錄影">
+  <!-- 和 App 圖示（android/app/src/main/res/drawable/ic_launcher.xml）同一個樣子 -->
+  <circle cx="24" cy="24" r="24" fill="#0A0B0D" />
+  <circle cx="24" cy="24" r="16" fill="none" stroke="#ECE8E1" stroke-width="3" />
+  <circle cx="24" cy="24" r="9" fill="#FF3B3B" />
+</svg>
