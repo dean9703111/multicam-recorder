@@ -4,6 +4,7 @@ const STATE_LABEL = { starting: '準備中', recording: '錄影中', finishing: 
 const STOP_NOTE = { maxDuration: '・到上限自動停止', error: '・手機端中斷，提早停止' };
 const GUIDE_LABEL = { none: '不顯示', '9:16': '9:16 直式', '4:5': '4:5', '1:1': '1:1 方形' };
 const GUIDE_RATIO = { '9:16': 9 / 16, '4:5': 4 / 5, '1:1': 1 };
+const ORIENTATION_LABEL = { portrait: '直式 9:16', landscape: '橫式 16:9' };
 
 // ---------- 小工具 ----------
 
@@ -65,6 +66,12 @@ const sizeLabel = (state, w, h) => state.resolutions.find((r) => r.width === w &
 const joinPath = (state, ...parts) => parts.join(state.sep);
 // 可以移到垃圾桶的影片：傳完的和失敗的。錄影中、傳輸中的不能刪。
 const canTrash = (f) => f.state === 'ready' || f.state === 'failed';
+// 構圖輔助框的大小：比畫面窄的框貼齊上下、比畫面寬的貼齊左右，和畫面同比例就不用畫
+function guideStyle(guide, frameRatio) {
+  const r = GUIDE_RATIO[guide];
+  if (!r || Math.abs(r - frameRatio) < 0.01) return null;
+  return r < frameRatio ? { width: `${(r / frameRatio) * 100}%` } : { height: `${(frameRatio / r) * 100}%` };
+}
 // 段數：同一次按開始錄的算一段
 const countTakes = (files) => new Set(files.map((f) => f.takeId)).size;
 const sumBytes = (files) => files.reduce((n, f) => n + ((f.state === 'ready' ? f.size : f.receivedBytes) ?? 0), 0);
@@ -539,8 +546,8 @@ function SpecControl({ state, open, recording, onToggle, run }) {
           </button>`,
         )}
       </div>
-      <p class="menu-hint">照樣錄 16:9，裁切框只疊在手機預覽和這裡的播放器上，方便架機時就照最後要出的比例構圖。</p>
-      <p class="menu-hint">手機不支援選的解析度時，會改錄它能錄的最大 16:9，影片清單上會標出來。</p>
+      <p class="menu-hint">手機橫拿錄 16:9、直拿錄 9:16，開始錄影後方向就固定到停止。裁切框只疊在手機預覽和這裡的播放器上，方便架機時就照最後要出的比例構圖。</p>
+      <p class="menu-hint">手機不支援選的解析度時，會改錄它能錄的最大解析度，影片清單上會標出來。</p>
     </div>`}
   </div>`;
 }
@@ -659,7 +666,6 @@ function Bay({ state, device, letter, t, compact, onStart, onStop, onRemove, not
   const maxMs = (active?.spec.maxDurationSec ?? state.limits.maxDurationSec) * 1000;
   const warn = recording && maxMs - elapsed <= state.limits.warnBeforeSec * 1000;
   const st = device.status;
-  const guide = state.settings.guide;
 
   // 監看區平常顯示即時畫面。錄完的影片傳完後會自動放上來播放（正在播別支時不打斷，手機多時不自動切換），
   // 按「即時畫面」回去；開始錄影時也會切回即時畫面。
@@ -668,6 +674,9 @@ function Bay({ state, device, letter, t, compact, onStart, onStop, onRemove, not
   const prevLatest = useRef(undefined); // 第一次載入時不切換，先看即時畫面
   const latestReady = files.find((f) => f.state === 'ready')?.id ?? null;
   const selected = files.find((f) => f.id === selectedId && f.state === 'ready');
+  // 監看區的方向：播影片時照那支影片，看即時畫面時照手機現在怎麼拿（舊版 App 沒有回報，當成橫的）
+  const portrait = (selected ? selected.orientation : device.status.orientation) === 'portrait';
+  const guideBox = guideStyle(state.settings.guide, portrait ? 9 / 16 : 16 / 9);
   useEffect(() => {
     const idle = videoRef.current?.paused ?? true;
     const fresh = prevLatest.current !== undefined && latestReady && latestReady !== prevLatest.current;
@@ -722,7 +731,7 @@ function Bay({ state, device, letter, t, compact, onStart, onStop, onRemove, not
         <${Meter} label="還能錄" value=${minutesLeft != null ? `${minutesLeft} 分` : '—'} level=${minutesLeft != null && minutesLeft < 35 ? 'warn' : ''} />
       </div>
 
-      <div class="monitor">
+      <div class=${`monitor ${portrait ? 'portrait' : ''}`}>
         ${selected
           ? html`<video
               ref=${videoRef}
@@ -734,8 +743,8 @@ function Bay({ state, device, letter, t, compact, onStart, onStop, onRemove, not
               playsinline
             ></video>`
           : html`<${LiveView} device=${device} />`}
-        ${guide !== 'none' &&
-        html`<div class="guide" style=${{ width: `${(GUIDE_RATIO[guide] / (16 / 9)) * 100}%` }}><span>${guide}</span></div>`}
+        ${guideBox &&
+        html`<div class=${`guide ${guideBox.height ? 'wide' : ''}`} style=${guideBox}><span>${state.settings.guide}</span></div>`}
       </div>
       <div class="monitor-caption">
         ${selected
@@ -744,7 +753,7 @@ function Bay({ state, device, letter, t, compact, onStart, onStop, onRemove, not
                 ${revealLabel(state)}
               </button>
               <button class="btn-link" onClick=${() => setSelectedId(null)}>回到即時畫面</button>`
-          : html`<span>即時畫面</span>`}
+          : html`<span>即時畫面${st.orientation ? `・${ORIENTATION_LABEL[st.orientation]}` : ''}</span>`}
       </div>
       <${ZoomControl} device=${device} run=${run} />
 
@@ -879,7 +888,7 @@ function Clip({ f, state, selected, onPlay, selecting, picked, onPick, run }) {
   else if (f.state === 'recording') detail = `邊錄邊傳，已傳 ${fmtBytes(f.receivedBytes)}${speed}`;
   else if (f.state === 'finishing') detail = progress >= 1 ? '驗證檔案中' : `收尾傳輸 ${Math.floor((progress ?? 0) * 100)}%${speed}`;
   else if (f.state === 'ready') {
-    detail = `${fmtClock(f.durationMs ?? 0)}・${fmtBytes(f.size)}${actual ? `・${actual}` : ''}${STOP_NOTE[f.stopReason] ?? ''}`;
+    detail = `${fmtClock(f.durationMs ?? 0)}・${fmtBytes(f.size)}${actual ? `・${actual}` : ''}${f.orientation === 'portrait' ? '・直式' : ''}${STOP_NOTE[f.stopReason] ?? ''}`;
   } else detail = f.error || '錄影失敗';
 
   // 同一次錄影的另一台，顯示開始時間差多少

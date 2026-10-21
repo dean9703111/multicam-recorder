@@ -1175,6 +1175,12 @@ kbd {
   color: var(--text);
 }
 
+/* 直拿的手機：監看區改成 9:16，高度和橫拿的一樣，並排時才整齊 */
+.monitor.portrait {
+  width: calc(min(100cqi - 32px, 54vh * 16 / 9) * 81 / 256);
+  aspect-ratio: 9 / 16;
+}
+
 /* 播放器上的構圖輔助框：框外調暗 */
 .monitor {
   overflow: hidden;
@@ -1191,6 +1197,17 @@ kbd {
   border-right: 1.5px solid rgba(255, 255, 255, 0.85);
   box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4);
   pointer-events: none;
+}
+
+/* 直式畫面上的 4:5、1:1：框比畫面寬，改成標出上下的範圍 */
+.guide.wide {
+  top: 50%;
+  bottom: auto;
+  left: 0;
+  right: 0;
+  transform: translateY(-50%);
+  border: solid rgba(255, 255, 255, 0.85);
+  border-width: 1.5px 0;
 }
 
 .guide span {
@@ -1314,6 +1331,10 @@ kbd {
 .bays.compact .monitor {
   width: calc(100% - 20px);
   margin: 10px auto;
+}
+
+.bays.compact .monitor.portrait {
+  width: calc((100cqi - 20px) * 81 / 256);
 }
 
 .bays.compact .monitor-caption {

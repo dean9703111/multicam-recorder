@@ -5,10 +5,13 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.ActivityInfo
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
+import android.content.res.Configuration
 import android.graphics.Bitmap
+import android.graphics.Matrix
 import android.graphics.drawable.Drawable
 import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
@@ -36,6 +39,7 @@ import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.TextView
 import android.widget.Toast
 import com.google.mlkit.vision.barcode.common.Barcode
@@ -50,11 +54,19 @@ import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.File
 import kotlin.concurrent.thread
+import kotlin.math.roundToInt
 
 // 唯一的畫面：相機預覽加上狀態。錄影的開始和停止都由電腦控制。
 // App 必須留在前景、螢幕不能關（Android 不讓背景 App 用相機），切到背景時會先把錄影正常收尾。
+// 畫面跟著手機怎麼拿轉向，直拿錄直的、橫拿錄橫的。
 class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
-    private class Recording(val fileId: String, val file: File, val maxDurationSec: Int, val warnBeforeSec: Int) {
+    private class Recording(
+        val fileId: String,
+        val file: File,
+        val maxDurationSec: Int,
+        val warnBeforeSec: Int,
+        val orientation: String, // 開始時鎖住的方向
+    ) {
         var startedAt = 0L // 手機時間；0 表示還沒到開始時間
         var stopping = false
     }
@@ -81,7 +93,15 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
     private var surface: Surface? = null
     private var cameraReady = false
     private var videoSize = Size(3840, 2160) // 預設 4K，收到電腦的設定後更新
+    private var overlayPortrait = false // 目前的狀態列是不是直拿的版面
+
+    // 錄影的方向在開始時就決定了，錄影中鎖住畫面方向，預覽和即時畫面才會跟錄的一樣
     private var recording: Recording? = null
+        set(value) {
+            field = value
+            requestedOrientation =
+                if (value != null) ActivityInfo.SCREEN_ORIENTATION_LOCKED else ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+        }
     private var recordingMic: String? = null
     private var dimmed = false
     private var wifiLock: WifiManager.WifiLock? = null
@@ -89,11 +109,12 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
     private var disconnectedSince = SystemClock.elapsedRealtime() // 連不上太久就提示檢查網路
     private lateinit var previewView: SurfaceView
 
-    // 即時畫面：電腦上有人在看時，大約每秒 5 張把預覽畫面縮成 640×360 的 JPEG 送過去。
+    // 即時畫面：電腦上有人在看時，大約每秒 5 張把預覽畫面縮成長邊 640 的 JPEG 送過去。
     // 用 PixelCopy 從預覽複製，不必在相機多開一路影像，錄影的設定不受影響。
+    // PixelCopy 拿到的一律是手機在自然方向（一般手機是直拿）時正的畫面，所以照這個寬高複製，再依螢幕方向轉正。
     private val previewThread = HandlerThread("preview").apply { start() }
     private val previewHandler = Handler(previewThread.looper)
-    private val previewBitmap = Bitmap.createBitmap(640, 360, Bitmap.Config.ARGB_8888)
+    private lateinit var previewBitmap: Bitmap
     private var previewOn = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -105,26 +126,18 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
         moviesDir = getExternalFilesDir(Environment.DIRECTORY_MOVIES)!!
         camera = CameraRecorder(this, this)
         videoSize = camera.videoSize(videoSize.width, videoSize.height)
+        val natural = camera.naturalPreviewSize
+        val scale = 640f / maxOf(natural.width, natural.height)
+        previewBitmap = Bitmap.createBitmap(
+            (natural.width * scale).roundToInt(),
+            (natural.height * scale).roundToInt(),
+            Bitmap.Config.ARGB_8888,
+        )
         uploader = Uploader(store) { main.post { render() } }
         link = ServerLink(store, this)
 
-        nameView = findViewById(R.id.name)
-        connectionView = findViewById(R.id.connection)
-        timerView = findViewById(R.id.timer)
-        micView = findViewById(R.id.mic)
-        uploadView = findViewById(R.id.upload)
         guideView = findViewById(R.id.guide)
-        scanButton = findViewById<Button>(R.id.scan).apply { setOnClickListener { scan() } }
-        scanBackground = scanButton.background
-        scanHighlight = scanBackground?.constantState?.newDrawable(resources, theme)?.mutate()?.apply { setTintList(RED_TINT) }
-        dimButton = findViewById<Button>(R.id.dim).apply { setOnClickListener { toggleDim() } }
-        cleanButton = findViewById<Button>(R.id.clean).apply { setOnClickListener { confirmClean() } }
-        // 權限被拒絕過，系統就不會再問，只能到 App 的設定頁打開
-        findViewById<View>(R.id.status).setOnClickListener {
-            if (!hasPermissions()) {
-                startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)))
-            }
-        }
+        bindOverlay()
 
         val preview = findViewById<SurfaceView>(R.id.preview)
         previewView = preview
@@ -143,15 +156,6 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
                 camera.close()
             }
         })
-
-        // 避開瀏海和打孔鏡頭
-        val overlay = findViewById<View>(R.id.overlay)
-        val pad = overlay.paddingLeft
-        overlay.setOnApplyWindowInsetsListener { v, insets ->
-            val c = insets.getInsets(WindowInsets.Type.displayCutout() or WindowInsets.Type.systemBars())
-            v.setPadding(pad + c.left, pad + c.top, pad + c.right, pad + c.bottom)
-            insets
-        }
 
         getSystemService(AudioManager::class.java).registerAudioDeviceCallback(object : AudioDeviceCallback() {
             override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>) {
@@ -201,6 +205,19 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) hideSystemBars()
+    }
+
+    // 轉向時只換狀態列的版面，相機預覽、錄影和連線都不受影響
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        if ((newConfig.orientation == Configuration.ORIENTATION_PORTRAIT) != overlayPortrait) {
+            val root = findViewById<FrameLayout>(R.id.root)
+            root.removeView(findViewById(R.id.overlay))
+            layoutInflater.inflate(R.layout.overlay, root, true)
+            bindOverlay()
+        }
+        sendStatus() // 電腦上的監看區跟著換方向
+        render()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -273,19 +290,29 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
                 main.postDelayed(this, PREVIEW_INTERVAL_MS)
                 return
             }
+            // 螢幕轉了幾度，複製出來的畫面就反方向轉回去，變成螢幕上看到的樣子
+            val rotation = (360 - displayRotationDegrees()) % 360
             PixelCopy.request(previewView, previewBitmap, { result ->
-                // 在 preview 執行緒壓縮，不卡畫面
-                val jpeg = if (result == PixelCopy.SUCCESS) {
-                    ByteArrayOutputStream().also { previewBitmap.compress(Bitmap.CompressFormat.JPEG, 60, it) }.toByteArray()
-                } else {
-                    null
-                }
+                // 在 preview 執行緒轉正、壓縮，不卡畫面
+                val jpeg = if (result == PixelCopy.SUCCESS) jpegOf(previewBitmap, rotation) else null
                 main.post {
                     if (jpeg != null && previewOn) link.sendFrame(jpeg)
                     if (previewOn) main.postDelayed(this, PREVIEW_INTERVAL_MS)
                 }
             }, previewHandler)
         }
+    }
+
+    private fun jpegOf(bitmap: Bitmap, rotation: Int): ByteArray {
+        val upright = if (rotation == 0) {
+            bitmap
+        } else {
+            val matrix = Matrix().apply { postRotate(rotation.toFloat()) }
+            Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, false)
+        }
+        val jpeg = ByteArrayOutputStream().also { upright.compress(Bitmap.CompressFormat.JPEG, 60, it) }.toByteArray()
+        if (upright !== bitmap) upright.recycle()
+        return jpeg
     }
 
     private fun applySpec(spec: JSONObject) {
@@ -306,8 +333,8 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
 
         val spec = CameraRecorder.Spec(videoSize, msg.getInt("fps"), msg.getInt("bitrate"), msg.getInt("maxDurationSec"))
         val file = File(moviesDir, msg.getString("fileName"))
-        val rec = Recording(fileId, file, spec.maxDurationSec, msg.optInt("warnBeforeSec", 180))
-        recording = rec
+        val rec = Recording(fileId, file, spec.maxDurationSec, msg.optInt("warnBeforeSec", 180), orientationName())
+        recording = rec // 從這裡開始鎖住方向，下面算的錄影方向才不會變
         val delay = (link.toLocalTime(msg.getLong("startAt")) - System.currentTimeMillis()).coerceAtLeast(0)
         val hint = camera.orientationHint(displayRotationDegrees())
         camera.start(file, spec, hint, SystemClock.uptimeMillis() + delay) { result ->
@@ -318,7 +345,8 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
                 link.send(
                     JSONObject().put("type", "recordingStarted").put("fileId", fileId)
                         .put("startedAt", link.toServerTime(started.wallClockMs))
-                        .put("width", spec.size.width).put("height", spec.size.height), // 不支援時已經降級過
+                        .put("width", spec.size.width).put("height", spec.size.height) // 不支援時已經降級過
+                        .put("orientation", rec.orientation),
                     queueIfOffline = true,
                 )
             }.onFailure { e ->
@@ -479,12 +507,49 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
                 .put("recordingFileId", recording?.fileId ?: JSONObject.NULL)
                 .put("audioInput", micLabel())
                 .put("zoom", camera.zoom.toDouble())
-                .put("zoomRange", JSONArray().put(camera.zoomRange.lower.toDouble()).put(camera.zoomRange.upper.toDouble())),
+                .put("zoomRange", JSONArray().put(camera.zoomRange.lower.toDouble()).put(camera.zoomRange.upper.toDouble()))
+                .put("orientation", orientationName()),
             queueIfOffline = false,
         )
     }
 
+    private fun orientationName() =
+        if (resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT) "portrait" else "landscape"
+
     private fun micLabel(): String = recordingMic ?: camera.externalMic()?.let(camera::describe) ?: "手機內建"
+
+    // 狀態列的版面直拿、橫拿各一份（layout-port/overlay.xml），換版面後重新接上
+    private fun bindOverlay() {
+        overlayPortrait = resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT
+        nameView = findViewById(R.id.name)
+        connectionView = findViewById(R.id.connection)
+        timerView = findViewById(R.id.timer)
+        micView = findViewById(R.id.mic)
+        uploadView = findViewById(R.id.upload)
+        scanButton = findViewById<Button>(R.id.scan).apply { setOnClickListener { scan() } }
+        scanBackground = scanButton.background
+        scanHighlight = scanBackground?.constantState?.newDrawable(resources, theme)?.mutate()?.apply { setTintList(RED_TINT) }
+        dimButton = findViewById<Button>(R.id.dim).apply {
+            setOnClickListener { toggleDim() }
+            setText(if (dimmed) R.string.undim else R.string.dim)
+        }
+        cleanButton = findViewById<Button>(R.id.clean).apply { setOnClickListener { confirmClean() } }
+        // 權限被拒絕過，系統就不會再問，只能到 App 的設定頁打開
+        findViewById<View>(R.id.status).setOnClickListener {
+            if (!hasPermissions()) {
+                startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)))
+            }
+        }
+        // 避開瀏海和打孔鏡頭
+        val overlay = findViewById<View>(R.id.overlay)
+        val pad = overlay.paddingLeft
+        overlay.setOnApplyWindowInsetsListener { v, insets ->
+            val c = insets.getInsets(WindowInsets.Type.displayCutout() or WindowInsets.Type.systemBars())
+            v.setPadding(pad + c.left, pad + c.top, pad + c.right, pad + c.bottom)
+            insets
+        }
+        overlay.requestApplyInsets()
+    }
 
     private fun render() {
         nameView.text = store.name ?: Build.MODEL

@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { diskFormat, formatLabel, GOOD_FORMATS, isFat32 } from './platform.ts';
-import type { Guide, RecordingSpec, Resolution, StopReason } from './protocol.ts';
+import type { Guide, Orientation, RecordingSpec, Resolution, StopReason } from './protocol.ts';
 
 export interface Settings {
   storageDir: string; // 新專案會建在這個資料夾底下
@@ -50,6 +50,7 @@ export interface FileEntry {
   spec: RecordingSpec;
   videoWidth?: number; // 手機實際錄的解析度
   videoHeight?: number;
+  orientation?: Orientation; // 直拿錄的是 portrait；舊版 App 沒有回報，當成橫的
   marked?: boolean; // 使用者標記為好的段落；同一段（takeId）的影片一起標
 }
 

@@ -1,5 +1,5 @@
-// 端對端測試：開一個伺服器和一支模擬手機，把整個流程跑一遍。CI 在 Windows、macOS、Linux 上都會跑。
-// 會用到 ffmpeg（模擬手機錄影用）。測試資料放在暫存資料夾，跑完就清掉；只有被移到垃圾桶的一支小影片會留在系統的垃圾桶裡。
+// 端對端測試：開一個伺服器和兩支模擬手機（一支橫拿、一支直拿），把整個流程跑一遍。CI 在 Windows、macOS、Linux 上都會跑。
+// 會用到 ffmpeg（模擬手機錄影用）。測試資料放在暫存資料夾，跑完就清掉；只有被移到垃圾桶的兩支小影片會留在系統的垃圾桶裡。
 //
 // 用法：node tools/smoke-test.ts
 
@@ -17,6 +17,12 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'multicam-smoke-'));
 const dataDir = path.join(tmp, 'data');
 const recDir = path.join(tmp, '錄影資料夾'); // 中文路徑：Windows 上也要能用
 const PROJECT = '測試專案';
+// 一支橫拿、一支直拿一起錄，例如同時錄長影片和短影音
+const PHONES = [
+  { model: 'Smoke Phone', orientation: 'landscape' },
+  { model: 'Smoke Portrait', orientation: 'portrait' },
+];
+const slugOf = (model: string) => model.replace(/\W+/g, '-').toLowerCase(); // 和 fake-phone.ts 存檔的資料夾名稱一樣
 const logs: string[] = [];
 const children: ChildProcess[] = [];
 
@@ -68,6 +74,15 @@ function start(name: string, args: string[], env: Record<string, string>): Child
 
 const sha256 = (file: string) => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 
+// JPEG 的寬高記在 SOF 區段
+function jpegSize(jpeg: Buffer): { width: number; height: number } {
+  for (let i = 2; i + 9 < jpeg.length; i += 2 + jpeg.readUInt16BE(i + 2)) {
+    const marker = jpeg[i + 1];
+    if (marker >= 0xc0 && marker <= 0xc2) return { width: jpeg.readUInt16BE(i + 7), height: jpeg.readUInt16BE(i + 5) };
+  }
+  throw new Error('JPEG 裡找不到寬高');
+}
+
 // 被移到垃圾桶的檔案找不找得到。macOS 的垃圾桶有隱私保護，讀不到時回傳 undefined。
 function inTrash(name: string, size: number): boolean | undefined {
   if (process.platform === 'linux') return fs.existsSync(path.join(os.homedir(), '.local/share/Trash/files', name));
@@ -108,84 +123,112 @@ async function main(): Promise<void> {
   assert((await api('POST', '/api/projects', { name: PROJECT })).status === 409, '同名專案應該被擋下');
   step('新增專案、擋下不合規的名稱');
 
-  const phone = start('phone', ['tools/fake-phone.ts', '--model', 'Smoke Phone', '--server', BASE, '--encoder', 'libx264'], {
-    RECORDER_DATA_DIR: dataDir,
-  });
-  const device = await waitFor('模擬手機上線', async () => {
-    const d = (await state()).devices[0];
-    return d?.online && d.status.cameraReady && d.status.zoomRange ? d : undefined;
-  });
-  assert(device.features.includes('preview') && device.features.includes('zoom'), '手機應該回報支援即時畫面和變焦');
-  step('模擬手機配對並上線');
-
-  // 即時畫面：用控制台的 WebSocket 訂閱，應該收到這支手機的 JPEG
-  const ui = new WebSocket(`ws://127.0.0.1:${PORT}/ws/ui`);
-  await new Promise((resolve, reject) => ui.once('open', resolve).once('error', reject));
-  const frame = new Promise<Buffer>((resolve) =>
-    ui.on('message', (data, isBinary) => {
-      if (isBinary) resolve(data as Buffer);
+  const phones = PHONES.map((p, i) =>
+    start(`phone${i + 1}`, ['tools/fake-phone.ts', '--model', p.model, '--orientation', p.orientation, '--server', BASE, '--encoder', 'libx264'], {
+      RECORDER_DATA_DIR: dataDir,
     }),
   );
-  ui.send(JSON.stringify({ type: 'watch', deviceIds: [device.id] }));
-  const buf = await Promise.race([frame, sleep(30_000).then(() => undefined)]);
-  assert(buf, '30 秒內沒收到即時畫面');
-  const id = buf.subarray(1, 1 + buf[0]).toString();
-  const jpeg = buf.subarray(1 + buf[0]);
-  assert(id === device.id && jpeg[0] === 0xff && jpeg[1] === 0xd8, '即時畫面的格式不對');
-  ui.close(); // 沒人看之後手機應該停止傳
-  step(`收到即時畫面（${Math.round(jpeg.length / 1024)} KB 的 JPEG）`);
+  const devices = await waitFor('兩支模擬手機上線', async () => {
+    const all = (await state()).devices;
+    const found = PHONES.map((p) => all.find((d: any) => d.model === p.model && d.online && d.status.cameraReady && d.status.zoomRange));
+    return found.every(Boolean) ? found : undefined;
+  });
+  for (const [i, d] of devices.entries()) {
+    assert(d.features.includes('preview') && d.features.includes('zoom'), `${d.name} 應該回報支援即時畫面和變焦`);
+    assert(d.status.orientation === PHONES[i].orientation, `${d.name} 應該回報 ${PHONES[i].orientation}，結果是 ${d.status.orientation}`);
+  }
+  step('兩支模擬手機配對並上線（一支橫拿、一支直拿）');
 
-  await ok('POST', `/api/devices/${device.id}/zoom`, { ratio: 2 });
-  await waitFor('手機回報變焦 2×', async () => (await state()).devices[0].status.zoom === 2, 10_000);
-  await ok('POST', `/api/devices/${device.id}/zoom`, { ratio: 1 });
+  // 即時畫面：用控制台的 WebSocket 訂閱兩支，應該各自收到轉正的 JPEG，直拿的是直的
+  const ui = new WebSocket(`ws://127.0.0.1:${PORT}/ws/ui`);
+  await new Promise((resolve, reject) => ui.once('open', resolve).once('error', reject));
+  const frames = new Map<string, Buffer>();
+  ui.on('message', (data, isBinary) => {
+    if (!isBinary) return;
+    const buf = data as Buffer;
+    frames.set(buf.subarray(1, 1 + buf[0]).toString(), buf.subarray(1 + buf[0]));
+  });
+  ui.send(JSON.stringify({ type: 'watch', deviceIds: devices.map((d) => d.id) }));
+  await waitFor('兩支手機的即時畫面', () => devices.every((d) => frames.has(d.id)));
+  ui.close(); // 沒人看之後手機應該停止傳
+  const sizes = devices.map((d, i) => {
+    const jpeg = frames.get(d.id)!;
+    assert(jpeg[0] === 0xff && jpeg[1] === 0xd8, `${d.name} 的即時畫面格式不對`);
+    const { width, height } = jpegSize(jpeg);
+    assert(height > width === (PHONES[i].orientation === 'portrait'), `${d.name} 的即時畫面方向不對（${width}×${height}）`);
+    return `${width}×${height}`;
+  });
+  step(`收到兩支手機的即時畫面（${sizes.join('、')}）`);
+
+  const [phone] = devices;
+  await ok('POST', `/api/devices/${phone.id}/zoom`, { ratio: 2 });
+  await waitFor('手機回報變焦 2×', async () => (await state()).devices.find((d: any) => d.id === phone.id)?.status.zoom === 2, 10_000);
+  await ok('POST', `/api/devices/${phone.id}/zoom`, { ratio: 1 });
   step('調整變焦倍率');
 
-  // 錄兩段，第二段緊接著開始（剛停止時不能被當成還在錄影）
-  const takes: any[] = [];
+  // 兩支一起錄兩段，第二段緊接著開始（剛停止時不能被當成還在錄影）
+  const takes: any[][] = [];
   for (const seconds of [3, 2]) {
     const r = await ok('POST', '/api/record/start', {});
     assert(r.skipped.length === 0, `開始錄影時被跳過：${r.skipped.join('、')}`);
     await sleep(seconds * 1000 + 800);
     await ok('POST', '/api/record/stop', {});
-    const file = await waitFor(
-      '影片傳完並驗證',
-      async () => (await state()).files.find((f: any) => f.state === 'ready' && !takes.some((t) => t.id === f.id)),
+    const done = new Set(takes.flat().map((f) => f.id));
+    const files = await waitFor(
+      '兩支影片傳完並驗證',
+      async () => {
+        const fresh = (await state()).files.filter((f: any) => !done.has(f.id));
+        const failed = fresh.find((f: any) => f.state === 'failed');
+        if (failed) throw new Error(`${failed.name} 錄影失敗：${failed.error}`);
+        return fresh.length === devices.length && fresh.every((f: any) => f.state === 'ready') ? fresh : undefined;
+      },
       90_000,
     );
-    takes.push(file);
+    takes.push(files);
   }
-  for (const f of takes) {
-    const local = path.join(dataDir, 'fake-phones', 'smoke-phone', f.name);
-    assert(sha256(path.join(projectDir, f.name)) === sha256(local), `${f.name} 和手機上的原檔不一樣`);
+  for (const files of takes) {
+    assert(new Set(files.map((f) => f.takeId)).size === 1, '同一次開始的影片應該屬於同一段');
+    for (const [i, d] of devices.entries()) {
+      const f = files.find((x) => x.deviceId === d.id);
+      assert(f, `${d.name} 少了一支影片`);
+      assert(f.orientation === PHONES[i].orientation, `${f.name} 應該記成 ${PHONES[i].orientation}，結果是 ${f.orientation}`);
+      const local = path.join(dataDir, 'fake-phones', slugOf(PHONES[i].model), f.name);
+      assert(sha256(path.join(projectDir, f.name)) === sha256(local), `${f.name} 和手機上的原檔不一樣`);
+    }
   }
-  step(`錄兩段、傳到專案資料夾，和手機原檔的 SHA-256 一致（${takes.map((f) => f.name).join('、')}）`);
+  step(`兩支一起錄兩段、傳到專案資料夾，和手機原檔的 SHA-256 一致，直式、橫式也記對了（共 ${takes.flat().length} 支）`);
 
-  await ok('POST', `/api/takes/${takes[0].takeId}/mark`, { marked: true });
+  await ok('POST', `/api/takes/${takes[0][0].takeId}/mark`, { marked: true });
   s = await state();
-  assert(s.files.find((f: any) => f.id === takes[0].id)?.marked, '第一段應該被標記');
-  step('標記第一段');
+  assert(takes[0].every((t) => s.files.find((f: any) => f.id === t.id)?.marked), '第一段的兩支影片都應該被標記');
+  step('標記第一段（兩支一起標）');
 
   const trashed = takes[1];
-  const r = await ok('POST', '/api/files/trash', { fileIds: [trashed.id] });
-  assert(r.trashed === 1, '應該移走 1 支影片');
-  assert(!fs.existsSync(path.join(projectDir, trashed.name)), '影片應該不在專案資料夾了');
-  assert(!(await state()).files.some((f: any) => f.id === trashed.id), '清單上應該拿掉了');
-  const found = inTrash(trashed.name, trashed.size);
-  assert(found !== false, `在垃圾桶裡找不到 ${trashed.name}`);
-  step(`把沒標記的第二段移到垃圾桶${found === undefined ? '（這台的垃圾桶有隱私保護，沒辦法確認裡面）' : '，在垃圾桶裡找得到'}`);
+  const r = await ok('POST', '/api/files/trash', { fileIds: trashed.map((f) => f.id) });
+  assert(r.trashed === trashed.length, `應該移走 ${trashed.length} 支影片，結果是 ${r.trashed}`);
+  s = await state();
+  for (const f of trashed) {
+    assert(!fs.existsSync(path.join(projectDir, f.name)), `${f.name} 應該不在專案資料夾了`);
+    assert(!s.files.some((x: any) => x.id === f.id), `${f.name} 應該從清單上拿掉了`);
+  }
+  const found = trashed.map((f) => inTrash(f.name, f.size));
+  const missing = trashed.filter((_, i) => found[i] === false).map((f) => f.name);
+  assert(!missing.length, `在垃圾桶裡找不到 ${missing.join('、')}`);
+  step(`把沒標記的第二段移到垃圾桶${found.includes(undefined) ? '（這台的垃圾桶有隱私保護，沒辦法確認裡面）' : '，在垃圾桶裡找得到'}`);
 
-  fs.unlinkSync(path.join(projectDir, takes[0].name));
-  await waitFor('刪掉的檔案從清單拿掉', async () => !(await state()).files.some((f: any) => f.id === takes[0].id), 15_000);
+  const deleted = takes[0][0];
+  fs.unlinkSync(path.join(projectDir, deleted.name));
+  await waitFor('刪掉的檔案從清單拿掉', async () => !(await state()).files.some((f: any) => f.id === deleted.id), 15_000);
   step('直接刪掉的影片會從清單拿掉');
 
-  await ok('POST', `/api/devices/${device.id}/rename`, { name: '改名測試' });
-  assert((await state()).devices[0].name === '改名測試', '名稱應該改好了');
+  await ok('POST', `/api/devices/${phone.id}/rename`, { name: '改名測試' });
+  assert((await state()).devices.find((d: any) => d.id === phone.id)?.name === '改名測試', '名稱應該改好了');
   step('手機改名');
 
-  phone.kill();
-  await waitFor('手機離線', async () => !(await state()).devices[0]?.online, 15_000);
-  await ok('POST', `/api/devices/${device.id}/remove`, {});
-  assert((await state()).devices.length === 0, '手機應該移除了');
+  for (const p of phones) p.kill();
+  await waitFor('手機離線', async () => (await state()).devices.every((d: any) => !d.online), 15_000);
+  for (const d of devices) await ok('POST', `/api/devices/${d.id}/remove`, {});
+  assert((await state()).devices.length === 0, '手機應該都移除了');
   step('移除離線的手機');
 
   await ok('POST', '/api/projects/end', {});

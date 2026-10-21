@@ -18,12 +18,14 @@
         android:theme="@style/Theme.Recorder"
         android:usesCleartextTraffic="true">
 
+        <!-- 跟著手機怎麼拿轉向（系統的自動旋轉關著也一樣）：直拿錄直的、橫拿錄橫的，錄影中鎖住方向。
+             轉向時不重建畫面，相機和連線才不會中斷 -->
         <activity
             android:name=".MainActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
             android:exported="true"
             android:launchMode="singleTask"
-            android:screenOrientation="landscape">
+            android:screenOrientation="fullSensor">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

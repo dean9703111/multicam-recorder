@@ -71,6 +71,10 @@ class CameraRecorder(private val context: Context, private val listener: Listene
         .filter { it.width * 9 == it.height * 16 && it.width <= 1920 }
         .maxByOrNull { it.width } ?: Size(1280, 720)
 
+    // 手機在自然方向（一般手機是直拿）時，預覽畫面的寬高。感光元件大多轉 90° 裝，寬高要對調。
+    val naturalPreviewSize: Size =
+        if (sensorOrientation % 180 == 90) Size(previewSize.height, previewSize.width) else previewSize
+
     // 以下只在 camera 執行緒存取
     private var device: CameraDevice? = null
     private var session: CameraCaptureSession? = null

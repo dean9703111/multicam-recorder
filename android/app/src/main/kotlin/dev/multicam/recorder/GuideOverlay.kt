@@ -7,8 +7,9 @@ import android.graphics.Paint
 import android.util.AttributeSet
 import android.util.TypedValue
 import android.view.View
+import kotlin.math.abs
 
-// 構圖輔助框：在 16:9 預覽上標出 9:16、4:5 或 1:1 的裁切範圍，框外調暗。只是輔助，錄影照樣是 16:9。
+// 構圖輔助框：在預覽上標出 9:16、4:5 或 1:1 的裁切範圍，框外調暗。只是輔助，錄影照樣是完整的畫面。
 class GuideOverlay(context: Context, attrs: AttributeSet?) : View(context, attrs) {
     private var ratio: Float? = null // 寬 / 高
     private var label = ""
@@ -41,6 +42,7 @@ class GuideOverlay(context: Context, attrs: AttributeSet?) : View(context, attrs
         val r = ratio ?: return
         val w = width.toFloat()
         val h = height.toFloat()
+        if (abs(r - w / h) < 0.01f) return // 直拿時的 9:16 就是整個畫面
         val (cw, ch) = if (r < w / h) h * r to h else w to w / r
         val left = (w - cw) / 2
         val top = (h - ch) / 2

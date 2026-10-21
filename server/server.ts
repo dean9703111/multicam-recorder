@@ -144,6 +144,7 @@ function onDeviceMessage(d: Device, l: Live, m: DeviceMessage): void {
           f.videoWidth = m.width;
           f.videoHeight = m.height;
         }
+        if (m.orientation === 'portrait' || m.orientation === 'landscape') f.orientation = m.orientation;
         save();
       }
       break;

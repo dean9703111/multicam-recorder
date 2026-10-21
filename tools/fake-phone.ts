@@ -3,6 +3,7 @@
 //
 // 用法：node tools/fake-phone.ts --model "Pixel 11 Pro" [--tone 660] [--mic "手機內建"] [--server http://127.0.0.1:8787]
 //                              [--encoder libx264]（預設 macOS 用硬體編碼 h264_videotoolbox，其他系統用 libx264）
+//                              [--orientation portrait]（模擬直拿的手機，預設是橫拿）
 
 import { spawn, execFileSync, type ChildProcess } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -13,6 +14,7 @@ import WebSocket from 'ws';
 import {
   CHUNK_SIZE,
   type DeviceMessage,
+  type Orientation,
   type PairResponse,
   type QrPayload,
   type Resolution,
@@ -28,8 +30,13 @@ const { values: args } = parseArgs({
     mic: { type: 'string', default: '模擬麥克風' }, // 回報給電腦的收音來源
     server: { type: 'string', default: 'http://127.0.0.1:8787' },
     encoder: { type: 'string', default: process.platform === 'darwin' ? 'h264_videotoolbox' : 'libx264' },
+    orientation: { type: 'string', default: 'landscape' },
   },
 });
+
+if (args.orientation !== 'portrait' && args.orientation !== 'landscape') throw new Error('--orientation 只能是 portrait 或 landscape');
+const orientation = args.orientation as Orientation;
+const portrait = orientation === 'portrait';
 
 const model = args.model;
 const slug = model.replace(/\W+/g, '-').toLowerCase();
@@ -178,6 +185,7 @@ function sendStatus(): void {
     audioInput: args.mic,
     zoom,
     zoomRange: ZOOM_RANGE,
+    orientation,
   });
 }
 
@@ -206,7 +214,7 @@ let rec: Rec | undefined;
 
 // 測試畫面：流動的漸層上有一圈刻度，白點每 3 秒繞一圈，下方是音量表；聲音是每秒嗶一聲。
 // 兩支模擬手機同時開始時，白點的位置和嗶聲都會對齊。顏色依手機名稱挑，方便分辨是哪一台。
-// 先用 960×540 畫再放大到要求的解析度，4K 也能即時產生。
+// 先用 960×540（直拿是 540×960）畫再放大到要求的解析度，4K 也能即時產生。
 const PALETTES = [
   { a: ['1c0a0a', 'd11f3a', 'ffb000', '1c0a0a'], b: ['ff4d8d', '1c0a0a'] }, // 紅橘
   { a: ['0a1030', '1d4ed8', '22d3ee', '0a1030'], b: ['8b5cf6', '0a1030'] }, // 藍紫
@@ -233,13 +241,14 @@ function testPattern(width: number, height: number, fps: number, withAudio = tru
   const still = (size: string, alpha: string) =>
     `color=c=white@0:s=${size}:r=${fps}:d=${1 / fps},format=rgba,geq=r=255:g=255:b=255:a='min(255,${alpha})',loop=loop=-1:size=1`;
   const input = (graph: string) => ['-re', '-f', 'lavfi', '-i', graph];
+  const base = portrait ? '540x960' : '960x540';
   return [
-    ...input(`gradients=s=960x540:r=${fps}:n=4:${colors(a)}:seed=3:speed=0.012:type=linear`),
-    ...input(`gradients=s=960x540:r=${fps}:n=2:${colors(b)}:seed=9:speed=0.02:type=radial`),
+    ...input(`gradients=s=${base}:r=${fps}:n=4:${colors(a)}:seed=3:speed=0.012:type=linear`),
+    ...input(`gradients=s=${base}:r=${fps}:n=2:${colors(b)}:seed=9:speed=0.02:type=radial`),
     ...input(`aevalsrc=exprs='0.12*sin(2*PI*${args.tone}*t)+0.4*lt(mod(t,1),0.1)*sin(2*PI*4*${args.tone}*t)':s=48000`),
-    ...input(still('960x540', dial)),
+    ...input(still(base, dial)),
     ...input(still('36x36', dot)),
-    ...input(`color=c=black@0:s=960x540:r=${fps},format=rgba`),
+    ...input(`color=c=black@0:s=${base}:r=${fps},format=rgba`),
     '-filter_complex',
     [
       '[0:v]format=gbrp[a];[1:v]format=gbrp[b];[a][b]blend=all_mode=screen,vignette=angle=PI/5,format=yuv420p[bg]',
@@ -271,7 +280,7 @@ function setZoom(ratio: number): void {
   }
 }
 
-// 每秒 5 張 640×360 的 JPEG。ffmpeg 輸出的 JPEG 一張接一張，用結尾的 FF D9 切開。
+// 每秒 5 張 640×360（直拿是 360×640）的 JPEG。ffmpeg 輸出的 JPEG 一張接一張，用結尾的 FF D9 切開。
 function setPreview(on: boolean): void {
   if (!on) {
     preview?.kill();
@@ -281,7 +290,7 @@ function setPreview(on: boolean): void {
   if (preview) return;
   const proc = spawn(
     'ffmpeg',
-    ['-hide_banner', '-loglevel', 'error', ...testPattern(640, 360, 5, false), '-c:v', 'mjpeg', '-q:v', '6', '-f', 'image2pipe', '-'],
+    ['-hide_banner', '-loglevel', 'error', ...testPattern(portrait ? 360 : 640, portrait ? 640 : 360, 5, false), '-c:v', 'mjpeg', '-q:v', '6', '-f', 'image2pipe', '-'],
     { stdio: ['ignore', 'pipe', 'ignore'] },
   );
   preview = proc;
@@ -312,9 +321,10 @@ function startRecording(m: Extract<ServerMessage, { type: 'start' }>): void {
   const delay = Math.max(0, m.startAt - serverNow());
   r.timer = setTimeout(() => {
     const [width, height] = SIZE[m.resolution].split('x').map(Number);
+    // 真的手機直拿時照樣錄橫的畫面，在檔案裡記著播放時要轉 90°。ffmpeg 即時編碼時寫不了這個記號，所以模擬手機直接錄直的。
     const ffmpegArgs = [
       ...['-hide_banner', '-loglevel', 'error'],
-      ...testPattern(width, height, m.fps),
+      ...testPattern(portrait ? height : width, portrait ? width : height, m.fps),
       ...['-t', String(m.maxDurationSec)],
       // macOS 預設用硬體編碼比較省 CPU；CI 的虛擬機沒有硬體編碼，用 --encoder libx264
       ...['-c:v', args.encoder, ...(args.encoder === 'libx264' ? ['-preset', 'veryfast'] : [])],
@@ -328,7 +338,7 @@ function startRecording(m: Extract<ServerMessage, { type: 'start' }>): void {
     proc.stderr!.on('data', (d) => (stderr += d));
     proc.on('exit', (code) => onRecordingEnded(r, code, stderr));
     jobs.push({ fileId: r.fileId, file: r.file, sent: 0 });
-    sendMsg({ type: 'recordingStarted', fileId: r.fileId, startedAt: Math.round(serverNow()), width, height });
+    sendMsg({ type: 'recordingStarted', fileId: r.fileId, startedAt: Math.round(serverNow()), width, height, orientation });
     log(`開始錄影 ${m.fileName}（${m.resolution}，最長 ${m.maxDurationSec} 秒）`);
   }, delay);
 }
