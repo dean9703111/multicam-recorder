@@ -3,9 +3,12 @@
 <head>
 <meta charset="utf-8" />
 <title>README 示意圖</title>
-<!-- README 示意圖的原稿（how-it-works、pairing、phone-app）。
-     在專案根目錄執行 python3 -m http.server，打開 http://localhost:8000/docs/mockups.html，
-     把每個 section 各自截圖存到 docs/images/。console.png 和 spec-guide.png 是用模擬手機實際操作控制台截的圖。 -->
+<!-- README 示意圖的原稿：每個 section 對應 docs/images/ 裡的一張圖
+     architecture → how-it-works.png、pairing → pairing.png、app → phone-app.png、app-portrait → phone-app-portrait.png、
+     use-cases → use-cases.png、long-short → long-short.png、network → network.png、
+     social → social-preview.png（GitHub 的 Settings → Social preview 要自己上傳）。
+     在專案根目錄執行 python3 -m http.server，打開 http://localhost:8000/docs/mockups.html，把每個 section 各自截圖。
+     console.png、spec-guide.png、select-trash.png、setup.png 是用模擬手機實際操作控制台截的圖。 -->
 <style>
 @font-face { font-family: 'Barlow Condensed'; font-weight: 600; src: url(../node_modules/@fontsource/barlow-condensed/files/barlow-condensed-latin-600-normal.woff2); }
 @font-face { font-family: 'Barlow Condensed'; font-weight: 700; src: url(../node_modules/@fontsource/barlow-condensed/files/barlow-condensed-latin-700-normal.woff2); }
@@ -192,6 +195,104 @@ body { margin: 0; padding: 30px; background: #333; font-family: var(--body); col
 .legend-row .badge { position: static; }
 .warn-strip { display: flex; align-items: center; gap: 14px; margin-top: 24px; padding: 12px 16px; border: 1px solid rgba(255, 176, 0, 0.45); border-radius: 6px; background: rgba(255, 176, 0, 0.08); font-size: 14px; color: #ffd27a; }
 .warn-strip .sample { font: 500 17px var(--mono); color: var(--amber); background: rgba(10, 11, 13, 0.8); padding: 5px 12px; border-radius: 6px; white-space: nowrap; }
+
+/* ---------- 使用情境：四種拍法（俯視示意） ---------- */
+#use-cases { width: 1240px; padding: 36px 44px 40px; }
+.uc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 26px; }
+.uc { border: 1px solid var(--line-hi); border-radius: 10px; background: rgba(18, 21, 25, 0.9); overflow: hidden; }
+.uc-map { display: block; width: 100%; height: auto; background:
+  linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px) 0 0 / 24px 24px,
+  linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px) 0 0 / 24px 24px,
+  #0e1114; border-bottom: 1px solid var(--line); }
+.uc-map text { font: 600 12px var(--label); letter-spacing: 0.04em; }
+.uc-map .who { fill: var(--muted); font: 500 12px var(--body); letter-spacing: 0; }
+.uc-text { padding: 16px 20px 18px; }
+.uc-text .uc-n { font: 700 13px var(--label); letter-spacing: 0.2em; color: var(--cyan); }
+.uc-text b { display: block; margin-top: 2px; font: 700 23px var(--label); letter-spacing: 0.03em; }
+.uc-text p { margin: 6px 0 0; color: var(--muted); font-size: 14.5px; line-height: 1.6; }
+.uc-tags { display: flex; gap: 8px; margin-top: 12px; }
+.uc-tags span { padding: 2px 9px; border: 1px solid var(--line-hi); border-radius: 3px; font-size: 12.5px; color: var(--text); }
+
+/* ---------- 長影片＋短影音 ---------- */
+#long-short { width: 1240px; padding: 36px 44px 40px; }
+.ls { display: grid; grid-template-columns: 1fr 300px; gap: 40px; margin-top: 28px; align-items: start; }
+.ls .phone.landscape { width: 640px; height: 300px; border-radius: 30px; }
+.ls .phone.portrait { width: 280px; height: 598px; border-radius: 34px; }
+.ls .phone .scene { inset: 0; }
+.ls-cap { margin-top: 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.ls-cap .cam { font: 700 15px var(--label); letter-spacing: 0.12em; padding: 2px 8px; border-radius: 3px; }
+.ls-cap .cam.a { color: #06121b; background: var(--cyan); }
+.ls-cap .cam.b { color: #1b0606; background: #ff7b7b; }
+.ls-cap b { font: 700 21px var(--label); letter-spacing: 0.03em; }
+.ls-cap .arrow { color: var(--faint); font-size: 18px; }
+.ls-cap .out { font-size: 15px; color: var(--text); }
+.ls-cap .out small { display: block; color: var(--muted); font: 500 12px var(--mono); margin-top: 2px; }
+.ls .rec-chip { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 6; font: 500 13px var(--mono); color: var(--red); background: rgba(10, 11, 13, 0.75); padding: 4px 10px; border-radius: 4px; white-space: nowrap; }
+/* 直拿那台拍得近一點：人比較大，只拍到胸口 */
+.scene.close .person { width: 80%; height: 46%; }
+.scene.close .person .body { height: 72%; }
+.scene.close .desk { height: 12%; }
+.scene.close .mic { left: 64%; bottom: 8%; }
+.ls .phone.portrait .rec-chip { top: 38px; }
+.px { margin-top: 30px; padding: 18px 22px 20px; border: 1px solid var(--line-hi); border-radius: 10px; background: rgba(18, 21, 25, 0.86); }
+.px-title { font: 700 21px var(--label); letter-spacing: 0.03em; }
+.px-title em { font-style: normal; color: var(--amber); }
+.px-row { display: flex; align-items: flex-end; gap: 46px; margin-top: 16px; }
+.px-item { display: flex; align-items: flex-end; gap: 14px; }
+.px-frame { position: relative; border: 2px solid var(--line-hi); background: repeating-linear-gradient(45deg, #15191e 0 6px, #111418 6px 12px); }
+.px-frame .crop { position: absolute; top: -2px; bottom: -2px; left: 50%; transform: translateX(-50%); border: 2px solid #ff7b7b; background: rgba(255, 123, 123, 0.22); }
+.px-frame.native { border-color: #ff7b7b; background: rgba(255, 123, 123, 0.22); }
+.px-label { font-size: 14px; color: var(--muted); line-height: 1.55; }
+.px-label b { display: block; color: var(--text); font: 700 17px var(--label); letter-spacing: 0.03em; }
+.px-label code { font: 500 13px var(--mono); color: var(--text); }
+.px-vs { align-self: center; font: 700 22px var(--label); color: var(--faint); }
+
+/* ---------- 直拿時的 App ---------- */
+#app-portrait { width: 760px; padding: 36px 44px 40px; }
+.ap { display: grid; grid-template-columns: 300px 1fr; gap: 40px; margin-top: 28px; align-items: center; }
+.ap .phone.portrait { width: 300px; height: 640px; border-radius: 38px; }
+.ap .phone-screen { background: #000; }
+.ap .pv { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); aspect-ratio: 9 / 16; }
+.ap .pill { font-size: 12px; padding: 7px 10px; }
+.ap .pill b { font-size: 16px; }
+.ap .timer2 { position: absolute; left: 50%; top: 92px; transform: translateX(-50%); font: 500 15px var(--mono); color: var(--red); white-space: nowrap; }
+.ap .btn-row { position: absolute; left: 12px; right: 12px; bottom: 14px; display: grid; grid-template-columns: 1.25fr 1fr 1.1fr; gap: 6px; }
+.ap .btn-row .btn { text-align: center; padding: 8px 4px; font-size: 11.5px; }
+.ap-notes { display: grid; gap: 14px; }
+.ap-notes div { display: grid; grid-template-columns: 30px 1fr; gap: 10px; font-size: 14.5px; line-height: 1.55; color: var(--muted); }
+.ap-notes b { display: block; color: var(--text); font-size: 16px; }
+.ap-notes .badge { position: static; }
+
+/* ---------- 網路設定 ---------- */
+#network { width: 1240px; padding: 36px 44px 40px; }
+.net { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; margin-top: 26px; }
+.net-card { border: 1px solid var(--line-hi); border-radius: 10px; background: rgba(18, 21, 25, 0.9); overflow: hidden; }
+.net-card.good { border-color: rgba(61, 220, 132, 0.45); }
+.net-card.bad { border-color: rgba(255, 59, 59, 0.45); }
+.net-card svg { display: block; width: 100%; height: auto; background: #0e1114; border-bottom: 1px solid var(--line); }
+.net-card svg text { font: 600 13px var(--label); letter-spacing: 0.05em; }
+.net-text { padding: 14px 18px 18px; }
+.net-text .verdict { font: 700 13px var(--label); letter-spacing: 0.2em; }
+.net-card.good .verdict { color: var(--green); }
+.net-card.bad .verdict { color: #ff7b7b; }
+.net-text b { display: block; margin-top: 2px; font: 700 22px var(--label); letter-spacing: 0.03em; }
+.net-text p { margin: 6px 0 0; color: var(--muted); font-size: 14px; line-height: 1.6; }
+.net-text ul { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+.net-text li { font-size: 14px; line-height: 1.55; color: var(--muted); }
+.net-text li strong { display: block; color: var(--text); font-size: 15px; }
+.net-note { margin-top: 18px; padding: 12px 16px; border: 1px solid rgba(89, 194, 255, 0.4); border-radius: 6px; background: rgba(89, 194, 255, 0.07); color: #bfe4ff; font-size: 14px; }
+
+/* ---------- 分享預覽圖（GitHub 的 Social preview，1280×640） ---------- */
+#social { width: 1280px; height: 640px; padding: 64px 0 0 72px; border-radius: 0; }
+#social .logo { width: 84px; height: 84px; }
+#social .name { margin-top: 26px; font: 700 64px/1 var(--label); letter-spacing: 0.01em; }
+#social .name small { display: block; margin-top: 10px; font-size: 40px; color: var(--muted); letter-spacing: 0.06em; }
+#social .tag-line { margin-top: 26px; font-size: 27px; font-weight: 600; width: 560px; line-height: 1.45; }
+#social .chips { display: flex; flex-wrap: wrap; gap: 10px; width: 560px; margin-top: 24px; }
+#social .chips span { padding: 6px 13px; border: 1px solid var(--line-hi); border-radius: 4px; font-size: 18px; background: rgba(18, 21, 25, 0.9); }
+#social .chips span.hot { border-color: rgba(255, 59, 59, 0.6); color: #ffb4b4; }
+#social .foot { position: absolute; left: 72px; bottom: 50px; font: 500 16px var(--mono); color: var(--muted); }
+#social .shot { position: absolute; right: -150px; top: 70px; width: 760px; border-radius: 12px; border: 1px solid var(--line-hi); box-shadow: 0 40px 90px -20px rgba(0, 0, 0, 0.95); transform: perspective(1400px) rotateY(-14deg) rotateX(4deg); transform-origin: left center; }
 </style>
 </head>
 <body>
@@ -356,6 +457,308 @@ body { margin: 0; padding: 30px; background: #333; font-family: var(--body); col
     <div><span class="badge">7</span><span><b>構圖輔助框</b>在電腦上選 9:16、4:5 或 1:1，錄影照樣是完整的畫面</span></div>
   </div>
   <div class="warn-strip"><span class="sample">● REC 27:12 / 30:00　剩 02:48</span>最後 3 分鐘計時會變成琥珀色並顯示剩餘時間，電腦網頁也會跳出提示並發出提示音</div>
+</section>
+
+<!-- 俯視示意圖共用的人、手機（橫拿、直拿）；視野的顏色：CAM A 藍、CAM B 紅、CAM C 黃 -->
+<svg width="0" height="0" style="position: absolute" aria-hidden="true">
+  <defs>
+    <g id="p-top">
+      <ellipse rx="24" ry="13" fill="#2f6f9e" />
+      <circle cy="2" r="11.5" fill="#e3b590" />
+      <path d="M-11.5 2 A11.5 11.5 0 0 1 11.5 2 Z" fill="#2b211b" />
+    </g>
+    <g id="cam-l">
+      <rect x="-17" y="-10" width="34" height="20" rx="4" fill="#050505" stroke="currentColor" stroke-width="2.4" />
+      <circle cx="-10" cy="0" r="2.6" fill="currentColor" />
+    </g>
+    <g id="cam-p">
+      <rect x="-10" y="-17" width="20" height="34" rx="4" fill="#050505" stroke="currentColor" stroke-width="2.4" />
+      <circle cx="0" cy="-10" r="2.6" fill="currentColor" />
+    </g>
+  </defs>
+</svg>
+<style>
+  .fov { stroke-width: 1.5; stroke-dasharray: 4 5; }
+  .fov.a { fill: rgba(89, 194, 255, 0.15); stroke: rgba(89, 194, 255, 0.7); }
+  .fov.b { fill: rgba(255, 123, 123, 0.14); stroke: rgba(255, 123, 123, 0.7); }
+  .fov.c { fill: rgba(255, 176, 0, 0.13); stroke: rgba(255, 176, 0, 0.7); }
+  .uc-map .lbl { paint-order: stroke; stroke: #0e1114; stroke-width: 5px; stroke-linejoin: round; }
+  .uc-map .lbl.a { fill: #59c2ff; }
+  .uc-map .lbl.b { fill: #ff7b7b; }
+  .uc-map .lbl.c { fill: #ffb000; }
+  .uc-map .who { paint-order: stroke; stroke: #0e1114; stroke-width: 5px; stroke-linejoin: round; }
+  .table { fill: #5a4331; stroke: #84634a; stroke-width: 2; }
+</style>
+
+<!-- ============ 使用情境：四種拍法 ============ -->
+<section id="use-cases" class="canvas">
+  <div class="kicker">USE CASES</div>
+  <div class="title">手邊的手機就是多機位攝影機：這些場合都用得上</div>
+  <div class="uc-grid">
+    <div class="uc">
+      <svg class="uc-map" viewBox="0 0 540 220" aria-hidden="true">
+        <rect class="table" x="204" y="84" width="132" height="56" rx="26" />
+        <polygon class="fov a" points="472,46 134,68 152,158" />
+        <polygon class="fov b" points="68,46 406,68 388,158" />
+        <path d="M298 104 C 360 94, 420 76, 456 56" fill="none" stroke="#ffb000" stroke-width="2" stroke-dasharray="3 4" />
+        <circle cx="292" cy="106" r="7" fill="#111" stroke="#ffb000" stroke-width="2" />
+        <use href="#p-top" transform="translate(170 112) rotate(-90)" />
+        <use href="#p-top" transform="translate(370 112) rotate(90)" />
+        <use href="#cam-l" transform="translate(472 46)" style="color: #59c2ff" />
+        <use href="#cam-l" transform="translate(68 46)" style="color: #ff7b7b" />
+        <text class="lbl a" x="522" y="22" text-anchor="end">CAM A・拍主持人</text>
+        <text class="lbl b" x="18" y="22">CAM B・拍來賓</text>
+        <text class="who" x="170" y="160" text-anchor="middle">主持人</text>
+        <text class="who" x="370" y="160" text-anchor="middle">來賓</text>
+        <text class="lbl c" x="292" y="196" text-anchor="middle">外接麥克風接在 CAM A</text>
+      </svg>
+      <div class="uc-text">
+        <div class="uc-n">01</div>
+        <b>訪談、Podcast</b>
+        <p>主持人和來賓各一台，外接麥克風接在其中一台當主音軌。剪輯時隨時切換角度，不用擔心誰的反應沒拍到。</p>
+        <div class="uc-tags"><span>2 台橫拿</span><span>外接麥克風</span></div>
+      </div>
+    </div>
+
+    <div class="uc">
+      <svg class="uc-map" viewBox="0 0 540 220" aria-hidden="true">
+        <rect class="table" x="198" y="80" width="144" height="24" rx="6" />
+        <polygon class="fov a" points="196,184 98,26 398,26" />
+        <polygon class="fov b" points="344,184 228,34 318,34" />
+        <use href="#p-top" transform="translate(270 56)" />
+        <use href="#cam-l" transform="translate(196 186)" style="color: #59c2ff" />
+        <use href="#cam-p" transform="translate(344 186)" style="color: #ff7b7b" />
+        <text class="lbl a" x="18" y="178">CAM A・橫拿 16:9</text>
+        <text class="who" x="18" y="198">→ YouTube 長影片</text>
+        <text class="lbl b" x="372" y="178">CAM B・直拿 9:16</text>
+        <text class="who" x="372" y="198">→ Reels／Shorts</text>
+      </svg>
+      <div class="uc-text">
+        <div class="uc-n">02</div>
+        <b>同時做長影片和短影音</b>
+        <p>一台橫拿錄 YouTube 用的 16:9，一台直拿錄 Reels、Shorts、TikTok 用的 9:16。同一段內容一次錄好兩種版本，不用從橫的畫面硬裁。</p>
+        <div class="uc-tags"><span>橫拿 16:9</span><span>直拿 9:16</span></div>
+      </div>
+    </div>
+
+    <div class="uc">
+      <svg class="uc-map" viewBox="0 0 540 220" aria-hidden="true">
+        <rect x="150" y="14" width="240" height="9" rx="3" fill="#cfd6de" />
+        <polygon class="fov a" points="270,198 118,12 422,12" />
+        <polygon class="fov b" points="484,68 196,28 212,94" />
+        <use href="#p-top" transform="translate(222 60)" />
+        <g fill="#353c45">
+          <circle cx="160" cy="128" r="9" /><circle cx="198" cy="128" r="9" /><circle cx="236" cy="128" r="9" />
+          <circle cx="304" cy="128" r="9" /><circle cx="342" cy="128" r="9" /><circle cx="380" cy="128" r="9" />
+          <circle cx="160" cy="160" r="9" /><circle cx="198" cy="160" r="9" /><circle cx="236" cy="160" r="9" />
+          <circle cx="304" cy="160" r="9" /><circle cx="342" cy="160" r="9" /><circle cx="380" cy="160" r="9" />
+        </g>
+        <use href="#cam-l" transform="translate(270 198)" style="color: #59c2ff" />
+        <use href="#cam-l" transform="translate(484 68)" style="color: #ff7b7b" />
+        <text class="lbl a" x="298" y="204">CAM A・全景</text>
+        <text class="lbl b" x="522" y="102" text-anchor="end">CAM B・講者近景</text>
+        <text class="who" x="404" y="40">白板</text>
+        <text class="who" x="270" y="186" text-anchor="middle">台下</text>
+      </svg>
+      <div class="uc-text">
+        <div class="uc-n">03</div>
+        <b>課程、講座</b>
+        <p>一台在後面拍全景，一台在側邊拍講者和白板。講者走到哪都有畫面，後製時不用再補拍。</p>
+        <div class="uc-tags"><span>全景＋近景</span><span>單段最長 30 分鐘</span></div>
+      </div>
+    </div>
+
+    <div class="uc">
+      <svg class="uc-map" viewBox="0 0 540 220" aria-hidden="true">
+        <rect class="table" x="150" y="70" width="240" height="96" rx="10" />
+        <polygon class="fov a" points="270,202 188,30 352,30" />
+        <polygon class="fov c" points="484,150 290,102 292,142" />
+        <use href="#p-top" transform="translate(270 44)" />
+        <rect x="248" y="104" width="44" height="32" rx="4" fill="#d9dde3" />
+        <circle cx="270" cy="120" r="42" fill="rgba(255, 123, 123, 0.12)" stroke="rgba(255, 123, 123, 0.8)" stroke-width="2" stroke-dasharray="4 5" />
+        <use href="#cam-p" transform="translate(270 120)" style="color: #ff7b7b; opacity: 0.92" />
+        <use href="#cam-l" transform="translate(270 202)" style="color: #59c2ff" />
+        <use href="#cam-p" transform="translate(484 150)" style="color: #ffb000" />
+        <text class="lbl a" x="298" y="208">CAM A・正面</text>
+        <text class="lbl b" x="140" y="196" text-anchor="end">CAM B・俯拍</text>
+        <path d="M144 190 Q 210 178 236 146" fill="none" stroke="rgba(255, 123, 123, 0.8)" stroke-width="1.5" />
+        <text class="lbl c" x="522" y="186" text-anchor="end">CAM C・特寫</text>
+      </svg>
+      <div class="uc-text">
+        <div class="uc-n">04</div>
+        <b>產品拍攝、開箱</b>
+        <p>正面、正上方俯拍、側面特寫同時錄，一次就拿到所有需要的角度。最多可以接 10 台手機。</p>
+        <div class="uc-tags"><span>3 台以上</span><span>俯拍</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 長影片＋短影音 ============ -->
+<section id="long-short" class="canvas">
+  <div class="kicker">LONG-FORM + SHORTS</div>
+  <div class="title">一次錄好長影片和短影音：一台橫拿、一台直拿</div>
+  <div class="ls">
+    <div>
+      <div class="phone landscape">
+        <div class="scene"><div class="window"></div><div class="lamp"></div><div class="plant"></div><div class="person"><div class="body"></div><div class="head"></div><div class="hair"></div></div><div class="desk"></div><div class="mic"></div></div>
+        <div class="rec-chip">● REC 12:34</div>
+      </div>
+      <div class="ls-cap"><span class="cam a">CAM A</span><b>橫拿・16:9</b><span class="arrow">→</span><span class="out">YouTube 長影片<small>4K：3840×2160</small></span></div>
+      <div class="px">
+        <div class="px-title">為什麼不從橫的畫面裁出直的？<em>直接直拿錄，畫素多約 3 倍</em></div>
+        <div class="px-row">
+          <div class="px-item">
+            <div class="px-frame" style="width: 211px; height: 119px"><div class="crop" style="width: 67px"></div></div>
+            <div class="px-label"><b>從 4K 橫的畫面裁切</b><code>1215×2160</code><br />約 262 萬畫素</div>
+          </div>
+          <div class="px-vs">vs</div>
+          <div class="px-item">
+            <div class="px-frame native" style="width: 119px; height: 211px"></div>
+            <div class="px-label"><b>直接直拿錄 4K</b><code>2160×3840</code><br />約 829 萬畫素</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="phone portrait">
+        <div class="scene close"><div class="window"></div><div class="lamp"></div><div class="person"><div class="body"></div><div class="head"></div><div class="hair"></div></div><div class="desk"></div><div class="mic"></div></div>
+        <div class="rec-chip">● REC 12:34</div>
+      </div>
+      <div class="ls-cap"><span class="cam b">CAM B</span><b>直拿・9:16</b></div>
+      <div class="ls-cap" style="margin-top: 6px"><span class="arrow">→</span><span class="out">Reels／Shorts／TikTok 短影音<small>4K：2160×3840</small></span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 直拿時的 App ============ -->
+<section id="app-portrait" class="canvas">
+  <div class="kicker">PHONE APP・PORTRAIT</div>
+  <div class="title">直拿時，App 也跟著轉直</div>
+  <div class="ap">
+    <div style="position: relative">
+      <div class="phone portrait">
+        <div class="phone-screen">
+          <div class="pv"><div class="scene close"><div class="window"></div><div class="lamp"></div><div class="person"><div class="body"></div><div class="head"></div><div class="hair"></div></div><div class="desk"></div><div class="mic"></div></div></div>
+          <div class="pill" style="left: 12px; top: 30px"><b>Pixel11Pro</b><span class="ok">已連線到電腦</span></div>
+          <div class="pill" style="right: 12px; top: 30px">收音：手機內建<br />變焦：1.0×</div>
+          <div class="pill timer2">● REC 12:34 / 30:00</div>
+          <div class="pill" style="left: 12px; bottom: 64px">邊錄邊傳中</div>
+          <div class="btn-row"><span class="btn off">清除已傳完（3）</span><span class="btn">調暗螢幕</span><span class="btn off">掃描 QR Code</span></div>
+        </div>
+      </div>
+      <span class="badge" style="left: -16px; top: 34px">1</span>
+      <span class="badge" style="right: -16px; top: 96px">2</span>
+      <span class="badge" style="left: -16px; bottom: 18px">3</span>
+    </div>
+    <div class="ap-notes">
+      <div><span class="badge">1</span><span><b>名稱和收音在上面</b>連線狀態、收音來源、變焦倍率，和橫拿時一樣</span></div>
+      <div><span class="badge">2</span><span><b>錄影計時在下一行</b>直拿時寬度不夠，計時移到名稱下面</span></div>
+      <div><span class="badge">3</span><span><b>按鈕平均排成一列</b>上傳狀態在按鈕上面；清除按鈕簡寫成「清除已傳完」</span></div>
+      <div><span class="badge" style="background: var(--amber); box-shadow: 0 0 0 4px rgba(255, 176, 0, 0.25)">
+        <svg width="14" height="16" viewBox="0 0 14 16" aria-hidden="true"><rect x="1" y="7" width="12" height="8" rx="2" fill="#1b1200" /><path d="M3.5 7V5a3.5 3.5 0 0 1 7 0v2" fill="none" stroke="#1b1200" stroke-width="2" /></svg>
+      </span><span><b>錄影中方向鎖住</b>從開始到停止都不會跟著轉，停止後才會再跟著手機的方向</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 網路設定 ============ -->
+<section id="network" class="canvas">
+  <div class="kicker">NETWORK</div>
+  <div class="title">網路怎麼接，影片傳得最快</div>
+  <div class="net">
+    <div class="net-card good">
+      <svg viewBox="0 0 360 190" aria-hidden="true">
+        <g transform="translate(62 104)">
+          <rect x="-34" y="-42" width="68" height="44" rx="4" fill="#0a0b0d" stroke="#8b919a" stroke-width="2" />
+          <circle cx="0" cy="-20" r="6" fill="#ff3b3b" />
+          <path d="M-44 4 H44 L38 12 H-38 Z" fill="#2a2e34" />
+        </g>
+        <g transform="translate(184 100)">
+          <line x1="-22" y1="-14" x2="-30" y2="-44" stroke="#8b919a" stroke-width="3" stroke-linecap="round" />
+          <line x1="22" y1="-14" x2="30" y2="-44" stroke="#8b919a" stroke-width="3" stroke-linecap="round" />
+          <rect x="-38" y="-14" width="76" height="28" rx="7" fill="#1b1f25" stroke="#8b919a" stroke-width="2" />
+          <circle cx="-18" cy="0" r="3" fill="#3ddc84" /><circle cx="-6" cy="0" r="3" fill="#3ddc84" /><circle cx="6" cy="0" r="3" fill="#59c2ff" />
+        </g>
+        <path d="M108 108 H146" stroke="#3ddc84" stroke-width="5" stroke-linecap="round" />
+        <text x="127" y="128" fill="#3ddc84" text-anchor="middle">網路線</text>
+        <g fill="#050505" stroke="#8b919a" stroke-width="2"><rect x="292" y="34" width="26" height="44" rx="5" /><rect x="292" y="112" width="26" height="44" rx="5" /></g>
+        <path d="M224 92 Q 258 66 286 58" fill="none" stroke="#59c2ff" stroke-width="2.5" stroke-dasharray="5 5" />
+        <path d="M224 108 Q 258 128 286 134" fill="none" stroke="#59c2ff" stroke-width="2.5" stroke-dasharray="5 5" />
+        <text x="250" y="102" fill="#59c2ff" text-anchor="middle">Wi-Fi</text>
+        <text x="62" y="140" fill="#8b919a" text-anchor="middle">電腦</text>
+        <text x="184" y="140" fill="#8b919a" text-anchor="middle">路由器</text>
+        <text x="305" y="176" fill="#8b919a" text-anchor="middle">手機</text>
+      </svg>
+      <div class="net-text"><div class="verdict">✓ 最推薦</div><b>電腦接網路線</b><p>手機用 Wi-Fi、電腦插網路線到路由器。影片在空中只走一段（手機→路由器），最快也最穩。</p></div>
+    </div>
+
+    <div class="net-card good">
+      <svg viewBox="0 0 360 190" aria-hidden="true">
+        <g transform="translate(62 104)">
+          <rect x="-34" y="-42" width="68" height="44" rx="4" fill="#0a0b0d" stroke="#8b919a" stroke-width="2" />
+          <circle cx="0" cy="-20" r="6" fill="#ff3b3b" />
+          <path d="M-44 4 H44 L38 12 H-38 Z" fill="#2a2e34" />
+        </g>
+        <g transform="translate(184 100)">
+          <line x1="-22" y1="-14" x2="-30" y2="-44" stroke="#8b919a" stroke-width="3" stroke-linecap="round" />
+          <line x1="22" y1="-14" x2="30" y2="-44" stroke="#8b919a" stroke-width="3" stroke-linecap="round" />
+          <rect x="-38" y="-14" width="76" height="28" rx="7" fill="#1b1f25" stroke="#8b919a" stroke-width="2" />
+          <circle cx="-18" cy="0" r="3" fill="#3ddc84" /><circle cx="-6" cy="0" r="3" fill="#ffb000" /><circle cx="6" cy="0" r="3" fill="#59c2ff" />
+        </g>
+        <path d="M108 96 Q 126 84 144 96" fill="none" stroke="#ffb000" stroke-width="2.5" stroke-dasharray="5 5" />
+        <text x="126" y="74" fill="#ffb000" text-anchor="middle">5 GHz</text>
+        <g fill="#050505" stroke="#8b919a" stroke-width="2"><rect x="292" y="34" width="26" height="44" rx="5" /><rect x="292" y="112" width="26" height="44" rx="5" /></g>
+        <path d="M224 92 Q 258 66 286 58" fill="none" stroke="#59c2ff" stroke-width="2.5" stroke-dasharray="5 5" />
+        <path d="M224 108 Q 258 128 286 134" fill="none" stroke="#59c2ff" stroke-width="2.5" stroke-dasharray="5 5" />
+        <text x="252" y="102" fill="#59c2ff" text-anchor="middle">2.4 GHz</text>
+        <text x="62" y="140" fill="#8b919a" text-anchor="middle">電腦</text>
+        <text x="184" y="140" fill="#8b919a" text-anchor="middle">路由器</text>
+        <text x="305" y="176" fill="#8b919a" text-anchor="middle">手機</text>
+      </svg>
+      <div class="net-text"><div class="verdict">✓ 也可以</div><b>電腦和手機分開頻段</b><p>例如手機連 2.4 GHz、電腦連 5 GHz，兩邊不搶同一個頻道。如果路由器的兩個頻段是同一個 Wi-Fi 名稱，可以在路由器的設定裡分開。</p></div>
+    </div>
+
+    <div class="net-card bad">
+      <svg viewBox="0 0 360 190" aria-hidden="true">
+        <g transform="translate(62 104)">
+          <rect x="-34" y="-42" width="68" height="44" rx="4" fill="#0a0b0d" stroke="#8b919a" stroke-width="2" />
+          <circle cx="0" cy="-20" r="6" fill="#ff3b3b" />
+          <path d="M-44 4 H44 L38 12 H-38 Z" fill="#2a2e34" />
+        </g>
+        <g transform="translate(184 100)">
+          <line x1="-22" y1="-14" x2="-30" y2="-44" stroke="#8b919a" stroke-width="3" stroke-linecap="round" />
+          <line x1="22" y1="-14" x2="30" y2="-44" stroke="#8b919a" stroke-width="3" stroke-linecap="round" />
+          <rect x="-38" y="-14" width="76" height="28" rx="7" fill="#1b1f25" stroke="#8b919a" stroke-width="2" />
+          <circle cx="-18" cy="0" r="3" fill="#ff3b3b" /><circle cx="-6" cy="0" r="3" fill="#ff3b3b" /><circle cx="6" cy="0" r="3" fill="#ff3b3b" />
+        </g>
+        <path d="M108 96 Q 126 84 144 96" fill="none" stroke="#ff7b7b" stroke-width="2.5" stroke-dasharray="5 5" />
+        <g fill="#050505" stroke="#8b919a" stroke-width="2"><rect x="292" y="34" width="26" height="44" rx="5" /><rect x="292" y="112" width="26" height="44" rx="5" /></g>
+        <path d="M224 92 Q 258 66 286 58" fill="none" stroke="#ff7b7b" stroke-width="2.5" stroke-dasharray="5 5" />
+        <path d="M224 108 Q 258 128 286 134" fill="none" stroke="#ff7b7b" stroke-width="2.5" stroke-dasharray="5 5" />
+        <text x="184" y="34" fill="#ff7b7b" text-anchor="middle">同一個頻段，影片在空中走兩次</text>
+        <text x="62" y="140" fill="#8b919a" text-anchor="middle">電腦</text>
+        <text x="184" y="140" fill="#8b919a" text-anchor="middle">路由器</text>
+        <text x="305" y="176" fill="#8b919a" text-anchor="middle">手機</text>
+      </svg>
+      <div class="net-text"><div class="verdict">✕ 盡量避免</div><ul>
+        <li><strong>全部擠在同一個頻段</strong>影片要在同一個頻道上走兩次（手機→路由器→電腦），容易變慢、卡住</li>
+        <li><strong>訪客網路</strong>裝置之間通常被隔離，手機會連不到電腦</li>
+        <li><strong>電腦開著 VPN</strong>可能擋掉區網連線，請關掉，或開啟區域網路存取</li>
+      </ul></div>
+    </div>
+  </div>
+  <div class="net-note">兩台手機一起錄 4K 合計約 80 Mbps，手機越多需要的頻寬越大。錄影中傳不完沒關係，停止後會自動補完，控制台上看得到每台的傳輸速度。</div>
+</section>
+
+<!-- ============ 分享預覽圖（1280×640，到 GitHub 的 Settings → Social preview 上傳） ============ -->
+<section id="social" class="canvas">
+  <img class="logo" src="images/logo.svg" alt="" />
+  <div class="name">MultiCam Recorder<small>多機錄影</small></div>
+  <div class="tag-line">用電腦一鍵遙控多支 Android 手機同步錄影</div>
+  <div class="chips"><span class="hot">即時畫面</span><span>手機原生 4K</span><span>直式＋橫式同時錄</span><span>邊錄邊傳回電腦</span><span>免費開源</span></div>
+  <div class="foot">github.com/dean9703111/multicam-recorder</div>
+  <img class="shot" src="images/console.png" alt="" />
 </section>
 
 </body>
