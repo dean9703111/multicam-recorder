@@ -23,9 +23,15 @@ jobs:
           cache: npm
 
       # 模擬手機用 ffmpeg 產生測試影片
+      # Linux 從 GitHub 下載編好的 ffmpeg（BtbN/FFmpeg-Builds）：apt 的套件來源有時很慢，20 分鐘都裝不完。
+      # 哪天下載不到（404），把網址裡的 n9.0、9.0 換成那邊最新的正式版。
       - name: Install ffmpeg (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+        run: |
+          mkdir -p "$RUNNER_TEMP/ffmpeg"
+          curl -fsSL --retry 3 https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n9.0-latest-linux64-gpl-9.0.tar.xz | tar -xJ -C "$RUNNER_TEMP/ffmpeg" --strip-components=1
+          echo "$RUNNER_TEMP/ffmpeg/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/ffmpeg/bin/ffmpeg" -hide_banner -version | sed -n 1p
       - name: Install ffmpeg (macOS)
         if: runner.os == 'macOS'
         run: brew install ffmpeg
