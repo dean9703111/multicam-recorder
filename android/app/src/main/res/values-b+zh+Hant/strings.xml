@@ -12,9 +12,10 @@
     <string name="need_permission">需要相機和麥克風權限才能錄影</string>
 
     <string name="status_need_permission">需要相機和麥克風權限才能錄影，點這裡打開設定</string>
-    <string name="status_unpaired">尚未配對：請點右下角「掃描 QR Code」</string>
+    <string name="status_unpaired">尚未配對：在電腦上打開多機錄影、按「配對手機」，再點右下角「掃描 QR Code」。電腦端的安裝方法：deanlin.net/multicam-recorder</string>
     <string name="status_connected">已連線到電腦</string>
-    <string name="status_unreachable">連不到電腦：請確認電腦上的伺服器開著，手機和電腦連同一個 Wi-Fi</string>
+    <string name="status_unreachable">連不到電腦（%1$s）：請確認電腦上的多機錄影開著，手機和電腦連同一個 Wi-Fi</string>
+    <string name="status_unreachable_long">連不到電腦（%1$s）。電腦的網路換過的話，請重新掃 QR Code</string>
     <string name="status_connecting">連線中…</string>
 
     <string name="mic_line">收音：%1$s</string>
@@ -38,16 +39,23 @@
     <string name="fail_not_finalized">錄影沒有正常結束：%1$s</string>
     <string name="fail_app_closed">App 在錄影中被關閉，這支影片沒有正常收尾</string>
 
-    <string name="camera_lost">相機被系統或其他 App 中斷</string>
+    <string name="camera_lost">相機被中斷了，可能是其他 App 用了相機、來電，或手機太熱。回到這個畫面，相機會自動重新打開</string>
     <string name="camera_error">相機發生錯誤（%1$s）</string>
     <string name="camera_unsupported_config">相機不支援這個設定（%1$s）</string>
-    <string name="recorder_error">錄影發生錯誤（%1$s）</string>
+    <string name="recorder_error">錄影發生錯誤（%1$s）。手機太熱或空間不夠時常會這樣</string>
 
-    <string name="scan_failed">沒辦法掃描：%1$s</string>
+    <string name="scan_failed">打不開掃描器：%1$s。也可以用手機內建的相機掃電腦上的 QR Code</string>
     <string name="pair_link_incomplete">配對連結不完整</string>
     <string name="not_pairing_qr">這不是配對用的 QR Code</string>
     <string name="paired">配對完成：%1$s</string>
-    <string name="pair_failed">配對失敗：%1$s</string>
+    <string name="pair_confirm_title">要連到這台電腦嗎？</string>
+    <string name="pair_confirm_message">%1$s\n\n確認是你自己的電腦，再按「配對」。</string>
+    <string name="pair_confirm_ok">配對</string>
+    <string name="pair_failed_title">配對失敗</string>
+    <string name="pair_failed_network">連不到電腦（%1$s）。請確認手機和電腦連同一個 Wi-Fi（不能是訪客網路）、電腦上的多機錄影開著，電腦的防火牆也要允許 Node.js。</string>
+    <string name="pair_failed_detail">技術細節：%1$s</string>
+    <string name="no_camera">這台裝置沒有可以用的後鏡頭，沒辦法用多機錄影。</string>
+    <string name="back_while_recording">錄影中：請先從電腦停止錄影</string>
 
     <string name="clean_nothing">沒有已傳完的影片可以清除</string>
     <plurals name="clean_confirm">
@@ -62,5 +70,18 @@
     <plurals name="upload_finishing">
         <item quantity="other">還有 %1$d 支在收尾（剩 %2$s）</item>
     </plurals>
+    <plurals name="upload_orphans">
+        <item quantity="other">有 %1$d 支影片沒傳到電腦（點這裡處理）</item>
+    </plurals>
     <string name="upload_separator">，</string>
+
+    <string name="orphans_title">有影片沒傳到電腦</string>
+    <plurals name="orphans_message">
+        <item quantity="other">電腦不認得這 %1$d 支影片了（共 %2$s），可能在電腦上被刪掉，或換了一台電腦。把它們存到手機的「影片」資料夾，之後解除安裝 App 也不會被刪。</item>
+    </plurals>
+    <string name="orphans_save">存到影片資料夾</string>
+    <string name="orphans_later">稍後</string>
+    <string name="orphans_saving">儲存中…</string>
+    <string name="orphans_saved">已存到「影片／MultiCamRecorder」</string>
+    <string name="orphans_failed">有 %1$d 支沒存成功，請稍後再試</string>
 </resources>

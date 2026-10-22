@@ -67,16 +67,17 @@ class Uploader(private val store: Store, private val language: () -> String, pri
         persist()
     }
 
-    // 畫面上顯示的傳輸狀態
+    // 畫面上顯示的傳輸狀態。有影片沒傳到電腦時一定要說，不能顯示「都已傳到電腦」
     fun summary(res: Resources): String {
-        if (jobs.isEmpty()) return res.getString(R.string.upload_done)
         val recording = jobs.count { it.size < 0 }
         val left = jobs.filter { it.size >= 0 }.sumOf { (it.size - it.sent).coerceAtLeast(0) }
+        val orphans = store.orphans.count { File(it).exists() }
         val parts = mutableListOf<String>()
         if (recording > 0) parts += res.getString(R.string.upload_streaming)
         val finishing = jobs.size - recording
         if (finishing > 0) parts += res.getQuantityString(R.plurals.upload_finishing, finishing, finishing, formatBytes(left))
-        return parts.joinToString(res.getString(R.string.upload_separator))
+        if (orphans > 0) parts += res.getQuantityString(R.plurals.upload_orphans, orphans, orphans)
+        return if (parts.isEmpty()) res.getString(R.string.upload_done) else parts.joinToString(res.getString(R.string.upload_separator))
     }
 
     private fun persist() = store.saveJobs(jobs)
@@ -101,9 +102,11 @@ class Uploader(private val store: Store, private val language: () -> String, pri
                     when {
                         e.status == 409 && e.body.has("receivedBytes") -> job.sent = e.body.getLong("receivedBytes")
                         e.status == 404 -> {
-                            // 電腦不認得這支影片（例如資料被清掉），不再重試，檔案留在手機上
-                            Log.w(TAG, "電腦找不到 ${job.fileId}，停止傳輸")
+                            // 電腦不認得這支影片（例如在電腦上被刪掉，或換了一台電腦）：不再傳，
+                            // 但列在「沒傳到電腦」，讓使用者看得到，可以存到手機的影片資料夾
+                            Log.w(TAG, "電腦找不到 ${job.fileId}，改列在沒傳到電腦")
                             drop(job.fileId)
+                            store.orphans = store.orphans + job.path
                         }
                         else -> retryLater(job, e)
                     }

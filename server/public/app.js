@@ -1,9 +1,9 @@
-import { html, render, useEffect, useRef, useState } from '/vendor/preact-htm.js';
+import { html, render, useEffect, useLayoutEffect, useRef, useState } from '/vendor/preact-htm.js';
 import { getLang, listJoin, resolveLang, setLang, tr } from '/i18n.js';
 
 // 介面文字都在 i18n.js；這裡的 tr(key) 依目前的語言取字
 const stateLabel = (s) => tr(`state.${s}`);
-const stopNote = (reason) => (reason === 'maxDuration' || reason === 'error' ? tr(`stop.${reason}`) : '');
+const stopNote = (reason) => (['maxDuration', 'storageFull', 'fileSizeLimit', 'error'].includes(reason) ? tr(`stop.${reason}`) : '');
 const guideLabel = (g) => tr(`guide.${g}`);
 const GUIDE_RATIO = { '9:16': 9 / 16, '4:5': 4 / 5, '1:1': 1 };
 const orientationLabel = (o) => tr(`orientation.${o}`);
@@ -57,13 +57,18 @@ function micLabel(st) {
 const externalMic = (st) =>
   st.audioSource ? st.audioSource === 'usb' || st.audioSource === 'wired' : /^(外接|耳機孔)/.test(st.audioInput ?? '');
 
-// X-Lang：伺服器的錯誤訊息用和控制台一樣的語言
+// X-Lang：伺服器的錯誤訊息用和控制台一樣的語言。一律送 JSON：伺服器只收控制台自己送的 JSON（擋跨站請求）。
 async function post(path, body = {}) {
-  const res = await fetch(path, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Lang': getLang() },
-    body: JSON.stringify(body),
-  });
+  let res;
+  try {
+    res = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Lang': getLang() },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw new Error(tr('error.network')); // 不要只顯示「Failed to fetch」
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { data });
   return data;
@@ -91,7 +96,8 @@ const sumBytes = (files) => files.reduce((n, f) => n + ((f.state === 'ready' ? f
 // 把資料夾或檔案拖進瀏覽器時，Chrome 會直接打開它、蓋掉控制台，所以一律攔下來
 for (const type of ['dragover', 'drop']) window.addEventListener(type, (e) => e.preventDefault());
 
-// 剩 3 分鐘的提示音。瀏覽器規定要先有使用者操作才能出聲，所以第一次按鍵或點擊時才建立。
+// 提示音（設定裡可以關）：剩 3 分鐘時三聲短的，到上限自動停止時兩聲往下的。
+// 瀏覽器規定要先有使用者操作才能出聲，所以第一次按鍵或點擊時才建立。
 let audio;
 for (const type of ['pointerdown', 'keydown']) {
   window.addEventListener(type, () => {
@@ -100,22 +106,60 @@ for (const type of ['pointerdown', 'keydown']) {
   });
 }
 
-function beep() {
+function playTones(freqs, gap) {
   if (!audio) return;
   const t0 = audio.currentTime;
-  for (let i = 0; i < 3; i++) {
-    const at = t0 + i * 0.32;
+  freqs.forEach((freq, i) => {
+    const at = t0 + i * gap;
     const osc = audio.createOscillator();
     const gain = audio.createGain();
     osc.type = 'square';
-    osc.frequency.value = 880;
+    osc.frequency.value = freq;
     gain.gain.setValueAtTime(0.0001, at);
     gain.gain.exponentialRampToValueAtTime(0.12, at + 0.01);
     gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.18);
     osc.connect(gain).connect(audio.destination);
     osc.start(at);
     osc.stop(at + 0.2);
-  }
+  });
+}
+const beep = () => playTones([880, 880, 880], 0.32);
+const stopChime = () => playTones([660, 440], 0.4);
+
+// 最近一段如果是到上限自動停止的（之後還沒再開始），回傳那一段的影片
+function autoStoppedTake(state) {
+  if (state.files.some(isActive)) return null;
+  const latest = state.files.filter((f) => !f.trimmedFrom).sort((a, b) => b.createdAt - a.createdAt)[0];
+  if (!latest) return null;
+  const files = state.files.filter((f) => f.takeId === latest.takeId);
+  return files.some((f) => f.stopReason === 'maxDuration') ? { takeId: latest.takeId, files } : null;
+}
+
+// 最近一段裡提早停下來的影片（其他台可能還在錄）：手機空間滿了、碰到單一影片的大小上限、App 被中斷
+function earlyStops(state) {
+  const latest = state.files.filter((f) => !f.trimmedFrom).sort((a, b) => b.createdAt - a.createdAt)[0];
+  if (!latest) return [];
+  return state.files.filter((f) => f.takeId === latest.takeId && ['storageFull', 'fileSizeLimit', 'error'].includes(f.stopReason));
+}
+
+// 版本比較：a 比 b 舊就回傳 true；看不懂的版本號（例如開發中的版本）不算舊
+function isOlder(a, b) {
+  const pa = /^(\d+)\.(\d+)\.(\d+)/.exec(a ?? '');
+  const pb = /^(\d+)\.(\d+)\.(\d+)/.exec(b ?? '');
+  if (!pa || !pb) return false;
+  for (let i = 1; i <= 3; i++) if (Number(pa[i]) !== Number(pb[i])) return Number(pa[i]) < Number(pb[i]);
+  return false;
+}
+
+// ---------- 音量表 ----------
+
+// 伺服器每秒送幾次 { type: 'levels' }，直接更新各台的音量條，不重畫整頁
+const levels = new Map(); // 手機 ID → dBFS
+const levelViews = new Set();
+function onLevels(next) {
+  levels.clear();
+  for (const [id, value] of Object.entries(next ?? {})) levels.set(id, value);
+  for (const update of levelViews) update();
 }
 
 // ---------- 即時畫面 ----------
@@ -170,6 +214,7 @@ function useServerState() {
         if (typeof e.data !== 'string') return onPreviewFrame(e.data);
         const m = JSON.parse(e.data);
         if (m.type === 'state') setState({ ...m, clockOffset: m.serverTime - Date.now() });
+        if (m.type === 'levels') onLevels(m.levels);
       };
       ws.onclose = () => {
         setConnected(false);
@@ -204,9 +249,12 @@ function App() {
   const [menu, setMenu] = useState(null); // 'project' | 'spec'
   const [selection, setSelection] = useState(null); // 選取模式中勾選的影片 ID；null 表示不在選取模式
   const [toast, setToast] = useState(null);
+  const [dismissed, setDismissed] = useState(() => new Set()); // 按過「知道了」的提醒
   const warnedTakes = useRef(new Set());
+  const chimedTakes = useRef(null); // 已經響過「自動停止」的段落；第一次載入時先把現有的記起來，不響
 
   const notify = (text, kind = 'info') => setToast({ text, kind, id: Date.now() });
+  const dismiss = (key) => setDismissed((cur) => new Set(cur).add(key));
   const run = async (fn) => {
     try {
       const r = await fn();
@@ -215,12 +263,13 @@ function App() {
       notify(e.message, 'error');
     }
   };
-  // 還沒有專案就先請使用者新增
+  // 還沒有專案就先請使用者新增；錄到一半一定會出事的狀況（空間、電量）先問過再開始
   const start = async (deviceIds) => {
     try {
       const r = await post('/api/record/start', { deviceIds });
       if (r.skipped?.length) notify(listJoin(r.skipped), 'warn');
     } catch (e) {
+      if (e.data?.confirm) return setModal({ kind: 'confirmStart', warnings: e.data.confirm, deviceIds });
       if (!e.data?.needProject) return notify(e.message, 'error');
       setModal({ kind: 'newProject' });
       notify(tr('toast.needProject'), 'warn');
@@ -236,9 +285,15 @@ function App() {
       v.removeAttribute('src');
       v.load();
     }
-    const r = await post('/api/files/trash', { fileIds: ids });
-    notify(tr('toast.trashed', { n: r.trashed, trash: state.trashName }));
-    setSelection(null);
+    // Windows 放不進資源回收筒（檔案太大）時會跳出確認視窗，可能藏在瀏覽器後面
+    const slow = state.platform === 'win32' && setTimeout(() => notify(tr('toast.trashSlowWin', { trash: state.trashName }), 'warn'), 3000);
+    try {
+      const r = await post('/api/files/trash', { fileIds: ids });
+      notify(tr('toast.trashed', { n: r.trashed, trash: state.trashName }));
+      setSelection(null);
+    } finally {
+      clearTimeout(slow);
+    }
   };
   const toggleSelected = (id) =>
     setSelection((cur) => {
@@ -249,7 +304,8 @@ function App() {
 
   useEffect(() => {
     if (!toast) return;
-    const t = setTimeout(() => setToast(null), 4500);
+    // 錯誤停久一點，來得及看完
+    const t = setTimeout(() => setToast(null), toast.kind === 'error' ? 10_000 : 4500);
     return () => clearTimeout(t);
   }, [toast]);
 
@@ -261,7 +317,9 @@ function App() {
     return () => window.removeEventListener('pointerdown', close);
   }, [menu]);
 
-  // 快捷鍵：R 全部開始、S 全部停止。輸入框打字、或按著 ⌘/Ctrl（例如 ⌘R 重新整理）時不觸發。
+  // 快捷鍵：R 全部開始、S 全部停止。在要打字的欄位裡、或按著 ⌘/Ctrl（例如 ⌘R 重新整理）時不觸發；
+  // 單選鈕、滑桿（例如剛調完變焦）不用打字，照樣有效。
+  // R／S 永遠有效：選單開著就先關掉再執行；對話框開著時提醒先關掉，不會按了沒反應。
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === 'Escape') {
@@ -272,17 +330,20 @@ function App() {
         } else setSelection(null);
         return;
       }
-      if (modal || menu || e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
-      if (e.target.closest?.('input, textarea, select')) return;
+      if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
+      if (e.target.closest?.('textarea, select, input:not([type=radio], [type=checkbox], [type=range])')) return;
       const k = e.key.toLowerCase();
+      if (k !== 'r' && k !== 's') return;
+      if (modal) return notify(tr('toast.modalOpen'), 'warn');
+      if (menu) setMenu(null);
       if (k === 'r') start();
-      if (k === 's') stop();
+      else stop();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [modal, menu]);
 
-  // 同一次錄影只響一次
+  // 剩 3 分鐘：同一次錄影只響一次。到上限自動停止：響一次不一樣的聲音。設定裡可以關。
   useEffect(() => {
     if (!state) return;
     const t = now + state.clockOffset;
@@ -291,10 +352,49 @@ function App() {
       const left = f.spec.maxDurationSec * 1000 - (t - f.startedAt);
       if (left <= state.limits.warnBeforeSec * 1000 && !warnedTakes.current.has(f.takeId)) {
         warnedTakes.current.add(f.takeId);
-        beep();
+        if (state.settings.sounds) beep();
       }
     }
+    const stopped = [autoStoppedTake(state)?.takeId, ...earlyStops(state).map((f) => f.id)].filter(Boolean);
+    if (chimedTakes.current === null) chimedTakes.current = new Set(stopped);
+    else if (stopped.some((id) => !chimedTakes.current.has(id))) {
+      for (const id of stopped) chimedTakes.current.add(id);
+      if (state.settings.sounds) stopChime();
+    }
   }, [state, now]);
+
+  // 分頁標題跟著狀態：切到別的分頁看稿，也看得出還在不在錄
+  const recordingNow = !!state?.files.some(isActive);
+  useEffect(() => {
+    if (!state) return;
+    const t = now + state.clockOffset;
+    const live = state.files.filter((f) => f.state === 'recording' && f.startedAt);
+    const offline = state.devices.filter((d) => !d.online && state.files.some((f) => f.deviceId === d.id && isActive(f))).length;
+    if (offline) document.title = tr('title.offline', { n: offline });
+    else if (live.length) document.title = tr('title.rec', { time: fmtClock(Math.max(...live.map((f) => t - f.startedAt))) });
+    else if (autoStoppedTake(state) && !dismissed.has(`take:${autoStoppedTake(state).takeId}`)) document.title = tr('title.stopped');
+    else document.title = tr('page.title');
+  });
+
+  // 錄影中保持螢幕不關：電腦睡著的話，控制台看不到狀態，也沒辦法按停止
+  useEffect(() => {
+    if (!recordingNow || !navigator.wakeLock) return;
+    let lock = null;
+    let cancelled = false;
+    const acquire = () =>
+      navigator.wakeLock.request('screen').then(
+        (l) => (cancelled ? l.release() : (lock = l)),
+        () => {},
+      );
+    const onVisible = () => document.visibilityState === 'visible' && acquire();
+    acquire();
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', onVisible);
+      lock?.release().catch(() => {});
+    };
+  }, [recordingNow]);
 
   if (!state) return html`<div class="boot">${tr('boot')}</div>`;
 
@@ -314,8 +414,17 @@ function App() {
     fn();
   };
   const pending = state.files.filter((f) => f.state === 'finishing').length;
+  // 頂列的 REC：最久的那台錄了多久、幾台在錄
+  const liveFiles = state.files.filter((f) => f.state === 'recording' && f.startedAt);
+  const recInfo = liveFiles.length ? { time: fmtClock(Math.max(...liveFiles.map((f) => t - f.startedAt))), n: liveFiles.length } : null;
+  // 每台都在錄的時候，按不了的開始鈕換成 REC 讀數，頂列在筆電的寬度才排得下
+  const showStart = !recInfo || canStart;
+  const outdated = state.devices.filter((d) => d.online && isOlder(d.appVersion, state.latestAppVersion));
+  // 已經移除、但在這個專案裡還有影片的手機，也列出來（影片才不會像是不見了）
+  const removed = state.removedDevices.map((r) => ({ ...r, online: false, status: {}, features: [], camera: null, removed: true }));
 
   return html`
+    <div class="head">
     <header class="topbar">
       <div class="brand">
         <span class="brand-mark" aria-hidden="true"></span>
@@ -330,6 +439,7 @@ function App() {
           open=${menu === 'project'}
           recording=${recording}
           onToggle=${() => toggleMenu('project')}
+          onClose=${() => setMenu(null)}
           onNew=${fromMenu(() => setModal({ kind: 'newProject' }))}
           onEnd=${fromMenu(() => setModal({ kind: 'endProject' }))}
           onOpen=${(id) => fromMenu(() => run(() => post(`/api/projects/${id}/open`)))()}
@@ -348,14 +458,17 @@ function App() {
           open=${menu === 'spec'}
           recording=${recording}
           onToggle=${() => toggleMenu('spec')}
+          onClose=${() => setMenu(null)}
           run=${run}
         />
       </div>
       <div class="transport">
-        <button class="btn-rec" disabled=${!canStart} onClick=${() => start()}>
+        ${recInfo && html`<span class="rec-readout">${tr('top.rec', recInfo)}</span>`}
+        ${showStart &&
+        html`<button class="btn-rec" disabled=${!canStart || !connected} onClick=${() => start()} aria-keyshortcuts="R">
           <span class="dot"></span>${tr('top.record')}<kbd>R</kbd>
-        </button>
-        <button class="btn-stop" disabled=${!recording} onClick=${() => stop()}>
+        </button>`}
+        <button class=${`btn-stop ${recording ? 'live' : ''}`} disabled=${!recording || !connected} onClick=${() => stop()} aria-keyshortcuts="S">
           <span class="square"></span>${tr('top.stop')}<kbd>S</kbd>
         </button>
       </div>
@@ -377,23 +490,28 @@ function App() {
       state=${state}
       connected=${connected}
       t=${t}
+      dismissed=${dismissed}
+      onDismiss=${dismiss}
       onSettings=${() => setModal({ kind: 'settings' })}
       onNewProject=${() => setModal({ kind: 'newProject' })}
+      onPair=${() => setModal({ kind: 'pair' })}
     />
+    </div>
 
-    <main class=${`bays ${compact ? 'compact' : ''} ${selection ? 'selecting' : ''}`}>
-      ${state.devices.length
-        ? state.devices.map(
+    <main class=${`bays ${compact ? 'compact' : ''} ${selection ? 'selecting' : ''} ${connected ? '' : 'stale'}`}>
+      ${state.devices.length || removed.length
+        ? [...state.devices, ...removed].map(
             (d, i) => html`<${Bay}
               key=${d.id}
               state=${state}
               device=${d}
-              letter=${String.fromCharCode(65 + i)}
+              letter=${d.removed ? '—' : String.fromCharCode(65 + i)}
               t=${t}
               compact=${compact}
               onStart=${() => start([d.id])}
               onStop=${() => stop([d.id])}
               onRemove=${() => setModal({ kind: 'removeDevice', device: d })}
+              onUpdate=${() => setModal({ kind: 'updateApp', devices: [d] })}
               notify=${notify}
               run=${run}
               selection=${selection}
@@ -407,6 +525,23 @@ function App() {
     </main>
 
     ${modal?.kind === 'pair' && html`<${PairModal} state=${state} onClose=${closeModal} />`}
+    ${modal?.kind === 'confirmStart' &&
+    html`<${ConfirmModal}
+      title=${tr('confirmStart.title')}
+      confirmLabel=${tr('confirmStart.go')}
+      onClose=${closeModal}
+      onConfirm=${async () => {
+        const r = await post('/api/record/start', { deviceIds: modal.deviceIds, force: true });
+        if (r.skipped?.length) notify(listJoin(r.skipped), 'warn');
+      }}
+    >
+      <p>${tr('confirmStart.body')}</p>
+      <ul class="warn-list">
+        ${modal.warnings.map((w) => html`<li>${w}</li>`)}
+      </ul>
+    <//>`}
+    ${modal?.kind === 'updateApp' &&
+    html`<${UpdateAppModal} state=${state} devices=${modal.devices.length ? modal.devices : outdated} onClose=${closeModal} />`}
     ${modal?.kind === 'settings' && html`<${SettingsModal} state=${state} onClose=${closeModal} notify=${notify} />`}
     ${modal?.kind === 'newProject' && html`<${NewProjectModal} state=${state} onClose=${closeModal} notify=${notify} />`}
     ${modal?.kind === 'endProject' &&
@@ -459,7 +594,9 @@ function App() {
       setSelection=${setSelection}
       onTrash=${(ids) => setModal({ kind: 'trash', unmarked: false, ids })}
     />`}
-    ${toast && html`<div class=${`toast ${toast.kind} ${selection ? 'raised' : ''}`} key=${toast.id} role="status">${toast.text}</div>`}
+    <div class="toast-region" role="status" aria-live="polite">
+      ${toast && html`<div class=${`toast ${toast.kind} ${selection ? 'raised' : ''}`} key=${toast.id}>${toast.text}</div>`}
+    </div>
   `;
 }
 
@@ -515,15 +652,32 @@ function TrashModal({ state, ids, unmarked, take, onClose, onConfirm }) {
   <//>`;
 }
 
-function ProjectControl({ state, open, recording, onToggle, onNew, onEnd, onOpen, onShowFolder, onTrashUnmarked, onSelect }) {
+// 選單：用 Tab 把焦點移到選單外面就關掉。點選單裡的空白處、按 Enter 存數字時，焦點沒有移到別的地方（relatedTarget 是 null），
+// 選單要留著；點選單外面由 App 關掉。
+const closeOnFocusOut = (open, onClose) => (e) => open && e.relatedTarget && !e.currentTarget.contains(e.relatedTarget) && onClose();
+
+// 選單太靠右、超出視窗時，往左挪到整個看得到（例如視窗只開半個螢幕寬）
+function useInView(open) {
+  const ref = useRef(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const over = el.getBoundingClientRect().right - (document.documentElement.clientWidth - 16);
+    if (over > 0) el.style.left = `${-over}px`;
+  }, [open]);
+  return ref;
+}
+
+function ProjectControl({ state, open, recording, onToggle, onClose, onNew, onEnd, onOpen, onShowFolder, onTrashUnmarked, onSelect }) {
   const p = state.project;
   const current = p && state.projects.find((x) => x.id === p.id);
   const others = state.projects.filter((x) => x.id !== p?.id);
   const markedTakes = countTakes(state.files.filter((f) => f.marked));
   const unmarkedTakes = countTakes(state.files.filter((f) => canTrash(f) && !f.marked));
-  return html`<div class="readout menu-anchor">
+  const menuRef = useInView(open);
+  return html`<div class="readout menu-anchor" onfocusout=${closeOnFocusOut(open, onClose)}>
     <span class="label">${tr('project.label')}</span>
-    <button class=${`picker ${p ? '' : 'unset'}`} title=${p?.name} aria-haspopup="menu" aria-expanded=${open} onClick=${onToggle}>
+    <button class=${`picker ${p ? '' : 'unset'}`} title=${p?.name} aria-expanded=${open} onClick=${onToggle}>
       <span class="picker-value">${p ? p.name : tr('project.none')}</span>
       <span class="caret" aria-hidden="true"></span>
     </button>
@@ -535,22 +689,22 @@ function ProjectControl({ state, open, recording, onToggle, onNew, onEnd, onOpen
           : tr('project.empty')}
     </span>
     ${open &&
-    html`<div class="menu" role="menu">
+    html`<div class="menu" ref=${menuRef}>
       ${recording && html`<div class="menu-hint">${tr('project.lockedWhileRecording')}</div>`}
-      <button class="menu-item strong" role="menuitem" disabled=${recording} onClick=${onNew}>${tr('project.new')}</button>
-      ${p && html`<button class="menu-item" role="menuitem" onClick=${onShowFolder}>${tr('project.openFolder')}</button>`}
+      <button class="menu-item strong" disabled=${recording} onClick=${onNew}>${tr('project.new')}</button>
+      ${p && html`<button class="menu-item" onClick=${onShowFolder}>${tr('project.openFolder')}</button>`}
       ${p &&
-      html`<button class="menu-item" role="menuitem" disabled=${!unmarkedTakes} onClick=${onTrashUnmarked}>
+      html`<button class="menu-item" disabled=${!unmarkedTakes} onClick=${onTrashUnmarked}>
         ${tr('project.trashUnmarked', { trash: state.trashName, n: unmarkedTakes })}
       </button>`}
       ${p &&
-      html`<button class="menu-item" role="menuitem" disabled=${!state.files.some(canTrash)} onClick=${onSelect}>
+      html`<button class="menu-item" disabled=${!state.files.some(canTrash)} onClick=${onSelect}>
         ${tr('project.select')}
       </button>`}
-      ${p && html`<button class="menu-item" role="menuitem" disabled=${recording} onClick=${onEnd}>${tr('project.end', { name: p.name })}</button>`}
+      ${p && html`<button class="menu-item" disabled=${recording} onClick=${onEnd}>${tr('project.end', { name: p.name })}</button>`}
       ${others.length > 0 && html`<div class="menu-title">${tr('project.previous')}</div>`}
       ${others.map(
-        (x) => html`<button class="menu-item project-item" role="menuitem" disabled=${recording} onClick=${() => onOpen(x.id)}>
+        (x) => html`<button class="menu-item project-item" disabled=${recording} onClick=${() => onOpen(x.id)}>
           <span>${x.name}</span>
           <small>${tr('project.itemMeta', { date: fmtDate(x.createdAt), n: x.files, size: fmtBytes(x.bytes) })}</small>
         </button>`,
@@ -577,73 +731,181 @@ function portraitNotes(state) {
   return notes;
 }
 
-function SpecControl({ state, open, recording, onToggle, run }) {
+// 錄影規格：頂列的按鈕寫出解析度、單段上限和開著的人像設定，選單裡改了，這裡馬上跟著變
+function SpecControl({ state, open, recording, onToggle, onClose, run }) {
   const r = resolutionOf(state);
   const s = state.settings;
-  const g = s.guide;
   const max = state.limits.maxDurationSec;
-  return html`<div class="readout menu-anchor">
+  const [minMinutes, maxMinutes] = state.limits.maxMinutesRange;
+  const size = fmtBytes(bytesPerTake(state, r));
+  const locked = recording ? tr('spec.locked') : '';
+  const set = (patch) => run(() => post('/api/settings', patch));
+  const menuRef = useInView(open);
+  return html`<div class="readout menu-anchor" onfocusout=${closeOnFocusOut(open, onClose)}>
     <span class="label">${tr('spec.label')}</span>
-    <button class="picker" aria-haspopup="menu" aria-expanded=${open} onClick=${onToggle}>
-      <span class="picker-value">${r.label}${g !== 'none' && html`<small>${tr('spec.guideTag', { guide: g })}</small>`}${s.lockExposure && html`<small>${tr('spec.lockTag')}</small>`}</span>
+    <button class="picker spec-picker" aria-expanded=${open} onClick=${onToggle}>
+      <span class="picker-value">${r.label}<small>${fmtDuration(max)}</small></span>
+      ${PORTRAIT_OPTIONS.filter((k) => s[k]).map((k) => html`<span class="picker-tag">${tr(`spec.tag.${k}`)}</span>`)}
       <span class="caret" aria-hidden="true"></span>
     </button>
-    <span class="readout-note">
-      ${recording ? tr('spec.noteRecording') : tr('spec.noteNext', { dur: fmtDuration(max), size: fmtBytes(bytesPerTake(state, r)) })}
-    </span>
+    <span class="readout-note">${recording ? tr('spec.noteRecording') : tr('spec.notePerTake', { size })}</span>
     ${open &&
-    html`<div class="menu spec-menu" role="menu">
-      <div class="menu-title">${tr('spec.resolution')}${recording ? tr('spec.locked') : ''}</div>
-      ${state.resolutions.map(
-        (x) => html`<button
-          class=${`menu-item res ${x.id === r.id ? 'on' : ''}`}
-          role="menuitemradio"
-          aria-checked=${x.id === r.id}
+    html`<div class="menu spec-menu" ref=${menuRef}>
+      <div class="spec-group">
+        <div class="menu-title">${tr('spec.resolution')}${locked}</div>
+        <${Segmented}
+          name="resolution"
+          label=${tr('spec.resolution')}
+          value=${r.id}
           disabled=${recording}
-          onClick=${() => x.id !== r.id && run(() => post('/api/settings', { resolution: x.id }))}
-        >
-          <span class="res-label">${x.label}</span>
-          <span class="res-dim">${x.width}×${x.height}</span>
-          <span class="res-size">${tr('spec.perTake', { dur: fmtDuration(max), size: fmtBytes(bytesPerTake(state, x)) })}</span>
-        </button>`,
-      )}
-      <div class="menu-title">${tr('spec.guide')}</div>
-      <div class="guide-row">
-        ${state.guides.map(
-          (x) => html`<button
-            class=${`guide-chip ${x === g ? 'on' : ''}`}
-            role="menuitemradio"
-            aria-checked=${x === g}
-            onClick=${() => x !== g && run(() => post('/api/settings', { guide: x }))}
-          >
-            ${guideLabel(x)}
-          </button>`,
-        )}
+          options=${state.resolutions.map((x) => ({
+            value: x.id,
+            label: x.label,
+            title: tr('spec.resTitle', { w: x.width, h: x.height, dur: fmtDuration(max), size: fmtBytes(bytesPerTake(state, x)) }),
+          }))}
+          onChange=${(id) => set({ resolution: id })}
+        />
+        <p class="menu-hint">${r.width} × ${r.height}</p>
       </div>
-      <p class="menu-hint">${tr('spec.hintOrientation')}</p>
-      <p class="menu-hint">${tr('spec.hintDowngrade')}</p>
-      <div class="menu-title">${tr('spec.portrait')}${recording ? tr('spec.locked') : ''}</div>
-      ${PORTRAIT_OPTIONS.map(
-        (key) => html`<button
-          class=${`menu-item toggle ${s[key] ? 'on' : ''}`}
-          role="menuitemcheckbox"
-          aria-checked=${s[key]}
+      <div class="spec-group">
+        <div class="menu-title">${tr('spec.maxMinutes')}${locked}</div>
+        <${MinutesInput}
+          value=${s.maxMinutes}
+          min=${minMinutes}
+          max=${maxMinutes}
           disabled=${recording}
-          onClick=${() => run(() => post('/api/settings', { [key]: !s[key] }))}
-        >
-          <span>${tr(`portrait.${key}`)}</span>
-          <small class="toggle-note">${tr(`portrait.${key}Note`)}</small>
-        </button>`,
-      )}
-      ${portraitNotes(state).map((n) => html`<p class="menu-hint warn">${n}</p>`)}
+          aside=${tr('spec.perPhone', { size })}
+          hint=${tr('spec.maxHint', { min: minMinutes, max: maxMinutes })}
+          onSave=${(n) => set({ maxMinutes: n })}
+        />
+      </div>
+      <div class="spec-group">
+        <div class="menu-title">${tr('spec.guide')}</div>
+        <${Segmented}
+          name="guide"
+          label=${tr('spec.guide')}
+          value=${s.guide}
+          options=${state.guides.map((x) => ({ value: x, label: guideLabel(x) }))}
+          onChange=${(x) => set({ guide: x })}
+        />
+        <p class="menu-hint">${tr('spec.guideHint')}</p>
+      </div>
+      <div class="spec-group">
+        <div class="menu-title">${tr('spec.portrait')}${locked}</div>
+        ${PORTRAIT_OPTIONS.map(
+          (key) => html`<${Switch}
+            label=${tr(`portrait.${key}`)}
+            note=${tr(`portrait.${key}Note`)}
+            checked=${s[key]}
+            disabled=${recording}
+            onChange=${(on) => set({ [key]: on })}
+          />`,
+        )}
+        ${portraitNotes(state).map((n) => html`<p class="menu-hint warn">${n}</p>`)}
+      </div>
     </div>`}
   </div>`;
 }
 
-function Alerts({ state, connected, t, onSettings, onNewProject }) {
+// 單段上限：只能打數字，打到範圍內就存。離開欄位時，超出範圍的調到最近的上下限，空白的還原。
+// − 和 + 一次 5 分鐘，對齊 5 的倍數。旁邊（aside）寫錄滿一段要多少空間，改長度時跟著變。
+function MinutesInput({ value, min, max, disabled, aside, hint, onSave }) {
+  const [draft, setDraft] = useState(String(value));
+  useEffect(() => setDraft(String(value)), [value]);
+  const clamp = (n) => Math.min(max, Math.max(min, n));
+  const save = (n) => {
+    setDraft(String(n));
+    if (n !== value) onSave(n);
+  };
+  // 兩位數都打完了還是超出範圍（一位數可能還在打，先不提醒）
+  const out = draft.length >= 2 && Number(draft) !== clamp(Number(draft));
+  return html`<div class="stepper-row">
+      <div class="stepper">
+        <button class="stepper-btn" aria-label=${tr('spec.minutesLess')} disabled=${disabled || value <= min} onClick=${() => save(clamp(Math.ceil(value / 5) * 5 - 5))}>
+          −
+        </button>
+        <input
+          class="stepper-input"
+          inputmode="numeric"
+          maxlength="2"
+          value=${draft}
+          disabled=${disabled}
+          aria-label=${tr('spec.maxMinutes')}
+          aria-invalid=${out}
+          onInput=${(e) => {
+            const digits = e.target.value.replace(/\D/g, '');
+            e.target.value = digits; // 字母、符號打不進去
+            setDraft(digits);
+            const n = Number(digits);
+            if (digits && n === clamp(n) && n !== value) onSave(n);
+          }}
+          onBlur=${() => (draft ? save(clamp(Number(draft))) : setDraft(String(value)))}
+          onKeyDown=${(e) => {
+            if (e.key === 'Enter') e.currentTarget.blur();
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+              e.preventDefault();
+              save(clamp((Number(draft) || value) + (e.key === 'ArrowUp' ? 1 : -1)));
+            }
+          }}
+        />
+        <span class="stepper-unit">${tr('spec.minutesUnit')}</span>
+        <button class="stepper-btn" aria-label=${tr('spec.minutesMore')} disabled=${disabled || value >= max} onClick=${() => save(clamp(Math.floor(value / 5) * 5 + 5))}>
+          +
+        </button>
+      </div>
+      <span class="stepper-aside">${aside}</span>
+    </div>
+    <p class=${`menu-hint ${out ? 'warn' : ''}`}>${out ? tr('spec.minutesRange', { min, max }) : hint}</p>`;
+}
+
+// 幾個選項選一個：全部攤開，點一下就換。用原生的單選鈕，鍵盤的方向鍵也能選
+function Segmented({ name, label, options, value, disabled, onChange }) {
+  return html`<div class="seg" role="radiogroup" aria-label=${label}>
+    ${options.map(
+      (o) => html`<label class="seg-item" title=${o.title}>
+        <input type="radio" name=${name} value=${o.value} checked=${o.value === value} disabled=${disabled} onChange=${() => onChange(o.value)} />
+        <span>${o.label}</span>
+      </label>`,
+    )}
+  </div>`;
+}
+
+// 開關：整列都能點，左邊是名稱和說明，右邊的開關一看就知道開著還是關著
+function Switch({ label, note, checked, disabled, onChange }) {
+  return html`<button class="switch-row" role="switch" aria-checked=${checked} disabled=${disabled} onClick=${() => onChange(!checked)}>
+    <span class="switch-text">
+      <span>${label}</span>
+      ${note && html`<small>${note}</small>`}
+    </span>
+    <span class="switch" aria-hidden="true"></span>
+  </button>`;
+}
+
+// 頂列下方的提醒：出問題時一定看得到（捲動時也固定在上面），每一則都寫出可以怎麼做
+function Alerts({ state, connected, t, dismissed, onDismiss, onSettings, onNewProject, onPair }) {
   const items = [];
-  const nameOf = (id) => state.devices.find((d) => d.id === id)?.name ?? tr('alerts.phone');
+  const nameOf = (id) => (state.devices.find((d) => d.id === id) ?? state.removedDevices.find((d) => d.id === id))?.name ?? tr('alerts.phone');
+  const dismissButton = (key) => html`<button class="btn-link" onClick=${() => onDismiss(key)}>${tr('alerts.dismiss')}</button>`;
   if (!connected) items.push(['error', tr('alerts.disconnected')]);
+  if (state.saveError) items.push(['error', tr('alerts.saveError', { error: state.saveError })]);
+  if (state.dbProblem && !dismissed.has('db')) {
+    const text = tr(state.dbProblem.kind === 'restored' ? 'alerts.dbRestored' : 'alerts.dbReset', { kept: state.dbProblem.kept });
+    items.push([state.dbProblem.kind === 'restored' ? 'warn' : 'error', html`${text} ${dismissButton('db')}`]);
+  }
+
+  // 錄影當下的問題：聲音、麥克風、發熱
+  for (const d of state.devices) {
+    if (d.audio === 'silent') items.push(['error', tr('alerts.silent', { name: d.name })]);
+    if (d.audio === 'clipping') items.push(['warn', tr('alerts.clipping', { name: d.name })]);
+    if (d.online && d.status.thermal >= 3) items.push(['error', tr('alerts.hot', { name: d.name })]);
+  }
+  for (const f of state.files) {
+    if (f.state === 'recording' && f.micDroppedAt && f.startedAt) {
+      items.push(['error', tr('alerts.micDropped', { name: nameOf(f.deviceId), at: fmtClock(f.micDroppedAt - f.startedAt) })]);
+    }
+  }
+
+  if (state.projectDirMissing) items.push(['error', tr('alerts.projectDirMissing', { dir: state.project.dir })]);
 
   const s = state.storage;
   if (!s.available) {
@@ -685,6 +947,12 @@ function Alerts({ state, connected, t, onSettings, onNewProject }) {
       items.push(['error', tr('alerts.offlineRecording', { name: d.name })]);
     }
   }
+  // 這台電腦的 IP 換了，配對時記下的位址連不到
+  const moved = state.devices.filter((d) => d.moved);
+  if (moved.length) {
+    const action = html`<button class="btn-link" onClick=${onPair}>${tr('alerts.showQr')}</button>`;
+    items.push(['warn', tr('alerts.moved', { names: listJoin(moved.map((d) => d.name)), action })]);
+  }
 
   // 剩 3 分鐘：同一次錄影的手機合成一則
   const takes = new Map();
@@ -704,8 +972,26 @@ function Alerts({ state, connected, t, onSettings, onNewProject }) {
     ]);
   }
 
-  if (!items.length) return null;
-  return html`<div class="alerts">${items.map(([kind, text]) => html`<div class=${`alert ${kind}`}>${text}</div>`)}</div>`;
+  // 有一台提早停下來：空間滿了、碰到這支手機單一影片的大小上限，或 App 被中斷（例如被切到背景）
+  const EARLY = { storageFull: 'alerts.storageFullStop', fileSizeLimit: 'alerts.fileLimitStop', error: 'alerts.errorStop' };
+  for (const f of earlyStops(state)) {
+    if (dismissed.has(`early:${f.id}`)) continue;
+    const key = EARLY[f.stopReason];
+    items.push(['error', tr(key, { name: nameOf(f.deviceId), at: fmtClock(f.durationMs ?? 0), action: dismissButton(`early:${f.id}`) })]);
+  }
+
+  // 到上限自動停止之後一直提醒，直到再按 R 或按「知道了」，才不會以為還在錄
+  const stopped = autoStoppedTake(state);
+  if (stopped && !dismissed.has(`take:${stopped.takeId}`)) {
+    const names = listJoin([...new Set(stopped.files.map((f) => nameOf(f.deviceId)))]);
+    const max = fmtDuration(stopped.files[0].spec.maxDurationSec);
+    items.push(['warn', tr('alerts.autoStopped', { max, names, action: dismissButton(`take:${stopped.takeId}`) })]);
+  }
+
+  // 新的提醒會被螢幕閱讀器唸出來；倒數每秒都在變，不唸
+  return html`<div class="alerts" role="status" aria-live="polite">
+    ${items.map(([kind, text]) => html`<div class=${`alert ${kind}`} aria-live=${kind === 'countdown' ? 'off' : undefined}>${text}</div>`)}
+  </div>`;
 }
 
 // 還沒配對手機時的「開始使用」：確認錄影資料夾 → 配對手機 → 新增專案
@@ -752,7 +1038,7 @@ function Setup({ state, onModal }) {
   </section>`;
 }
 
-function Bay({ state, device, letter, t, compact, onStart, onStop, onRemove, notify, run, selection, onToggleSelected, onTrashTake, onNeedFfmpeg }) {
+function Bay({ state, device, letter, t, compact, onStart, onStop, onRemove, onUpdate, notify, run, selection, onToggleSelected, onTrashTake, onNeedFfmpeg }) {
   const files = state.files.filter((f) => f.deviceId === device.id).sort((a, b) => b.createdAt - a.createdAt);
   const active = files.find(isActive);
   const recording = active?.state === 'recording' && active.startedAt;
@@ -795,19 +1081,70 @@ function Bay({ state, device, letter, t, compact, onStart, onStop, onRemove, not
   const bitrate = resolutionOf(state).bitrate;
   const minutesLeft = st.freeBytes != null ? Math.floor(st.freeBytes / (bitrate / 8) / 60) : null;
   const locked = recording && active.spec.lockExposure && device.camera?.lockExposure;
+  const outdated = device.online && isOlder(device.appVersion, state.latestAppVersion);
+  // 溫度的顏色以系統回報的發熱等級為準（2 中等、3 以上嚴重），舊版 App 沒回報時看電池溫度
+  const hot = st.thermal != null ? (st.thermal >= 3 ? 'bad' : st.thermal === 2 ? 'warn' : '') : st.temperatureC >= 48 ? 'bad' : st.temperatureC >= 42 ? 'warn' : '';
+  const nameId = `bay-name-${device.id}`;
+
+  // 已經移除的手機：只剩它錄的影片可以播放、標記、裁剪、刪除
+  if (device.removed) {
+    return html`<section class="bay removed" aria-labelledby=${nameId}>
+      <div class="bay-head">
+        <span class="cam">${tr('bay.removedTitle')}</span>
+        <span class="name" id=${nameId}>${device.name}</span>
+        <span class="model">${device.model}</span>
+      </div>
+      <p class="hint">${tr('bay.removedHint')}</p>
+      ${selected &&
+      html`<div class=${`monitor ${portrait ? 'portrait' : ''}`}>
+          <video ref=${videoRef} key=${selected.id} data-file-id=${selected.id} src=${`/media/${selected.id}`} controls preload="metadata" playsinline></video>
+        </div>
+        <div class="monitor-caption">
+          <span>${selected.name}</span>
+          ${!trimming &&
+          html`<button class="btn-link" onClick=${() => (state.ffmpeg ? setTrimming(true) : onNeedFfmpeg(() => setTrimming(true)))}>${tr('bay.trim')}</button>`}
+          <button class="btn-link" onClick=${() => run(() => post('/api/open-folder', { fileId: selected.id }))}>${revealLabel(state)}</button>
+        </div>`}
+      ${selected &&
+      trimming &&
+      html`<${TrimBar} state=${state} file=${selected} videoRef=${videoRef} onClose=${() => setTrimming(false)} onDone=${(id) => (id ? setSelectedId(id) : setTrimming(false))} notify=${notify} />`}
+      <ul class="clips">
+        ${files.map(
+          (f) => html`<${Clip}
+            key=${f.id}
+            f=${f}
+            state=${state}
+            selected=${f.id === selected?.id}
+            onPlay=${() => setSelectedId(f.id)}
+            onTrash=${() => onTrashTake(f.takeId)}
+            selecting=${!!selection}
+            picked=${!!selection?.has(f.id)}
+            onPick=${() => onToggleSelected(f.id)}
+            run=${run}
+          />`,
+        )}
+      </ul>
+    </section>`;
+  }
 
   return html`
-    <section class=${`bay ${recording ? 'rec' : ''} ${device.online ? '' : 'offline'}`}>
+    <section class=${`bay ${recording ? 'rec' : ''} ${device.online ? '' : 'offline'}`} aria-labelledby=${nameId}>
       <div class="bay-head">
         <span class=${`tally ${tally}`} aria-hidden="true"></span>
         <span class="cam">CAM ${letter}</span>
-        <${NameEditor} device=${device} notify=${notify} />
+        <${NameEditor} device=${device} notify=${notify} id=${nameId} />
         <span class="model">${device.model}</span>
         ${mic && html`<span class=${`mic ${externalMic(st) ? 'ext' : ''}`} title=${tr('mic.title')}>${mic}</span>`}
         <span class=${`conn ${conn[0]}`} title=${conn[0] === 'warn' ? tr('bay.cameraHint') : undefined}>
           ${conn[1]}
         </span>
       </div>
+      ${outdated &&
+      html`<p class="bay-note">
+        ${tr('bay.appOutdated', { version: device.appVersion, latest: state.latestAppVersion })}${tr('sep')}<button class="btn-link" onClick=${onUpdate}>
+          ${tr('bay.howToUpdate')}
+        </button>
+      </p>`}
 
       <div class="bay-timecode">
         <div class=${`tc ${recording ? 'live' : ''} ${warn ? 'warn' : ''}`} aria-live="off">
@@ -828,10 +1165,11 @@ function Bay({ state, device, letter, t, compact, onStart, onStop, onRemove, not
 
       <div class="meters">
         <${Meter} label=${tr('meter.battery')} value=${st.battery != null ? `${st.battery}%${st.charging ? ' ⚡' : ''}` : '—'} level=${st.battery != null && st.battery <= 15 && !st.charging ? 'bad' : st.battery <= 30 && !st.charging ? 'warn' : ''} />
-        <${Meter} label=${tr('meter.temperature')} value=${st.temperatureC != null ? `${st.temperatureC.toFixed(0)}°C` : '—'} level=${st.temperatureC >= 48 ? 'bad' : st.temperatureC >= 42 ? 'warn' : ''} />
+        <${Meter} label=${tr('meter.temperature')} value=${st.temperatureC != null ? `${st.temperatureC.toFixed(0)}°C` : '—'} level=${hot} />
         <${Meter} label=${tr('meter.storage')} value=${st.freeBytes != null ? fmtBytes(st.freeBytes) : '—'} level=${minutesLeft != null && minutesLeft < 35 ? 'warn' : ''} />
         <${Meter} label=${tr('meter.timeLeft')} value=${minutesLeft != null ? tr('unit.minShort', { n: minutesLeft }) : '—'} level=${minutesLeft != null && minutesLeft < 35 ? 'warn' : ''} />
       </div>
+      ${recording && device.features.includes('audio') && html`<${AudioMeter} device=${device} />`}
 
       <div class=${`monitor ${portrait ? 'portrait' : ''}`}>
         ${selected
@@ -915,7 +1253,7 @@ function LiveView({ device }) {
     };
   }, [device.id]);
   let reason = tr('live.waiting');
-  if (!device.online) reason = tr('live.offline');
+  if (!device.online) reason = tr(device.moved ? 'live.moved' : 'live.offline');
   else if (!device.features.includes('preview')) reason = tr('live.oldApp');
   else if (device.status.cameraReady === false) reason = tr('live.cameraNotReady');
   return html`<img ref=${imgRef} class="live" alt=${tr('live.alt', { name: device.name })} />
@@ -1126,6 +1464,7 @@ function ZoomControl({ device, run }) {
       value=${toPos(shown)}
       disabled=${!device.online}
       aria-label=${tr('zoom.aria', { name: device.name })}
+      aria-valuetext=${fmtZoom(shown)}
       onInput=${(e) => {
         const z = fromPos(Number(e.target.value));
         setDragging(z);
@@ -1148,6 +1487,32 @@ function Meter({ label, value, level }) {
   return html`<div class="meter">
     <div class="label">${label}</div>
     <div class=${`meter-value ${level || ''}`}>${value}</div>
+  </div>`;
+}
+
+// 錄影中的音量條：-60 dBFS 以下當成沒有聲音，接近 0 dBFS 是爆音。資料直接從 levels 拿，不重畫整頁。
+function AudioMeter({ device }) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const update = () => setTick((n) => n + 1);
+    levelViews.add(update);
+    return () => levelViews.delete(update);
+  }, []);
+  const value = levels.get(device.id);
+  if (value === undefined) return null;
+  const pct = Math.max(0, Math.min(100, ((value + 60) / 60) * 100));
+  const zone = value >= -1 ? 'clip' : value <= -60 ? 'silent' : value >= -9 ? 'hot' : '';
+  return html`<div
+    class="audio-meter"
+    role="meter"
+    aria-label=${tr('bay.level')}
+    aria-valuemin="-60"
+    aria-valuemax="0"
+    aria-valuenow=${Math.round(value)}
+    aria-valuetext=${`${Math.round(value)} dBFS`}
+  >
+    <span class="label">${tr('bay.level')}</span>
+    <span class="audio-track"><span class=${`audio-bar ${zone}`} style=${{ width: `${pct}%` }}></span></span>
   </div>`;
 }
 
@@ -1186,6 +1551,7 @@ function Clip({ f, state, selected, onPlay, onTrash, selecting, picked, onPick, 
       fmtBytes(f.size) +
       (actual ? sep + actual : '') +
       (f.orientation === 'portrait' ? tr('clip.portrait') : '') +
+      (f.audioChannels === 2 ? tr('clip.stereo') : '') +
       (f.trimmedFrom ? tr('clip.trimmed') : '') +
       stopNote(f.stopReason);
   } else detail = f.error || tr('clip.failed');
@@ -1213,6 +1579,7 @@ function Clip({ f, state, selected, onPlay, onTrash, selecting, picked, onPick, 
       <span>${detail}</span>
       ${stalled && html`<span class="clip-warn">${tr('clip.stalled')}</span>`}
       ${downgraded && html`<span class="clip-warn">${tr('clip.downgraded', { wanted: wanted.label, w: f.videoWidth, h: f.videoHeight })}</span>`}
+      ${f.micDroppedAt && f.startedAt && html`<span class="clip-warn">${tr('clip.micDropped', { at: fmtClock(f.micDroppedAt - f.startedAt) })}</span>`}
       ${sync && html`<span class="clip-sync">${sync}</span>`}
     </span>`;
   const peers = state.files.filter((g) => g.takeId === f.takeId && canTrash(g)).length;
@@ -1256,7 +1623,7 @@ function Clip({ f, state, selected, onPlay, onTrash, selecting, picked, onPick, 
   </li>`;
 }
 
-function NameEditor({ device, notify }) {
+function NameEditor({ device, notify, id }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(device.name);
   const inputRef = useRef(null);
@@ -1279,6 +1646,7 @@ function NameEditor({ device, notify }) {
   if (!editing) {
     return html`<button
       class="name"
+      id=${id}
       title=${tr('name.title')}
       onClick=${() => {
         setValue(device.name);
@@ -1290,6 +1658,7 @@ function NameEditor({ device, notify }) {
   }
   return html`<input
     ref=${inputRef}
+    id=${id}
     class="name-input"
     value=${value}
     maxlength="40"
@@ -1308,16 +1677,39 @@ function NameEditor({ device, notify }) {
 
 // ---------- 對話框 ----------
 
+// 用原生的 <dialog>：開著時焦點只會在對話框裡（背景不能按、Tab 不會跑出去），按 Esc 關閉，關掉後焦點回到原本的按鈕
 function Modal({ title, onClose, children }) {
-  return html`<div class="modal-backdrop" onClick=${(e) => e.target === e.currentTarget && onClose()}>
-    <div class="modal" role="dialog" aria-modal="true" aria-label=${title}>
-      <div class="modal-head">
-        <h2>${title}</h2>
-        <button class="btn-ghost btn-small" onClick=${onClose}>${tr('common.close')}</button>
-      </div>
-      <div class="modal-body">${children}</div>
+  const ref = useRef(null);
+  useEffect(() => {
+    const dialog = ref.current;
+    const opener = document.activeElement;
+    dialog.showModal();
+    // 焦點先放在有標 data-autofocus 的（例如確認視窗的「取消」），沒有的話放在內容的第一個欄位或按鈕
+    const first =
+      dialog.querySelector('[data-autofocus]') ?? dialog.querySelector('.modal-body :is(input, select, textarea, button, a[href])');
+    first?.focus();
+    // 對話框還開著時，背景的按鈕拿不到焦點，所以先關掉再移回去
+    return () => {
+      if (dialog.open) dialog.close();
+      if (opener?.isConnected) opener.focus();
+    };
+  }, []);
+  return html`<dialog
+    ref=${ref}
+    class="modal"
+    aria-label=${title}
+    onCancel=${(e) => {
+      e.preventDefault();
+      onClose();
+    }}
+    onClick=${(e) => e.target === e.currentTarget && onClose()}
+  >
+    <div class="modal-head">
+      <h2>${title}</h2>
+      <button class="btn-ghost btn-small" onClick=${onClose}>${tr('common.close')}</button>
     </div>
-  </div>`;
+    <div class="modal-body">${children}</div>
+  </dialog>`;
 }
 
 function ConfirmModal({ title, confirmLabel, danger, onConfirm, onClose, children }) {
@@ -1338,7 +1730,7 @@ function ConfirmModal({ title, confirmLabel, danger, onConfirm, onClose, childre
     ${children}
     ${error && html`<p class="hint bad" role="alert">${error}</p>`}
     <div class="modal-foot">
-      <button class="btn-ghost" onClick=${onClose}>${tr('common.cancel')}</button>
+      <button class="btn-ghost" data-autofocus onClick=${onClose}>${tr('common.cancel')}</button>
       <button class=${danger ? 'btn-danger' : 'btn-primary'} disabled=${busy} onClick=${confirm}>${confirmLabel}</button>
     </div>
   <//>`;
@@ -1435,6 +1827,32 @@ function PairModal({ state, onClose }) {
         </div>
       </div>
     </div>
+    <details class="pair-trouble">
+      <summary>${tr('pair.troubleTitle')}</summary>
+      <ul>
+        <li>${tr('pair.trouble1')}</li>
+        ${state.platform === 'win32' && html`<li>${tr('pair.troubleWin')}</li>`}
+        ${state.platform === 'darwin' && html`<li>${tr('pair.troubleMac')}</li>`}
+        <li>${tr('pair.troubleVpn')}</li>
+        ${data && html`<li>${tr('pair.troubleUrl', { url: data.payload.url })}</li>`}
+      </ul>
+    </details>
+  <//>`;
+}
+
+// 手機的 App 太舊：用那支手機的相機掃 QR Code 下載最新版（GitHub Releases 上的 APK）
+function UpdateAppModal({ state, devices, onClose }) {
+  const [qr, setQr] = useState(null);
+  useEffect(() => {
+    fetch('/api/app-qr')
+      .then((r) => r.json())
+      .then((d) => setQr(d.qr), () => {});
+  }, []);
+  return html`<${Modal} title=${tr('update.title')} onClose=${onClose}>
+    <div class="pair">
+      <div class="qr-frame">${qr ? html`<img src=${qr} alt=${tr('update.qrAlt')} />` : html`<div class="qr-loading">${tr('pair.generating')}</div>`}</div>
+      <p>${tr('update.body', { names: listJoin(devices.map((d) => d.name)), n: devices.length, latest: state.latestAppVersion })}</p>
+    </div>
   <//>`;
 }
 
@@ -1530,19 +1948,6 @@ function SettingsModal({ state, onClose, notify }) {
 
   return html`<${Modal} title=${tr('settings.title')} onClose=${onClose}>
     <div class="field">
-      <label class="label" for="language">${tr('settings.language')}</label>
-      <select
-        id="language"
-        value=${state.settings.language ?? 'auto'}
-        onChange=${(e) => post('/api/settings', { language: e.target.value }).catch((err) => setError(err.message))}
-      >
-        <option value="auto">${tr('settings.languageAuto')}</option>
-        <option value="zh-TW" lang="zh-Hant-TW">繁體中文</option>
-        <option value="en" lang="en">English</option>
-      </select>
-      <p class="hint">${tr('settings.languageHint')}</p>
-    </div>
-    <div class="field">
       <label class="label" for="storage-dir">${tr('settings.folder')}</label>
       <div class="field-row" onDrop=${() => setError(tr('settings.dropHint'))}>
         <input
@@ -1557,12 +1962,24 @@ function SettingsModal({ state, onClose, notify }) {
         />
         <button class="btn-ghost" disabled=${busy} onClick=${choose}>${tr('settings.choose')}</button>
       </div>
+      ${error && html`<p class="hint bad" role="alert">${error}</p>`}
+      <p class="hint">${tr('settings.folderHint', { formats: state.diskFormats })}</p>
+      ${s.available
+        ? html`<p class=${`hint ${s.warning ? 'warn' : ''}`}>${tr('settings.free', { free: fmtBytes(s.freeBytes), format: s.format, warning: s.warning })}</p>`
+        : html`<p class="hint bad">${tr('settings.bad', { error: s.error })}</p>`}
     </div>
-    ${error && html`<p class="hint bad" role="alert">${error}</p>`}
-    <p class="hint">${tr('settings.folderHint', { formats: state.diskFormats })}</p>
-    ${s.available
-      ? html`<p class=${`hint ${s.warning ? 'warn' : ''}`}>${tr('settings.free', { free: fmtBytes(s.freeBytes), format: s.format, warning: s.warning })}</p>`
-      : html`<p class="hint bad">${tr('settings.bad', { error: s.error })}</p>`}
+    <div class="field">
+      <span class="label">${tr('settings.sounds')}</span>
+      <${Switch}
+        label=${tr('settings.soundsLabel')}
+        note=${tr('settings.soundsHint')}
+        checked=${state.settings.sounds}
+        onChange=${(sounds) => post('/api/settings', { sounds }).catch((err) => setError(err.message))}
+      />
+    </div>
+    <p class="hint">
+      ${tr('settings.version', { version: state.version })}${tr('sep')}<a href="https://github.com/dean9703111/multicam-recorder/releases/latest" target="_blank" rel="noopener">${tr('settings.latest')}</a>
+    </p>
     <div class="modal-foot">
       <button class="btn-ghost" onClick=${onClose}>${tr('common.cancel')}</button>
       <button class="btn-primary" disabled=${busy} onClick=${save}>${tr('settings.save')}</button>

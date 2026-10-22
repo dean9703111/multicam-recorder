@@ -1,4 +1,5 @@
-# 每次推送都在 Windows、macOS、Linux 上跑一次：型別檢查，再用模擬手機把整個流程跑一遍（tools/smoke-test.ts）
+# 每次推送都在 Windows、macOS、Linux 上跑一次：型別檢查、一致性檢查（tools/check.ts），
+# 再用模擬手機把整個流程跑一遍（tools/smoke-test.ts）；另外編一次手機 App。
 name: CI
 
 on:
@@ -34,4 +35,20 @@ jobs:
 
       - run: npm ci
       - run: npm run typecheck
+      - run: npm run check
       - run: npm run smoke-test
+
+  android:
+    name: Android app
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Build the debug APK
+        working-directory: android
+        run: ./gradlew :app:assembleDebug

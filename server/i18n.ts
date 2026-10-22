@@ -8,9 +8,9 @@ export type LangSetting = Lang | 'auto';
 export const LANG_SETTINGS: LangSetting[] = ['auto', 'zh-TW', 'en'];
 
 // zh、zh-TW、zh-Hant、zh-CN 都用繁體中文；其他語言一律英文。認不出來就回傳 undefined。
-export function parseLang(header: string | string[] | undefined): Lang | undefined {
-  const value = Array.isArray(header) ? header[0] : header;
-  if (!value) return undefined;
+export function parseLang(header: unknown): Lang | undefined {
+  const value: unknown = Array.isArray(header) ? header[0] : header;
+  if (typeof value !== 'string' || !value) return undefined;
   const tags = value
     .split(',')
     .map((part, i) => {
@@ -50,6 +50,8 @@ const ZH: Record<string, Message> = {
   'html.lang': 'zh-Hant-TW',
   'list.sep': '、',
   'punct.colon': '：',
+  'unit.min': '{n} 分鐘',
+  'unit.sec': '{n} 秒',
 
   'trash.name': isWin ? '資源回收筒' : '垃圾桶',
   'disk.goodFormats': isMac ? 'APFS 或 exFAT' : isWin ? 'NTFS 或 exFAT' : 'exFAT 或 ext4',
@@ -59,6 +61,7 @@ const ZH: Record<string, Message> = {
   'dir.notFound': '找不到這個資料夾：{dir}',
   'dir.notFolder': '這不是資料夾：{dir}',
   'dir.notWritable': '沒有權限寫入這個資料夾：{dir}',
+  'dir.unreadable': '讀不到這個資料夾的空間資訊：{error}',
   'trash.noGio': '這台電腦沒有 gio 指令，沒辦法移到垃圾桶',
 
   'http.tooLarge': 'JSON 太大',
@@ -66,6 +69,7 @@ const ZH: Record<string, Message> = {
   'http.fileNotFound': '找不到檔案',
   'http.notFound': '找不到這個網址',
   'http.localOnly': '只能在執行伺服器的這台電腦上操作',
+  'http.crossSite': '這個請求不是控制台送出的，已經擋下（防止其他網頁操作你的錄影）',
   'http.unsupported': '不支援這個操作',
 
   'upload.fileNotFound': '找不到這個檔案',
@@ -101,6 +105,8 @@ const ZH: Record<string, Message> = {
   'pairPage.step1': (p) =>
     `按上面的按鈕，或<a href="${p.url}">直接下載 APK</a>。下載完點開安裝，第一次會要你允許瀏覽器安裝應用程式。`,
   'pairPage.step2': '裝好後回到這一頁，再按一次「打開 App 並配對」。',
+  'pairPage.verify': (p) =>
+    `App 不是從 Google Play 下載的，所以 Google Play 安全防護跳出提醒是正常的。正式版的簽章憑證 SHA-256 指紋是 <code>${p.fp}</code>。`,
   'pairPage.validity': '這個 QR Code 10 分鐘內有效。過期的話，請在電腦上按「配對手機」重新產生。',
   'pairPage.expiredTitle': 'QR Code 已失效',
   'pairPage.expiredBody': '請在電腦上按「配對手機」，再掃一次新的 QR Code。',
@@ -110,8 +116,12 @@ const ZH: Record<string, Message> = {
   'rec.busy': '{name} 已經在錄影',
   'rec.cameraNotReady': '{name} 相機還沒準備好',
   'rec.noPhones': '還沒有配對任何手機',
-  'rec.stopUnreachable': '{name} 離線，停止指令送不到',
+  'rec.stopQueued': '{name} 離線，等它連回來會自動停止',
   'rec.nothingRecording': '沒有正在錄影的手機',
+  'rec.lowPhoneSpace': '{name} 的空間只夠錄大約 {left}（這一段最長 {max}），錄到一半會停。可以先在手機上按「清除已傳完的影片」，或改用低一點的解析度',
+  'rec.lowBattery': '{name} 只剩 {battery}% 電量而且沒在充電，可能錄到一半就沒電，建議先接上充電器',
+  'rec.fileLimit': '{name} 的一支影片最大大約 {size}，這個解析度錄大約 {left} 就會停（這一段最長 {max}）。要錄更久，請在「錄影規格」改用低一點的解析度',
+  'rec.lowComputerSpace': '電腦的錄影資料夾只剩 {free}，這一段最多要 {need}，可能傳到一半就放不下。可以先清出空間，或在「設定」換一個資料夾',
 
   'project.nameLength': '專案名稱要 1 到 60 個字',
   'project.nameChars': '專案名稱不能包含 / \\ : * ? " < > |，也不能用 . 開頭或結尾',
@@ -142,39 +152,46 @@ const ZH: Record<string, Message> = {
   'trim.badRange': '裁剪的範圍不對，至少要留 1 秒',
   'trim.busy': '這一段正在裁剪，請稍等',
   'trim.notCovered': '{name} 沒有錄到這段時間',
-  'trim.failed': '裁剪 {name} 失敗：{error}',
+  'trim.failed': '裁剪 {name} 失敗：{error}。這一段都沒有裁，原本的影片不受影響',
+  'trim.timeout': 'ffmpeg 超過 {minutes} 分鐘還沒做完，已經停止。影片在外接硬碟上的話，請確認硬碟還接著',
 
   'settings.badResolution': '不支援這個解析度',
   'settings.resolutionWhileRecording': '錄影中不能改解析度，停止後再調整',
+  'settings.badMaxMinutes': '單段上限要是 {min}～{max} 之間的整數（分鐘）',
+  'settings.maxWhileRecording': '錄影中不能改單段上限，停止後再調整',
   'settings.badGuide': '不支援這種輔助框',
   'settings.portraitBool': '人像設定只能是開或關',
   'settings.portraitWhileRecording': '錄影中不能改人像設定，停止後再調整',
   'settings.badLanguage': '不支援這個語言',
 
   // 影片失敗的原因：伺服器自己判斷的，和手機回報的（手機用代碼回報，detail 是系統給的技術訊息）
-  'fileError.removed': '手機已從電腦上移除，影片留在手機上',
-  'fileError.noStart': '手機沒有回應開始錄影',
-  'fileError.lost': '手機斷線後一直沒有連回來，影片還在手機上',
+  'fileError.removed': '這支手機已經從電腦上移除，影片還在手機上。重新配對後會自動補傳',
+  'fileError.noStart': '手機沒有回應開始錄影。如果它其實有在錄，連回來後會自動補傳',
+  'fileError.lost': '手機斷線後一直沒有連回來，影片還在手機上。手機連回來後會自動補傳',
+  'fileError.stoppedUnknown': '手機已經停止錄影，但電腦沒收到停止的通知，也還沒收到影片。手機連回來後會自動補傳',
   'fileError.phone.busy': '這支手機已經在錄影',
-  'fileError.phone.cameraNotReady': '相機還沒準備好',
-  'fileError.phone.unsupportedResolution': '手機不支援這個解析度',
-  'fileError.phone.startFailed': '開始錄影失敗：{detail}',
+  'fileError.phone.cameraNotReady': '相機還沒準備好：請把手機上的 App 打開放在前景',
+  'fileError.phone.unsupportedResolution': '手機不支援這個解析度，請在「錄影規格」改低一點',
+  'fileError.phone.startFailed': '開始錄影失敗：{detail}。可以再按一次開始；一直失敗的話，請重新打開手機上的 App',
   'fileError.phone.cancelled': '還沒開始就取消了',
-  'fileError.phone.notFinalized': '錄影沒有正常結束：{detail}',
-  'fileError.phone.appClosed': 'App 在錄影中被關閉，這支影片沒有正常收尾',
-  'fileError.phone.recorderError': '手機錄影發生錯誤：{detail}',
+  'fileError.phone.notFinalized': '錄影沒有正常結束，影片可能無法播放：{detail}',
+  'fileError.phone.appClosed': 'App 在錄影中被關掉，這支影片沒有正常收尾、無法播放。錄影時請把 App 留在前景，手機接上充電器',
+  'fileError.phone.recorderError': '手機錄影發生錯誤：{detail}。手機太熱或空間不夠時常會這樣，讓手機休息一下、清出空間再試',
 
   'log.dashboard': '控制台：{url}',
   'log.phones': '手機連線位址：{url}',
   'log.noIp': '找不到區域網路 IP，手機會連不到',
   'log.folder': '錄影資料夾：{dir}',
-  'log.portInUse': '連接埠 {port} 已被占用，伺服器可能已經在執行',
+  'log.keepOpen': '錄影時這個視窗要一直開著，關掉就會停止。',
+  'log.portInUse': '多機錄影已經在執行了（連接埠 {port} 被占用），直接打開 {url} 就好',
 };
 
 const EN: Record<string, Message> = {
   'html.lang': 'en',
   'list.sep': ', ',
   'punct.colon': ': ',
+  'unit.min': '{n} min',
+  'unit.sec': '{n} s',
 
   'trash.name': isWin ? 'Recycle Bin' : 'Trash',
   'disk.goodFormats': isMac ? 'APFS or exFAT' : isWin ? 'NTFS or exFAT' : 'exFAT or ext4',
@@ -184,6 +201,7 @@ const EN: Record<string, Message> = {
   'dir.notFound': 'Folder not found: {dir}',
   'dir.notFolder': 'Not a folder: {dir}',
   'dir.notWritable': 'No permission to write to this folder: {dir}',
+  'dir.unreadable': "Can't read how much space this folder has: {error}",
   'trash.noGio': "The gio command isn't available on this computer, so files can't be moved to the Trash.",
 
   'http.tooLarge': 'The request is too large.',
@@ -191,6 +209,7 @@ const EN: Record<string, Message> = {
   'http.fileNotFound': 'File not found.',
   'http.notFound': 'Not found.',
   'http.localOnly': 'This can only be done on the computer running the server.',
+  'http.crossSite': "This request didn't come from the dashboard, so it was blocked (to stop other web pages from controlling your recordings).",
   'http.unsupported': 'Unsupported operation.',
 
   'upload.fileNotFound': 'File not found.',
@@ -226,6 +245,8 @@ const EN: Record<string, Message> = {
   'pairPage.step1': (p) =>
     `Tap the button above, or <a href="${p.url}">download the APK</a> directly. Open the download to install it; the first time, Android asks you to allow your browser to install apps.`,
   'pairPage.step2': 'After installing, come back to this page and tap “Open the app and pair” again.',
+  'pairPage.verify': (p) =>
+    `The app doesn't come from Google Play, so a Google Play Protect warning is expected. The release signing certificate's SHA-256 fingerprint is <code>${p.fp}</code>.`,
   'pairPage.validity': 'This QR code is valid for 10 minutes. If it expires, click “Pair phone” on the computer to create a new one.',
   'pairPage.expiredTitle': 'This QR code has expired',
   'pairPage.expiredBody': 'Click “Pair phone” on the computer and scan the new QR code.',
@@ -235,8 +256,15 @@ const EN: Record<string, Message> = {
   'rec.busy': '{name} is already recording',
   'rec.cameraNotReady': "{name}'s camera isn't ready",
   'rec.noPhones': 'No phones are paired yet.',
-  'rec.stopUnreachable': "{name} is offline, so the stop command couldn't be sent",
+  'rec.stopQueued': "{name} is offline. It'll stop as soon as it reconnects",
   'rec.nothingRecording': 'No phones are recording.',
+  'rec.lowPhoneSpace':
+    '{name} only has room for about {left} (this take can run up to {max}), so it will stop partway. Tap “Clear uploaded videos” on the phone, or pick a lower resolution',
+  'rec.lowBattery': "{name} is at {battery}% and isn't charging, so it may die mid-take. Plug in a charger first",
+  'rec.fileLimit':
+    '{name} can only record about {size} per video, which is about {left} at this resolution (this take can run up to {max}). To record longer, pick a lower resolution under Recording settings',
+  'rec.lowComputerSpace':
+    'The recording folder only has {free} free and this take may need up to {need}, so uploads may run out of room. Free up space, or choose another folder in Settings',
 
   'project.nameLength': 'Project names must be 1 to 60 characters.',
   'project.nameChars': 'Project names can\'t contain / \\ : * ? " < > | or start or end with a period.',
@@ -267,32 +295,38 @@ const EN: Record<string, Message> = {
   'trim.badRange': 'Invalid range. Keep at least 1 second.',
   'trim.busy': 'This take is already being trimmed. Please wait.',
   'trim.notCovered': "{name} didn't record this part",
-  'trim.failed': "Couldn't trim {name}: {error}",
+  'trim.failed': "Couldn't trim {name}: {error}. Nothing in this take was trimmed, and the original clips are untouched.",
+  'trim.timeout': "ffmpeg didn't finish within {minutes} min, so it was stopped. If the clips are on an external drive, make sure it's still connected.",
 
   'settings.badResolution': 'Unsupported resolution.',
   'settings.resolutionWhileRecording': "You can't change the resolution while recording. Stop first.",
+  'settings.badMaxMinutes': 'The take length must be a whole number of minutes from {min} to {max}.',
+  'settings.maxWhileRecording': "You can't change the take length while recording. Stop first.",
   'settings.badGuide': 'Unsupported framing guide.',
   'settings.portraitBool': 'Portrait settings must be on or off.',
   'settings.portraitWhileRecording': "You can't change portrait settings while recording. Stop first.",
   'settings.badLanguage': 'Unsupported language.',
 
-  'fileError.removed': 'The phone was removed from the computer. The video is still on the phone.',
-  'fileError.noStart': "The phone didn't respond to the start command.",
-  'fileError.lost': 'The phone disconnected and never reconnected. The video is still on the phone.',
+  'fileError.removed': "This phone was removed from the computer. The video is still on the phone and will upload after it's paired again.",
+  'fileError.noStart': "The phone didn't respond to the start command. If it was actually recording, the video will upload when it reconnects.",
+  'fileError.lost': 'The phone disconnected and never reconnected. The video is still on the phone and will upload when it reconnects.',
+  'fileError.stoppedUnknown': "The phone stopped recording, but the computer didn't get the stop message or any video yet. It will upload when the phone reconnects.",
   'fileError.phone.busy': 'This phone is already recording.',
-  'fileError.phone.cameraNotReady': "The camera isn't ready.",
-  'fileError.phone.unsupportedResolution': "The phone doesn't support this resolution.",
-  'fileError.phone.startFailed': "Couldn't start recording: {detail}",
+  'fileError.phone.cameraNotReady': "The camera isn't ready. Open the app on the phone and keep it in the foreground.",
+  'fileError.phone.unsupportedResolution': "The phone doesn't support this resolution. Pick a lower one under Recording settings.",
+  'fileError.phone.startFailed': "Couldn't start recording: {detail}. Try starting again; if it keeps failing, reopen the app on the phone.",
   'fileError.phone.cancelled': 'Canceled before it started.',
-  'fileError.phone.notFinalized': "The recording didn't finish properly: {detail}",
-  'fileError.phone.appClosed': "The app was closed while recording, so this video wasn't finalized.",
-  'fileError.phone.recorderError': 'Recording error on the phone: {detail}',
+  'fileError.phone.notFinalized': "The recording didn't finish properly and may not play: {detail}",
+  'fileError.phone.appClosed':
+    "The app was closed while recording, so this video wasn't finalized and can't be played. Keep the app in the foreground and the phone on a charger while recording.",
+  'fileError.phone.recorderError': 'Recording error on the phone: {detail}. This often happens when the phone is too hot or out of space. Let it cool down or free up space, then try again.',
 
   'log.dashboard': 'Dashboard: {url}',
   'log.phones': 'Phones connect to: {url}',
   'log.noIp': "No local network IP found; phones won't be able to connect.",
   'log.folder': 'Recording folder: {dir}',
-  'log.portInUse': 'Port {port} is already in use. The server may already be running.',
+  'log.keepOpen': 'Keep this window open while recording. Closing it stops MultiCam Recorder.',
+  'log.portInUse': 'MultiCam Recorder is already running (port {port} is in use). Just open {url}.',
 };
 
 const MESSAGES: Record<Lang, Record<string, Message>> = { 'zh-TW': ZH, en: EN };

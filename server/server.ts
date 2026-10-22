@@ -4,11 +4,13 @@ import fs from 'node:fs';
 import http, { type IncomingMessage, type ServerResponse } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
+import type { Duplex } from 'node:stream';
 import QRCode from 'qrcode';
 import { WebSocketServer, type WebSocket } from 'ws';
-import { HttpError, isLoopback, readJson, sendFile, sendJson } from './http.ts';
+import { logEvent } from './events.ts';
+import { fromDashboard, HttpError, isLoopback, readJson, sendFile, sendJson } from './http.ts';
 import { currentLang, joinList, LANG_SETTINGS, m, parseLang, PHONE_ERRORS, setDefaultLang, systemLang, withLang, type Lang, type LangSetting } from './i18n.ts';
-import { ffmpegInstallCommand, moveToTrash, powershellArgs, psQuote, toolDirs } from './platform.ts';
+import { ffmpegInstallCommand, moveToTrash, openUrl, powershellArgs, psQuote, toolDirs } from './platform.ts';
 import type {
   CameraCapabilities,
   DeviceMessage,
@@ -26,10 +28,13 @@ import type {
 import {
   checkDir,
   db,
+  dbProblem,
   DEFAULT_STORAGE_DIR,
   save,
+  saveError,
   saveNow,
   storageInfo,
+  TAKE_MINUTES,
   type Device,
   type FileEntry,
   type Project,
@@ -38,9 +43,14 @@ import {
 import { finalPath, finish, partPath, receivedBytes, verify, writeChunk } from './uploads.ts';
 
 const PORT = Number(process.env.PORT ?? 8787);
-// 測試時可以用環境變數縮短
-const MAX_DURATION_SEC = Number(process.env.RECORDER_MAX_SEC ?? 30 * 60);
+const VERSION: string = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, '../package.json'), 'utf8')).version;
+// 最新版的手機 App。比這個舊的，控制台會提醒更新（發新版 APK 時要一起改，tools/check-release.ts 會檢查）
+const LATEST_APP_VERSION = '0.5.0';
+// 單段上限由使用者在錄影規格裡設定（db.settings.maxMinutes）；測試時可以用環境變數縮短
+const MAX_SEC_OVERRIDE = process.env.RECORDER_MAX_SEC ? Number(process.env.RECORDER_MAX_SEC) : undefined;
+const maxDurationSec = (): number => MAX_SEC_OVERRIDE ?? db.settings.maxMinutes * 60;
 const WARN_BEFORE_SEC = Number(process.env.RECORDER_WARN_SEC ?? 3 * 60);
+const LOST_GRACE_SEC = Number(process.env.RECORDER_LOST_GRACE_SEC ?? 60); // 錄影中斷線、超過上限這麼久還沒回來，就當成失聯
 const START_DELAY_MS = 800; // 先把指令送到每台手機，大家在同一個時間點開始
 const START_TIMEOUT_MS = 10_000;
 const RESOLUTIONS: { id: Resolution; label: string; width: number; height: number; bitrate: number }[] = [
@@ -53,6 +63,8 @@ const GUIDES: Guide[] = ['none', '9:16', '4:5', '1:1'];
 const MAX_DEVICES = 10; // 再多 Wi-Fi 和傳輸就吃不消了
 // 手機還沒裝 App 時，配對網頁會提供這個下載連結（GitHub Releases 上最新版的 APK）
 const APP_DOWNLOAD_URL = 'https://github.com/dean9703111/multicam-recorder/releases/latest/download/MultiCamRecorder.apk';
+// 正式版 APK 的簽章憑證 SHA-256 指紋，配對網頁上給想核對的人看（README 和網站也寫著同一串，npm run check 會比對）
+const APP_CERT_SHA256 = '851e9e8652eceeeb10277a3a92b9defcc25150e5e1566ede4495de85990552f4';
 const PUBLIC_DIR = path.join(import.meta.dirname, 'public');
 const NODE_MODULES = path.join(import.meta.dirname, '../node_modules');
 const VENDOR_FILE = path.join(NODE_MODULES, 'htm/preact/standalone.module.js');
@@ -73,9 +85,15 @@ interface Live {
   features: string[]; // 手機支援的功能，舊版 App 沒有即時畫面和變焦
   camera: CameraCapabilities | null; // 做得到哪些人像設定；舊版 App 沒有回報
   lang: Lang; // 送給這支手機的訊息用的語言：連線時的 Accept-Language，hello 裡的 lang
+  appVersion?: string;
+  level?: number; // 最近一次回報的音量（dBFS），錄影中才有
+  loudAt: number; // 最近一次有聲音的時間，用來偵測錄影中沒有聲音
+  clipAt: number; // 最近一次爆音的時間
+  idleReports: number; // 電腦以為在錄、手機卻連續幾次回報沒在錄（對帳用）
 }
 
 const live = new Map<string, Live>();
+const pendingStop = new Set<string>(); // 手機離線時按的停止，等它連回來再送（fileId）
 
 function sendTo(ws: WebSocket, msg: ServerMessage): void {
   ws.send(JSON.stringify(msg));
@@ -97,28 +115,40 @@ function onDeviceConnection(ws: WebSocket, token: string | null, lang: Lang): vo
     return;
   }
   live.get(d.id)?.ws.terminate(); // 同一支手機重連，舊的連線作廢
-  const l: Live = { ws, status: {}, alive: true, previewOn: false, features: [], camera: null, lang };
+  const l: Live = { ws, status: {}, alive: true, previewOn: false, features: [], camera: null, lang, loudAt: Date.now(), clipAt: 0, idleReports: 0 };
   live.set(d.id, l);
+  logEvent('phone.connected', { name: d.name });
   ws.on('pong', () => {
     l.alive = true;
   });
+  // 格式不對的訊息只記下來不處理；處理時出錯也只影響這一則，不讓整個伺服器停掉
   ws.on('message', (raw, isBinary) => {
     if (isBinary) return relayPreview(d.id, raw as Buffer); // 二進位訊息是即時畫面的 JPEG
-    let m: DeviceMessage;
+    let msg: unknown;
     try {
-      m = JSON.parse(String(raw)) as DeviceMessage;
+      msg = JSON.parse(String(raw));
     } catch {
       return;
     }
-    onDeviceMessage(d, l, m);
+    if (typeof msg !== 'object' || msg === null || typeof (msg as { type?: unknown }).type !== 'string') {
+      return logEvent('phone.badMessage', { name: d.name }, 'warn');
+    }
+    try {
+      onDeviceMessage(d, l, msg as DeviceMessage);
+    } catch (e) {
+      logEvent('phone.messageFailed', { name: d.name, type: (msg as { type: string }).type, error: (e as Error).message }, 'error');
+    }
   });
-  ws.on('close', () => {
+  ws.on('close', (code) => {
     if (live.get(d.id) !== l) return;
     live.delete(d.id);
+    logEvent('phone.disconnected', { name: d.name, code });
     changed();
   });
   changed();
 }
+
+const isNumber = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x);
 
 // 手機回報的相機能力；格式不對的項目當成做不到
 function cameraOf(c: Partial<CameraCapabilities> | undefined): CameraCapabilities | null {
@@ -126,71 +156,200 @@ function cameraOf(c: Partial<CameraCapabilities> | undefined): CameraCapabilitie
   return { facePriority: c.facePriority === true, lockExposure: c.lockExposure === true };
 }
 
+// 手機回報的狀態：只取認得、型別也對的欄位，格式不對的手機不會把控制台弄壞
+function statusOf(m: Record<string, unknown>): DeviceStatus {
+  const s: DeviceStatus = {};
+  if (isNumber(m.battery)) s.battery = m.battery;
+  if (typeof m.charging === 'boolean') s.charging = m.charging;
+  if (isNumber(m.temperatureC)) s.temperatureC = m.temperatureC;
+  if (isNumber(m.freeBytes)) s.freeBytes = m.freeBytes;
+  if (typeof m.cameraReady === 'boolean') s.cameraReady = m.cameraReady;
+  if (m.recordingFileId === null || typeof m.recordingFileId === 'string') s.recordingFileId = m.recordingFileId;
+  if (m.audioSource === 'builtin' || m.audioSource === 'usb' || m.audioSource === 'wired' || m.audioSource === 'other') s.audioSource = m.audioSource;
+  if (typeof m.audioName === 'string') s.audioName = m.audioName.slice(0, 80);
+  if (typeof m.audioInput === 'string') s.audioInput = m.audioInput.slice(0, 80);
+  if (isNumber(m.zoom)) s.zoom = m.zoom;
+  if (Array.isArray(m.zoomRange) && m.zoomRange.length === 2 && m.zoomRange.every(isNumber)) s.zoomRange = [m.zoomRange[0], m.zoomRange[1]];
+  if (m.orientation === 'portrait' || m.orientation === 'landscape') s.orientation = m.orientation;
+  if (isNumber(m.thermal)) s.thermal = m.thermal;
+  return s;
+}
+
+const STOP_REASONS = ['user', 'maxDuration', 'storageFull', 'fileSizeLimit', 'error'];
+const SILENCE_DB = -60; // 比這個小就當成沒有聲音
+const CLIP_DB = -1; // 比這個大就當成爆音
+const SILENT_MS = 10_000;
+
 function onDeviceMessage(d: Device, l: Live, m: DeviceMessage): void {
-  const f = 'fileId' in m ? db.files.find((x) => x.id === m.fileId && x.deviceId === d.id) : undefined;
+  const f = 'fileId' in m && typeof m.fileId === 'string' ? db.files.find((x) => x.id === m.fileId && x.deviceId === d.id) : undefined;
   switch (m.type) {
-    case 'hello':
+    case 'hello': {
       l.features = Array.isArray(m.features) ? m.features.filter((x) => typeof x === 'string') : [];
       l.camera = cameraOf(m.camera);
       l.lang = parseLang(m.lang) ?? l.lang;
-      if (m.model && m.model !== d.model) {
-        d.model = m.model;
+      l.appVersion = typeof m.appVersion === 'string' ? m.appVersion.slice(0, 40) : undefined;
+      if (typeof m.model === 'string' && m.model && m.model !== d.model) {
+        d.model = m.model.slice(0, 80);
         save();
       }
       send(d.id, { type: 'welcome', name: d.name, serverTime: Date.now(), spec: currentSpec(), zoom: d.zoom ?? 1 });
+      // 離線時按的停止，連回來馬上補送
+      const active = activeFile(d.id);
+      if (active && pendingStop.has(active.id)) send(d.id, { type: 'stop', fileId: active.id });
+      logEvent('phone.hello', { name: d.name, model: d.model, app: l.appVersion, lang: l.lang });
       updatePreviewRequests();
       break;
+    }
     case 'sync':
-      send(d.id, { type: 'sync', t0: m.t0, t1: Date.now() });
+      if (isNumber(m.t0)) send(d.id, { type: 'sync', t0: m.t0, t1: Date.now() });
       return;
     case 'status': {
-      const { type: _, ...status } = m;
-      l.status = { ...l.status, ...status };
+      const before = l.status.audioSource;
+      l.status = { ...l.status, ...statusOf(m as unknown as Record<string, unknown>) };
+      reconcile(d, l);
+      checkMic(d, before, l.status.audioSource);
       break;
     }
+    case 'audio': {
+      if (!isNumber(m.level)) return;
+      const now = Date.now();
+      l.level = Math.max(-90, Math.min(0, m.level));
+      if (l.level > SILENCE_DB) l.loudAt = now;
+      if (l.level >= CLIP_DB) l.clipAt = now;
+      queueLevels();
+      return; // 音量另外送，不用重送整份狀態
+    }
     case 'recordingStarted':
-      if (f && f.state !== 'ready') {
+      if (f && f.state !== 'ready' && isNumber(m.startedAt)) {
         f.state = 'recording';
         f.startedAt = m.startedAt;
         clearError(f);
-        if (typeof m.width === 'number' && typeof m.height === 'number') {
+        if (isNumber(m.width) && isNumber(m.height)) {
           f.videoWidth = m.width;
           f.videoHeight = m.height;
         }
         if (m.orientation === 'portrait' || m.orientation === 'landscape') f.orientation = m.orientation;
+        if (isNumber(m.audioChannels)) f.audioChannels = m.audioChannels;
+        l.loudAt = Date.now();
         save();
+        logEvent('rec.started', { name: d.name, file: f.name, size: f.videoWidth ? `${f.videoWidth}x${f.videoHeight}` : undefined });
       }
       break;
     case 'recordingStopped':
       // 手機每 2 秒才回報一次狀態，先在這裡清掉，緊接著再按開始才不會被當成「已經在錄影」
       if (l.status.recordingFileId === m.fileId) l.status.recordingFileId = null;
+      endLevels(l);
       // 傳輸可能比這則訊息早完成，所以停止原因一定要記，狀態則不要倒退
       if (f) {
+        pendingStop.delete(f.id);
         f.stoppedAt ??= Date.now();
-        f.durationMs = m.durationMs;
-        f.stopReason = m.reason;
+        if (isNumber(m.durationMs)) f.durationMs = m.durationMs;
+        f.stopReason = STOP_REASONS.includes(m.reason) ? m.reason : 'error';
         if (f.state !== 'ready') {
           f.state = 'finishing';
-          f.size = m.size;
+          if (isNumber(m.size)) f.size = m.size;
         }
+        // 記住這支手機單一影片的上限，下次錄更長之前先提醒
+        if (f.stopReason === 'fileSizeLimit' && isNumber(m.size)) d.fileLimitBytes = m.size;
         save();
+        logEvent('rec.stopped', { name: d.name, file: f.name, reason: f.stopReason, durationMs: f.durationMs, size: f.size });
       }
       break;
     case 'recordingFailed':
       if (l.status.recordingFileId === m.fileId) l.status.recordingFileId = null;
+      endLevels(l);
       if (f && f.state !== 'ready') {
+        pendingStop.delete(f.id);
         f.state = 'failed';
         // 新版 App 用代碼回報，控制台才能用自己的語言顯示；舊版 App 直接送中文訊息
         if (typeof m.code === 'string' && PHONE_ERRORS.includes(m.code)) {
           setError(f, `fileError.phone.${m.code}`, { detail: typeof m.detail === 'string' ? m.detail : '' });
         } else {
-          setError(f, undefined, undefined, m.error);
+          setError(f, undefined, undefined, typeof m.error === 'string' ? m.error : undefined);
         }
         save();
+        logEvent('rec.failed', { name: d.name, file: f.name, code: m.code, detail: m.detail ?? m.error }, 'warn');
       }
       break;
   }
   changed();
+}
+
+// 手機每 2 秒回報正在錄哪一支。「開始」「停止」的訊息在快斷掉的連線上可能會掉，
+// 和電腦的紀錄對不上時以手機為準，免得手機停不掉、控制台一直卡在「錄影中」。
+function reconcile(d: Device, l: Live): void {
+  const reported = l.status.recordingFileId;
+  if (reported === undefined) return; // 舊版 App 沒有回報
+  if (reported) {
+    l.idleReports = 0;
+    const f = db.files.find((x) => x.id === reported && x.deviceId === d.id);
+    if (f?.state === 'failed' && f.errorCode === 'fileError.noStart') {
+      // 「開始錄影了」那則訊息沒收到，手機其實一直在錄
+      f.state = 'recording';
+      f.startedAt ??= f.createdAt + START_DELAY_MS;
+      clearError(f);
+      save();
+      logEvent('rec.reconciled', { name: d.name, file: f.name, now: 'recording' }, 'warn');
+    }
+    return;
+  }
+  const active = activeFile(d.id);
+  if (active?.state !== 'recording') {
+    l.idleReports = 0;
+    return;
+  }
+  // 手機說沒在錄、電腦還以為在錄。連續兩次才算數，剛停止的那一刻兩邊可能還沒同步
+  if (++l.idleReports < 2) return;
+  l.idleReports = 0;
+  pendingStop.delete(active.id);
+  endLevels(l);
+  if (receivedBytes(active) > 0) {
+    // 手機會照常把影片傳完，傳完就能播放
+    active.state = 'finishing';
+    active.stoppedAt ??= Date.now();
+  } else {
+    active.state = 'failed';
+    setError(active, 'fileError.stoppedUnknown');
+  }
+  save();
+  logEvent('rec.reconciled', { name: d.name, file: active.name, now: active.state }, 'warn');
+}
+
+// 錄影中外接麥克風斷開（例如接收器鬆脫）時，手機會改用內建麥克風。記下時間，控制台會提醒，剪輯時才知道從哪裡開始要換音軌。
+function checkMic(d: Device, before: DeviceStatus['audioSource'], now: DeviceStatus['audioSource']): void {
+  if ((before !== 'usb' && before !== 'wired') || now !== 'builtin') return;
+  const f = activeFile(d.id);
+  if (f?.state !== 'recording' || f.micDroppedAt) return;
+  f.micDroppedAt = Date.now();
+  save();
+  logEvent('rec.micDropped', { name: d.name, file: f.name }, 'warn');
+}
+
+// 錄影中的聲音問題：超過 10 秒沒有聲音，或最近 5 秒內爆音。舊版 App 沒有回報音量，就不判斷。
+function audioAlert(d: Device, l: Live): 'silent' | 'clipping' | undefined {
+  if (l.level === undefined || activeFile(d.id)?.state !== 'recording') return undefined;
+  const now = Date.now();
+  if (now - l.loudAt > SILENT_MS) return 'silent';
+  if (now - l.clipAt < 5000) return 'clipping';
+  return undefined;
+}
+
+// 音量表：每秒最多送 5 次，只有一點點資料，不用重送整份狀態
+let levelsTimer: NodeJS.Timeout | undefined;
+function queueLevels(): void {
+  levelsTimer ??= setTimeout(() => {
+    levelsTimer = undefined;
+    const levels: Record<string, number> = {};
+    for (const [id, l] of live) if (l.level !== undefined) levels[id] = l.level;
+    const msg = JSON.stringify({ type: 'levels', levels });
+    for (const c of uiLangs.keys()) c.send(msg);
+  }, 200);
+}
+
+function endLevels(l: Live): void {
+  if (l.level === undefined) return;
+  l.level = undefined;
+  queueLevels();
 }
 
 // ---------- 錄影控制 ----------
@@ -200,7 +359,8 @@ const activeFile = (deviceId: string): FileEntry | undefined =>
 
 const isRecording = (): boolean => db.files.some((f) => f.state === 'starting' || f.state === 'recording');
 
-function startRecording(deviceIds?: string[]): { skipped: string[] } {
+// force：使用者看過開始前的提醒，仍要開始
+function startRecording(deviceIds?: string[], force = false): { skipped: string[] } {
   const project = currentProject();
   if (!project) throw new HttpError(409, m('rec.needProject'), { needProject: true });
   const skipped: string[] = [];
@@ -215,10 +375,14 @@ function startRecording(deviceIds?: string[]): { skipped: string[] } {
   });
   if (!targets.length) throw new HttpError(409, joinList(skipped) || m('rec.noPhones'));
 
+  const spec = currentSpec();
+  // 錄到一半一定會出事的狀況先講清楚，由使用者決定要不要照樣開始
+  const warnings = force ? [] : startWarnings(targets, spec);
+  if (warnings.length) throw new HttpError(409, joinList(warnings), { confirm: warnings });
+
   const takeId = crypto.randomUUID();
   const startAt = Date.now() + START_DELAY_MS;
-  const spec = currentSpec();
-  for (const d of targets) {
+  const created = targets.map((d) => {
     const dir = project.dir;
     const f: FileEntry = {
       id: crypto.randomUUID(),
@@ -232,11 +396,41 @@ function startRecording(deviceIds?: string[]): { skipped: string[] } {
       spec,
     };
     db.files.push(f);
-    send(d.id, { type: 'start', fileId: f.id, takeId, fileName: f.name, startAt, ...spec });
-  }
-  save();
+    return { d, f };
+  });
+  // 先存檔再通知手機：電腦萬一當掉，重開後還認得這幾支影片，手機補傳才不會被拒絕
+  saveNow();
+  for (const { d, f } of created) send(d.id, { type: 'start', fileId: f.id, takeId, fileName: f.name, startAt, ...spec });
+  logEvent('rec.start', { phones: targets.map((d) => d.name).join(','), resolution: spec.resolution, maxSec: spec.maxDurationSec, force });
   changed();
   return { skipped };
+}
+
+const fmtGB = (n: number): string => `${(n / 1e9).toFixed(1)} GB`;
+
+// 開始前的提醒：手機空間不夠錄完一段、電量太低又沒在充電、電腦的空間不夠收
+function startWarnings(targets: Device[], spec: RecordingSpec): string[] {
+  const perSecond = spec.bitrate / 8 + 32_000; // 影像加聲音
+  const perTake = perSecond * spec.maxDurationSec;
+  const dur = (sec: number) => (sec >= 60 ? m('unit.min', { n: Math.floor(sec / 60) }) : m('unit.sec', { n: Math.floor(sec) }));
+  const warnings: string[] = [];
+  for (const d of targets) {
+    const st = live.get(d.id)?.status ?? {};
+    if (isNumber(st.freeBytes) && st.freeBytes < perTake) {
+      warnings.push(m('rec.lowPhoneSpace', { name: d.name, left: dur(st.freeBytes / perSecond), max: dur(spec.maxDurationSec) }));
+    }
+    if (d.fileLimitBytes && d.fileLimitBytes < perTake) {
+      warnings.push(m('rec.fileLimit', { name: d.name, size: fmtGB(d.fileLimitBytes), left: dur(d.fileLimitBytes / perSecond), max: dur(spec.maxDurationSec) }));
+    }
+    if (isNumber(st.battery) && st.battery < 20 && st.charging === false) {
+      warnings.push(m('rec.lowBattery', { name: d.name, battery: Math.round(st.battery) }));
+    }
+  }
+  const s = currentStorage();
+  if (s.available && isNumber(s.freeBytes) && s.freeBytes < perTake * targets.length) {
+    warnings.push(m('rec.lowComputerSpace', { free: fmtGB(s.freeBytes), need: fmtGB(perTake * targets.length) }));
+  }
+  return warnings;
 }
 
 function currentSpec(): RecordingSpec {
@@ -245,7 +439,7 @@ function currentSpec(): RecordingSpec {
     resolution: r.id,
     fps: 30,
     bitrate: r.bitrate,
-    maxDurationSec: MAX_DURATION_SEC,
+    maxDurationSec: maxDurationSec(),
     warnBeforeSec: WARN_BEFORE_SEC,
     guide: db.settings.guide,
     facePriority: db.settings.facePriority,
@@ -313,9 +507,13 @@ function stopRecording(deviceIds?: string[]): { skipped: string[] } {
     const f = activeFile(d.id);
     if (!f) continue;
     if (send(d.id, { type: 'stop', fileId: f.id })) sent++;
-    else skipped.push(m('rec.stopUnreachable', { name: d.name }));
+    else {
+      pendingStop.add(f.id); // 手機一連回來就補送
+      skipped.push(m('rec.stopQueued', { name: d.name }));
+    }
   }
   if (!sent && !skipped.length) throw new HttpError(409, m('rec.nothingRecording'));
+  logEvent('rec.stop', { sent, queued: skipped.length || undefined });
   return { skipped };
 }
 
@@ -344,14 +542,10 @@ function uniqueName(dir: string, name: string): string {
   }
 }
 
-// 裁剪出來的檔名：原檔名後面加 _1，已經有了就用 _2、_3…
-function trimmedName(dir: string, name: string): string {
+// 裁剪出來的檔名：原檔名後面加 _n。同一段的每台手機用同一個 n，從 1 開始找每台都還沒用過的
+function trimmedFile(name: string, n: number): string {
   const ext = path.extname(name);
-  const base = name.slice(0, -ext.length);
-  for (let i = 1; ; i++) {
-    const candidate = `${base}_${i}${ext}`;
-    if (!nameTaken(dir, candidate)) return candidate;
-  }
+  return `${ext ? name.slice(0, -ext.length) : name}_${n}${ext}`;
 }
 
 function defaultName(model: string): string {
@@ -419,6 +613,7 @@ function pairPage(req: IncomingMessage, res: ServerResponse, code: string | null
          <li>${m('pairPage.step1', { url: APP_DOWNLOAD_URL })}</li>
          <li>${m('pairPage.step2')}</li>
        </ol>
+       <p class="note">${m('pairPage.verify', { fp: APP_CERT_SHA256 })}</p>
        <p class="note">${m('pairPage.validity')}</p>`;
   } else {
     body = `<h1>${m('pairPage.expiredTitle')}</h1>
@@ -443,6 +638,7 @@ function pairPage(req: IncomingMessage, res: ServerResponse, code: string | null
   .btn { display: block; margin: 28px 0; padding: 16px; border-radius: 6px; background: #ff3b3b; color: #fff;
          font-size: 19px; font-weight: 700; text-align: center; text-decoration: none; }
   .note { margin-top: 28px; font-size: 14px; color: #8b919a; }
+  code { word-break: break-all; }
 </style>
 </head>
 <body>${body}</body>
@@ -461,12 +657,19 @@ async function pair(req: IncomingMessage, res: ServerResponse): Promise<void> {
     throw new HttpError(409, m('pair.tooMany', { max: MAX_DEVICES }));
   }
   if (!d) {
-    d = { id: b.deviceId, token: '', model, name: defaultName(model), pairedAt: Date.now() };
+    // 移除後重新配對的手機（同一個 deviceId）照樣用原本的名稱，之前錄的影片也接回它的監看區
+    const removed = db.removedDevices.find((x) => x.id === b.deviceId);
+    d = { id: b.deviceId, token: '', model, name: removed?.name ?? defaultName(model), pairedAt: Date.now() };
     db.devices.push(d);
+    db.removedDevices = db.removedDevices.filter((x) => x.id !== b.deviceId);
   }
   d.model = model;
   d.token = crypto.randomBytes(24).toString('base64url'); // 重新配對就換新 token
+  // 手機連的是哪個位址：這台電腦的 IP 之後換了，控制台才知道要提醒重新配對
+  const host = req.headers.host ?? '';
+  d.address = /^[\w.-]+:\d+$/.test(host) ? host : undefined;
   save();
+  logEvent('phone.paired', { name: d.name, model });
   changed();
   const body: PairResponse = { deviceToken: d.token, name: d.name };
   sendJson(res, 200, body);
@@ -550,33 +753,49 @@ function snapshot() {
     }
     stats.set(f.projectId, s);
   }
+  const project = currentProject();
+  const address = lanAddress();
   return {
     type: 'state',
     serverTime: Date.now(),
+    version: VERSION,
+    latestAppVersion: LATEST_APP_VERSION,
     platform: process.platform, // 網頁依系統顯示 Finder 或檔案總管
     sep: path.sep, // 顯示路徑用：Windows 是反斜線
     trashName: m('trash.name'),
     ffmpeg: ffmpegReady, // 有 ffmpeg 才能裁剪
     diskFormats: m('disk.goodFormats'),
+    saveError, // 存檔失敗的原因（例如硬碟滿了），會自動重試
+    dbProblem: dbProblem ?? null, // 啟動時 db.json 壞掉了
     settings: db.settings,
     storage: currentStorage(),
-    limits: { maxDurationSec: MAX_DURATION_SEC, warnBeforeSec: WARN_BEFORE_SEC, maxDevices: MAX_DEVICES },
+    limits: { maxDurationSec: maxDurationSec(), warnBeforeSec: WARN_BEFORE_SEC, maxDevices: MAX_DEVICES, maxMinutesRange: [TAKE_MINUTES.min, TAKE_MINUTES.max] },
     resolutions: RESOLUTIONS,
     guides: GUIDES,
-    project: currentProject() ?? null,
+    project: project ?? null,
+    projectDirMissing: !!project && !fs.existsSync(project.dir), // 例如在 Finder 裡被改名了
     projects: [...db.projects]
       .sort((a, b) => b.createdAt - a.createdAt)
       .map((p) => ({ ...p, ...(stats.get(p.id) ?? { files: 0, bytes: 0 }) })),
-    devices: db.devices.map((d) => ({
-      id: d.id,
-      name: d.name,
-      model: d.model,
-      zoom: d.zoom ?? 1,
-      online: live.has(d.id),
-      features: live.get(d.id)?.features ?? [],
-      camera: live.get(d.id)?.camera ?? null,
-      status: live.get(d.id)?.status ?? {},
-    })),
+    devices: db.devices.map((d) => {
+      const l = live.get(d.id);
+      return {
+        id: d.id,
+        name: d.name,
+        model: d.model,
+        zoom: d.zoom ?? 1,
+        online: !!l,
+        features: l?.features ?? [],
+        camera: l?.camera ?? null,
+        status: l?.status ?? {},
+        appVersion: l?.appVersion,
+        audio: l ? audioAlert(d, l) : undefined,
+        // 配對時連的是另一個位址：這台電腦的 IP 換了，手機連不到舊的，要重新掃 QR Code
+        moved: !l && !!d.address && !!address && d.address.replace(/:\d+$/, '') !== address,
+      };
+    }),
+    // 已經移除、但在這個專案裡還有影片的手機
+    removedDevices: db.removedDevices.filter((r) => db.files.some((f) => f.deviceId === r.id && f.projectId === db.settings.projectId)),
     // 只送目前專案的影片
     files: db.files
       .filter((f) => f.projectId === db.settings.projectId)
@@ -706,12 +925,24 @@ async function checkFfmpeg(): Promise<boolean> {
 void checkFfmpeg();
 const trimming = new Set<string>(); // 正在裁剪的段落，避免連按兩次
 
-function runTool(cmd: string, args: string[]): Promise<string> {
+// timeoutMs：卡住時（例如來源檔在剛拔掉的外接硬碟上）不要一直等
+function runTool(cmd: string, args: string[], timeoutMs = 60_000): Promise<string> {
   return new Promise((resolve, reject) =>
-    execFile(tools[cmd] ?? cmd, args, { maxBuffer: 16 * 1024 * 1024, windowsHide: true }, (e, stdout, stderr) =>
-      e ? reject(new Error(String(stderr).trim().split('\n').pop() || e.message)) : resolve(String(stdout)),
-    ),
+    execFile(tools[cmd] ?? cmd, args, { maxBuffer: 16 * 1024 * 1024, windowsHide: true, timeout: timeoutMs }, (e, stdout, stderr) => {
+      if (!e) return resolve(String(stdout));
+      if (e.killed) return reject(new Error(m('trim.timeout', { minutes: Math.round(timeoutMs / 60_000) })));
+      reject(new Error(String(stderr).trim().split('\n').pop() || e.message));
+    }),
   );
+}
+
+// 裁剪出來的檔案帶上拍攝時間和時間碼（當地時間），剪輯軟體可以直接依時間碼對齊各機位
+function timeMetadata(startedAt: number | undefined, fps: number): string[] {
+  if (!startedAt) return [];
+  const d = new Date(startedAt);
+  const p = (n: number) => String(n).padStart(2, '0');
+  const frame = Math.floor((d.getMilliseconds() / 1000) * fps);
+  return ['-metadata', `creation_time=${d.toISOString()}`, '-timecode', `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}:${p(frame)}`];
 }
 
 // time 秒（含）之前最近的關鍵影格。串流複製只能從關鍵影格開始，不然開頭的畫面解不出來；手機大多每 1 秒一個。
@@ -746,61 +977,87 @@ async function trimTake(takeId: string, b: { fileId?: unknown; start?: unknown; 
   if (!(start >= 0 && end - start >= 1 && end <= (ref.durationMs ?? 0) / 1000 + 0.5)) throw new HttpError(400, m('trim.badRange'));
   if (trimming.has(takeId)) throw new HttpError(409, m('trim.busy'));
   trimming.add(takeId);
+  const parts: string[] = []; // 這次產生的暫存檔，失敗時全部刪掉
   try {
-    const newTake = crypto.randomUUID();
-    const made: FileEntry[] = [];
     const skipped: string[] = [];
+    const jobs: { f: FileEntry; src: string; at: number; to: number }[] = [];
     for (const f of files) {
       const offset = f.startedAt && ref.startedAt ? (f.startedAt - ref.startedAt) / 1000 : 0;
       const from = Math.max(0, start - offset);
       const to = Math.min((f.durationMs ?? 0) / 1000, end - offset);
       if (to - from < 0.5) {
-        skipped.push(m('trim.notCovered', { name: db.devices.find((d) => d.id === f.deviceId)?.name ?? f.name }));
+        skipped.push(m('trim.notCovered', { name: deviceName(f.deviceId) ?? f.name }));
         continue;
       }
       const src = finalPath(f);
-      const at = await keyframeBefore(src, from);
-      const name = trimmedName(f.dir, f.name);
-      const out = path.join(f.dir, name);
       try {
-        await runTool('ffmpeg', [
-          ...['-v', 'error', '-y', '-ss', String(at), '-i', src, '-t', String(to - at)],
-          ...['-map', '0:v:0', '-map', '0:a?', '-c', 'copy', '-avoid_negative_ts', 'make_zero', '-f', 'mp4', out + '.part'],
-        ]);
-        fs.renameSync(out + '.part', out);
+        jobs.push({ f, src, at: await keyframeBefore(src, from), to });
       } catch (e) {
-        fs.unlink(out + '.part', () => {});
         throw new HttpError(500, m('trim.failed', { name: f.name, error: (e as Error).message }));
       }
-      const probed = Number(await runTool('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', out]));
-      const entry: FileEntry = {
-        id: crypto.randomUUID(),
-        takeId: newTake,
-        projectId: f.projectId,
-        deviceId: f.deviceId,
-        name,
-        dir: f.dir,
-        createdAt: Date.now(),
-        startedAt: f.startedAt ? f.startedAt + Math.round(at * 1000) : undefined, // 新檔實際從這裡開始
-        durationMs: Math.round((Number.isFinite(probed) ? probed : to - at) * 1000),
-        size: fs.statSync(out).size,
-        state: 'ready',
-        spec: f.spec,
-        videoWidth: f.videoWidth,
-        videoHeight: f.videoHeight,
-        orientation: f.orientation,
-        trimmedFrom: f.id,
-      };
-      db.files.push(entry);
-      made.push(entry);
-      save();
-      changed();
     }
+    // 同一段的每台都用同一個編號（_1、_2…），剪輯時才對得起來
+    let n = 1;
+    while (jobs.some(({ f }) => nameTaken(f.dir, trimmedFile(f.name, n)))) n++;
+    const made: FileEntry[] = [];
+    const newTake = crypto.randomUUID();
+    for (const { f, src, at, to } of jobs) {
+      const name = trimmedFile(f.name, n);
+      const part = path.join(f.dir, name + '.part');
+      parts.push(part);
+      const startedAt = f.startedAt ? f.startedAt + Math.round(at * 1000) : undefined; // 新檔實際從這裡開始
+      try {
+        await runTool(
+          'ffmpeg',
+          [
+            ...['-v', 'error', '-y', '-ss', String(at), '-i', src, '-t', String(to - at)],
+            ...['-map', '0:v:0', '-map', '0:a?', '-c', 'copy', '-avoid_negative_ts', 'make_zero', ...timeMetadata(startedAt, f.spec.fps || 30)],
+            ...['-f', 'mp4', part],
+          ],
+          10 * 60_000,
+        );
+        const probed = Number(await runTool('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', part]));
+        made.push({
+          id: crypto.randomUUID(),
+          takeId: newTake,
+          projectId: f.projectId,
+          deviceId: f.deviceId,
+          name,
+          dir: f.dir,
+          createdAt: Date.now(),
+          startedAt,
+          durationMs: Math.round((Number.isFinite(probed) ? probed : to - at) * 1000),
+          size: fs.statSync(part).size,
+          state: 'ready',
+          spec: f.spec,
+          videoWidth: f.videoWidth,
+          videoHeight: f.videoHeight,
+          orientation: f.orientation,
+          audioChannels: f.audioChannels,
+          trimmedFrom: f.id,
+        });
+      } catch (e) {
+        throw new HttpError(500, m('trim.failed', { name: f.name, error: (e as Error).message }));
+      }
+    }
+    // 全部成功才一起改成正式檔名、放上清單，不會留下只有部分機位的新段落
+    for (const entry of made) fs.renameSync(path.join(entry.dir, entry.name + '.part'), finalPath(entry));
+    parts.length = 0;
+    db.files.push(...made);
+    save();
+    changed();
+    logEvent('trim.done', { files: made.map((f) => f.name).join(','), skipped: skipped.length || undefined });
     return { files: made.map((f) => ({ id: f.id, name: f.name, from: f.trimmedFrom })), skipped };
+  } catch (e) {
+    logEvent('trim.failed', { error: (e as Error).message }, 'warn');
+    throw e;
   } finally {
+    for (const part of parts) fs.unlink(part, () => {});
     trimming.delete(takeId);
   }
 }
+
+const deviceName = (id: string): string | undefined => (db.devices.find((d) => d.id === id) ?? db.removedDevices.find((d) => d.id === id))?.name;
 
 // 在 Finder／檔案總管打開目前的專案資料夾；有指定影片時，macOS 會直接選取那支影片
 function openFolder(fileId?: string): void {
@@ -838,8 +1095,9 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
   let match = /^\/api\/upload\/([\w-]+)(\/finish|\/verify)?$/.exec(p);
   if (match) return upload(req, res, match[1], match[2], url);
 
-  // 其他都只允許執行伺服器的這台電腦本機
+  // 其他都只允許執行伺服器的這台電腦本機，而且要是控制台自己的網頁送來的（http.ts 的 fromDashboard）
   if (!isLoopback(req)) throw new HttpError(403, m('http.localOnly'));
+  if (!fromDashboard(req)) throw new HttpError(403, m('http.crossSite'));
 
   if (method === 'GET') {
     const name = p === '/' ? 'index.html' : p.slice(1);
@@ -852,6 +1110,7 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
     match = /^\/fonts\/((barlow-condensed|barlow|martian-mono)-latin-\d{3}-normal\.woff2)$/.exec(p);
     if (match) return sendFile(req, res, path.join(NODE_MODULES, '@fontsource', match[2], 'files', match[1]), 'font/woff2');
     if (p === '/api/state') return sendJson(res, 200, snapshot());
+    if (p === '/api/app-qr') return sendJson(res, 200, { url: APP_DOWNLOAD_URL, qr: await QRCode.toDataURL(APP_DOWNLOAD_URL, { margin: 1, width: 360 }) });
     match = /^\/media\/([\w-]+)$/.exec(p);
     if (match) {
       const f = db.files.find((x) => x.id === match![1]);
@@ -862,8 +1121,8 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
 
   if (method === 'POST') {
     if (p === '/api/record/start') {
-      const b = await readJson<{ deviceIds?: string[] }>(req);
-      return sendJson(res, 200, startRecording(b.deviceIds));
+      const b = await readJson<{ deviceIds?: string[]; force?: boolean }>(req);
+      return sendJson(res, 200, startRecording(Array.isArray(b.deviceIds) ? b.deviceIds : undefined, b.force === true));
     }
     if (p === '/api/record/stop') {
       const b = await readJson<{ deviceIds?: string[] }>(req);
@@ -903,12 +1162,24 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
         storageDir?: string;
         facePriority?: boolean;
         lockExposure?: boolean;
+        maxMinutes?: number;
+        sounds?: boolean;
         language?: LangSetting;
       }>(req);
       if (b.resolution !== undefined) {
         if (!RESOLUTIONS.some((r) => r.id === b.resolution)) throw new HttpError(400, m('settings.badResolution'));
         if (isRecording()) throw new HttpError(409, m('settings.resolutionWhileRecording'));
         db.settings.resolution = b.resolution;
+      }
+      if (b.maxMinutes !== undefined) {
+        const { min, max } = TAKE_MINUTES;
+        if (!Number.isInteger(b.maxMinutes) || b.maxMinutes < min || b.maxMinutes > max) throw new HttpError(400, m('settings.badMaxMinutes', { min, max }));
+        if (isRecording()) throw new HttpError(409, m('settings.maxWhileRecording'));
+        db.settings.maxMinutes = b.maxMinutes;
+      }
+      if (b.sounds !== undefined) {
+        if (typeof b.sounds !== 'boolean') throw new HttpError(400, m('settings.portraitBool'));
+        db.settings.sounds = b.sounds;
       }
       if (b.guide !== undefined) {
         if (!GUIDES.includes(b.guide)) throw new HttpError(400, m('settings.badGuide'));
@@ -921,7 +1192,7 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
         if (isRecording()) throw new HttpError(409, m('settings.portraitWhileRecording'));
         db.settings[k] = b[k] === true;
       }
-      if (b.resolution !== undefined || b.guide !== undefined || portrait.length) {
+      if (b.resolution !== undefined || b.guide !== undefined || b.maxMinutes !== undefined || portrait.length) {
         for (const id of live.keys()) send(id, { type: 'config', ...currentSpec() });
       }
       // 介面語言：auto 時控制台跟著瀏覽器；伺服器沒有請求可以參考時（終端機、計時器）也用這個
@@ -956,7 +1227,10 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
         l.ws.close(4001, 'removed');
       }
       db.devices = db.devices.filter((x) => x !== d);
+      // 它錄的影片照樣留在清單上，列在「已移除的手機」底下
+      db.removedDevices = [...db.removedDevices.filter((x) => x.id !== d.id), { id: d.id, name: d.name, model: d.model }];
       save();
+      logEvent('phone.removed', { name: d.name });
       changed();
       return sendJson(res, 200, { ok: true });
     }
@@ -1011,22 +1285,32 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
 
 async function upload(req: IncomingMessage, res: ServerResponse, fileId: string, action: string | undefined, url: URL): Promise<void> {
   const f = db.files.find((x) => x.id === fileId);
-  if (!f) throw new HttpError(404, m('upload.fileNotFound'));
+  if (!f) {
+    logEvent('upload.unknownFile', { fileId: fileId.slice(0, 8) }, 'warn');
+    throw new HttpError(404, m('upload.fileNotFound'));
+  }
   const d = db.devices.find((x) => x.id === f.deviceId);
   if (!d || req.headers['x-device-token'] !== d.token) throw new HttpError(401, m('upload.auth'));
 
+  // 已經傳完的影片：手機沒收到上次的回覆時會重送，照樣回成功，手機才會把它當成傳完了
+  if (f.state === 'ready') {
+    if (!action && req.method === 'GET') return sendJson(res, 200, { receivedBytes: f.size });
+    if ((action === '/finish' || action === '/verify') && req.method === 'POST') return sendJson(res, 200, { ok: true });
+    throw new HttpError(409, m('upload.done'), { receivedBytes: f.size });
+  }
   if (action === '/verify' && req.method === 'POST') {
-    if (f.state === 'ready') return sendJson(res, 200, { ok: true });
     const result = await verify(f, await readJson<VerifyRequest>(req));
     if (result.ok) {
       f.state = 'ready';
       clearError(f);
       save();
+      logEvent('upload.verified', { name: deviceName(f.deviceId), file: f.name, size: f.size });
       changed();
+    } else {
+      logEvent('upload.resend', { file: f.name, chunks: result.resend.length });
     }
     return sendJson(res, 200, result);
   }
-  if (f.state === 'ready') throw new HttpError(409, m('upload.done'));
   if (!action && req.method === 'GET') return sendJson(res, 200, { receivedBytes: receivedBytes(f) });
   if (!action && req.method === 'PUT') {
     const offset = Number(url.searchParams.get('offset'));
@@ -1054,7 +1338,7 @@ const requestLang = (req: IncomingMessage): Lang =>
 const server = http.createServer((req, res) => {
   withLang(requestLang(req), () => route(req, res)).catch((e: unknown) => {
     const err = e instanceof HttpError ? e : new HttpError(500, (e as Error).message);
-    if (err.status >= 500) console.error(`${req.method} ${req.url}:`, (e as Error).message);
+    if (err.status >= 500) logEvent('http.error', { request: `${req.method} ${req.url}`, status: err.status, error: (e as Error).message }, 'error');
     if (res.headersSent) res.destroy();
     else sendJson(res, err.status, { error: err.message, ...err.body });
   });
@@ -1065,10 +1349,20 @@ const deviceWss = new WebSocketServer({ noServer: true, maxPayload: 2 * 1024 * 1
 const uiWss = new WebSocketServer({ noServer: true });
 
 server.on('upgrade', (req, socket, head) => {
+  // 網址格式不對之類的意外只關掉這條連線，不讓整個伺服器停掉
+  try {
+    onUpgrade(req, socket, head);
+  } catch (e) {
+    logEvent('ws.badUpgrade', { error: (e as Error).message }, 'warn');
+    socket.destroy();
+  }
+});
+
+function onUpgrade(req: IncomingMessage, socket: Duplex, head: Buffer): void {
   const url = new URL(req.url ?? '/', 'http://localhost');
   if (url.pathname === '/ws/device') {
     deviceWss.handleUpgrade(req, socket, head, (ws) => onDeviceConnection(ws, url.searchParams.get('token'), requestLang(req)));
-  } else if (url.pathname === '/ws/ui' && isLoopback(req)) {
+  } else if (url.pathname === '/ws/ui' && isLoopback(req) && fromDashboard(req)) {
     uiWss.handleUpgrade(req, socket, head, (ws) => {
       ws.on('error', () => {});
       uiClients.set(ws, new Set());
@@ -1098,18 +1392,23 @@ server.on('upgrade', (req, socket, head) => {
   } else {
     socket.destroy();
   }
-});
+}
 
 // ---------- 定時檢查 ----------
 
-const stopSent = new Set<string>();
+const stopSentAt = new Map<string, number>(); // 到上限的保險停止上一次送出的時間（fileId）
+const audioAlerts = new Map<string, string | undefined>(); // 上一次的聲音提醒，變了才重送狀態
 let tick = 0;
 
 // 使用者在 Finder 或檔案總管裡刪掉的影片或專案資料夾，清單上也跟著拿掉。
 // 上一層資料夾也不見時（例如外接硬碟沒接上）先保留，接回來就會恢復。
+// 還在錄影或傳輸的專案也先保留（例如資料夾只是被改名），控制台會提醒找不到資料夾。
 function pruneMissing(): boolean {
   const before = db.projects.length + db.files.length;
-  const gone = new Set(db.projects.filter((p) => fs.existsSync(path.dirname(p.dir)) && !fs.existsSync(p.dir)).map((p) => p.id));
+  const busy = (id: string) => db.files.some((f) => f.projectId === id && f.state !== 'ready' && f.state !== 'failed');
+  const gone = new Set(
+    db.projects.filter((p) => fs.existsSync(path.dirname(p.dir)) && !fs.existsSync(p.dir) && !busy(p.id)).map((p) => p.id),
+  );
   if (gone.size) {
     db.projects = db.projects.filter((p) => !gone.has(p.id));
     db.files = db.files.filter((f) => !gone.has(f.projectId));
@@ -1128,17 +1427,30 @@ setInterval(() => {
       save();
       changed();
     }
-    // 手機自己會在時間到時停止，這裡是保險
-    if (f.state === 'recording' && f.startedAt && now - f.startedAt > (f.spec.maxDurationSec + 5) * 1000 && !stopSent.has(f.id)) {
-      stopSent.add(f.id);
+    // 手機自己會在時間到時停止，這裡是保險：每 10 秒重送一次，直到手機回報停了
+    if (f.state === 'recording' && f.startedAt && now - f.startedAt > (f.spec.maxDurationSec + 5) * 1000 && now - (stopSentAt.get(f.id) ?? 0) > 10_000) {
+      stopSentAt.set(f.id, now);
       send(f.deviceId, { type: 'stop', fileId: f.id });
     }
     // 錄影中斷線、超過上限時間一分鐘還沒連回來（例如沒電了）就不再等，免得控制台一直停在錄影中。
-    // 手機之後連回來的話，照樣會把影片傳完。
-    if (f.state === 'recording' && f.startedAt && !live.has(f.deviceId) && now - f.startedAt > (f.spec.maxDurationSec + 60) * 1000) {
+    // 紀錄會留著（重開伺服器也不刪），手機之後連回來照樣會把影片傳完。
+    if (f.state === 'recording' && f.startedAt && !live.has(f.deviceId) && now - f.startedAt > (f.spec.maxDurationSec + LOST_GRACE_SEC) * 1000) {
       f.state = 'failed';
       setError(f, 'fileError.lost');
       save();
+      logEvent('rec.lost', { name: deviceName(f.deviceId), file: f.name }, 'warn');
+      changed();
+    }
+  }
+  for (const id of [...stopSentAt.keys()]) if (!db.files.some((f) => f.id === id && f.state === 'recording')) stopSentAt.delete(id);
+  for (const id of [...pendingStop]) if (!db.files.some((f) => f.id === id && (f.state === 'starting' || f.state === 'recording'))) pendingStop.delete(id);
+  // 錄影中沒有聲音、爆音：狀態變了就馬上讓控制台知道
+  for (const d of db.devices) {
+    const l = live.get(d.id);
+    const alert = l ? audioAlert(d, l) : undefined;
+    if (alert !== audioAlerts.get(d.id)) {
+      audioAlerts.set(d.id, alert);
+      if (alert) logEvent('rec.audio', { name: d.name, problem: alert }, 'warn');
       changed();
     }
   }
@@ -1167,13 +1479,29 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   });
 }
 
+// npm start 會帶 --open，啟動後自動打開控制台
+const DASHBOARD_URL = `http://localhost:${PORT}`;
+const openDashboard = process.argv.includes('--open');
+
 server.on('error', (e: NodeJS.ErrnoException) => {
-  console.error(e.code === 'EADDRINUSE' ? m('log.portInUse', { port: PORT }) : e.message);
+  if (e.code === 'EADDRINUSE') {
+    // 已經在執行的話，直接打開它就好
+    console.error(m('log.portInUse', { port: PORT, url: DASHBOARD_URL }));
+    if (openDashboard) openUrl(DASHBOARD_URL);
+  } else {
+    console.error(e.message);
+  }
   process.exit(1);
 });
 
-// 上次失敗的錄影只是殘留紀錄，重新啟動時清掉
-db.files = db.files.filter((f) => f.state !== 'failed');
+// 最後一道防線：沒預料到的錯誤只記下來，伺服器繼續執行，錄影中的手機才不會全部斷線
+process.on('uncaughtException', (e) => logEvent('crash.prevented', { error: e.stack ?? String(e) }, 'error'));
+process.on('unhandledRejection', (e) => logEvent('crash.prevented', { error: (e as Error)?.stack ?? String(e) }, 'error'));
+
+// 上次失敗的錄影只是殘留紀錄，重新啟動時清掉。但手機之後還會補傳的（斷線沒回來、沒收到「開始了」、手機被移除）要留著，
+// 不然手機連回來時電腦不認得它；有傳到一半的檔案的也留著，讓使用者看得到、刪得掉。
+const MAY_RESUME = ['fileError.lost', 'fileError.noStart', 'fileError.removed'];
+db.files = db.files.filter((f) => f.state !== 'failed' || MAY_RESUME.includes(f.errorCode ?? '') || fs.existsSync(partPath(f)));
 if (!currentProject()) db.settings.projectId = null;
 pruneMissing();
 saveNow();
@@ -1183,7 +1511,11 @@ if (db.settings.storageDir === DEFAULT_STORAGE_DIR) fs.mkdirSync(DEFAULT_STORAGE
 
 server.listen(PORT, '0.0.0.0', () => {
   const ip = lanAddress();
-  console.log(m('log.dashboard', { url: `http://localhost:${PORT}` }));
+  console.log(m('log.dashboard', { url: DASHBOARD_URL }));
   console.log(ip ? m('log.phones', { url: `http://${ip}:${PORT}` }) : m('log.noIp'));
   console.log(m('log.folder', { dir: db.settings.storageDir }));
+  console.log(m('log.keepOpen'));
+  logEvent('server.started', { version: VERSION, node: process.version, platform: process.platform });
+  // 重新啟動時，開著的控制台分頁每 1.5 秒重連一次，3 秒內就會連回來，這時不用再開一個新分頁
+  if (openDashboard) setTimeout(() => uiClients.size === 0 && openUrl(DASHBOARD_URL), 3000);
 });

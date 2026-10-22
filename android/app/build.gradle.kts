@@ -39,6 +39,11 @@ android {
         }
     }
 
+    // App 回報給電腦的版本直接用 versionName（BuildConfig.VERSION_NAME）
+    buildFeatures {
+        buildConfig = true
+    }
+
     lint {
         // 發佈前不跑 lint：Homebrew 的 JDK 在部分 macOS 上，lint 分析 Kotlin 時會載不到字型函式庫而當掉。
         // 要跑完整的 lint，請改用自帶 freetype 的 JDK（例如 Temurin）。

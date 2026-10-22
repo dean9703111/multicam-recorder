@@ -1,11 +1,26 @@
-// 各作業系統不一樣的地方：硬碟格式、垃圾桶、PowerShell、找 ffmpeg。
+// 各作業系統不一樣的地方：資料放在哪、硬碟格式、垃圾桶、PowerShell、找 ffmpeg、打開網頁。
 import { execFile, execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { m } from './i18n.ts';
 
 const run = promisify(execFile);
+
+// 配對、專案和設定存在使用者資料夾，不放在程式的資料夾裡：下載新版放到別的地方也不用重新配對
+export function userDataDir(): string {
+  const home = os.homedir();
+  if (process.platform === 'darwin') return path.join(home, 'Library', 'Application Support', 'MultiCamRecorder');
+  if (process.platform === 'win32') return path.join(process.env.APPDATA ?? path.join(home, 'AppData', 'Roaming'), 'MultiCamRecorder');
+  return path.join(process.env.XDG_DATA_HOME ?? path.join(home, '.local', 'share'), 'multicam-recorder');
+}
+
+// 用預設的瀏覽器打開網址（npm start 時自動打開控制台）
+export function openUrl(url: string): void {
+  const command = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'explorer.exe' : 'xdg-open';
+  execFile(command, [url], () => {}); // explorer.exe 成功時也會回傳非 0，所以不看結果
+}
 
 // PowerShell 指令用 -EncodedCommand 傳，路徑裡有引號、中文都不用另外跳脫；輸出固定用 UTF-8
 export function powershellArgs(script: string, sta = false): string[] {

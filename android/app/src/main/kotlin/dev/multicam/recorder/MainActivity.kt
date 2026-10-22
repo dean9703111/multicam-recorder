@@ -3,6 +3,7 @@ package dev.multicam.recorder
 import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.ContentValues
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ActivityInfo
@@ -26,8 +27,10 @@ import android.os.Environment
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
+import android.os.PowerManager
 import android.os.StatFs
 import android.os.SystemClock
+import android.provider.MediaStore
 import android.provider.Settings
 import android.util.Size
 import android.view.PixelCopy
@@ -42,6 +45,8 @@ import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.TextView
 import android.widget.Toast
+import android.window.OnBackInvokedCallback
+import android.window.OnBackInvokedDispatcher
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
@@ -95,13 +100,18 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
     private var videoSize = Size(3840, 2160) // 預設 4K，收到電腦的設定後更新
     private var overlayPortrait = false // 目前的狀態列是不是直拿的版面
 
-    // 錄影的方向在開始時就決定了，錄影中鎖住畫面方向，預覽和即時畫面才會跟錄的一樣
+    // 錄影的方向在開始時就決定了，錄影中鎖住畫面方向，預覽和即時畫面才會跟錄的一樣。
+    // 錄影中也攔下返回鍵和返回手勢：離開這個畫面，這一台的錄影就會中斷。
     private var recording: Recording? = null
         set(value) {
             field = value
             requestedOrientation =
                 if (value != null) ActivityInfo.SCREEN_ORIENTATION_LOCKED else ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+            blockBack(value != null)
         }
+    private val backWhileRecording = OnBackInvokedCallback { toast(getString(R.string.back_while_recording)) }
+    private var backBlocked = false
+    private val thermalListener = PowerManager.OnThermalStatusChangedListener { sendStatus() }
     private var recordingMic: AudioDeviceInfo? = null // 錄影中實際用的麥克風
     private var dimmed = false
     private var wifiLock: WifiManager.WifiLock? = null
@@ -134,6 +144,16 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+        // 沒有後鏡頭的裝置（例如部分平板）沒辦法當攝影機：說明清楚再關掉，不要直接當掉
+        if (!CameraRecorder.hasBackCamera(this)) {
+            AlertDialog.Builder(this)
+                .setMessage(R.string.no_camera)
+                .setPositiveButton(android.R.string.ok) { _, _ -> finish() }
+                .setOnCancelListener { finish() }
+                .show()
+            return
+        }
 
         store = Store(this)
         moviesDir = getExternalFilesDir(Environment.DIRECTORY_MOVIES)!!
@@ -174,6 +194,7 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
         })
 
         getSystemService(AudioManager::class.java).registerAudioDeviceCallback(audioDevices, main)
+        getSystemService(PowerManager::class.java).addThermalStatusListener(thermalListener) // 手機太熱時電腦會提醒
 
         for (job in uploader.interrupted) {
             reportFailed(job.fileId, "appClosed", toast = false)
@@ -202,6 +223,8 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
 
     override fun onDestroy() {
         super.onDestroy()
+        previewThread.quitSafely()
+        if (!usable) return
         main.removeCallbacks(loop)
         main.removeCallbacks(capture)
         // 按返回鍵離開、或被系統重建（換語言、字體大小、深色模式）時，下次開啟的畫面會重新連線、接著上傳，
@@ -209,18 +232,36 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
         link.close()
         uploader.stop()
         getSystemService(AudioManager::class.java).unregisterAudioDeviceCallback(audioDevices)
-        previewThread.quitSafely()
+        getSystemService(PowerManager::class.java).removeThermalStatusListener(thermalListener)
         camera.release()
     }
+
+    // 沒有後鏡頭時，onCreate 只顯示說明，其他東西都沒有建立
+    private val usable get() = ::camera.isInitialized
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) hideSystemBars()
     }
 
+    // Android 13 起用 OnBackInvokedCallback；之前的版本（和沒有改用新做法的系統）走 onBackPressed
+    private fun blockBack(on: Boolean) {
+        if (on == backBlocked) return
+        backBlocked = on
+        if (Build.VERSION.SDK_INT < 33) return
+        if (on) onBackInvokedDispatcher.registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_DEFAULT, backWhileRecording)
+        else onBackInvokedDispatcher.unregisterOnBackInvokedCallback(backWhileRecording)
+    }
+
+    @Deprecated("Android 12 和舊的返回鍵還是走這裡")
+    override fun onBackPressed() {
+        if (recording != null) toast(getString(R.string.back_while_recording)) else super.onBackPressed()
+    }
+
     // 轉向時只換狀態列的版面，相機預覽、錄影和連線都不受影響
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
+        if (!usable) return
         if ((newConfig.orientation == Configuration.ORIENTATION_PORTRAIT) != overlayPortrait) {
             val root = findViewById<FrameLayout>(R.id.root)
             root.removeView(findViewById(R.id.overlay))
@@ -233,11 +274,12 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        handleIntent(intent)
+        if (usable) handleIntent(intent)
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (!usable) return
         if (hasPermissions()) openCamera() else toast(getString(R.string.need_permission))
     }
 
@@ -354,6 +396,11 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
         val delay = (link.toLocalTime(msg.getLong("startAt")) - System.currentTimeMillis()).coerceAtLeast(0)
         val hint = camera.orientationHint(displayRotationDegrees())
         camera.start(file, spec, msg.optBoolean("facePriority"), hint, SystemClock.uptimeMillis() + delay) { result ->
+            if (recording !== rec) {
+                // 剛好在開始的那一刻取消了（已經回報取消）：錄起來的也不要，馬上停掉，不會留下沒人管的錄影
+                if (result.isSuccess) camera.stop { file.delete() }
+                return@start
+            }
             result.onSuccess { started ->
                 rec.startedAt = started.wallClockMs
                 recordingMic = started.mic
@@ -362,7 +409,8 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
                     JSONObject().put("type", "recordingStarted").put("fileId", fileId)
                         .put("startedAt", link.toServerTime(started.wallClockMs))
                         .put("width", spec.size.width).put("height", spec.size.height) // 不支援時已經降級過
-                        .put("orientation", rec.orientation),
+                        .put("orientation", rec.orientation)
+                        .put("audioChannels", started.channels),
                     queueIfOffline = true,
                 )
             }.onFailure { e ->
@@ -443,6 +491,20 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
         recording?.let { stopRecording(it.fileId, "maxDuration") }
     }
 
+    // 空間還很夠卻碰到上限，就是這支手機單一影片的大小上限（不少手機的 MediaRecorder 是 4 GB），不是空間滿了
+    override fun onMaxFileSizeReached() {
+        val rec = recording ?: return
+        val free = runCatching { StatFs(moviesDir.path).availableBytes }.getOrDefault(0L)
+        stopRecording(rec.fileId, if (free > CameraRecorder.FREE_SPACE_MARGIN + 500_000_000L) "fileSizeLimit" else "storageFull")
+    }
+
+    // 錄影中的音量，電腦用來顯示音量表、提醒沒有聲音或爆音
+    override fun onAudioLevel(db: Double) {
+        val rec = recording ?: return
+        if (rec.startedAt == 0L) return
+        link.send(JSONObject().put("type", "audio").put("level", (db * 10).roundToInt() / 10.0), queueIfOffline = false)
+    }
+
     override fun onCameraError(message: String) {
         toast(message)
         recording?.let { stopRecording(it.fileId, "error") }
@@ -472,7 +534,14 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
         if (data?.scheme == "multicam" && data.host == "pair") {
             val server = data.getQueryParameter("server")
             val code = data.getQueryParameter("code")
-            if (server.isNullOrEmpty() || code.isNullOrEmpty()) toast(getString(R.string.pair_link_incomplete)) else pair(server, code)
+            if (server.isNullOrEmpty() || code.isNullOrEmpty()) return toast(getString(R.string.pair_link_incomplete))
+            // 任何網頁都能用這種連結打開 App，所以先讓使用者看清楚要連到哪台電腦，確認了才配對
+            AlertDialog.Builder(this)
+                .setTitle(R.string.pair_confirm_title)
+                .setMessage(getString(R.string.pair_confirm_message, server.removePrefix("http://")))
+                .setPositiveButton(R.string.pair_confirm_ok) { _, _ -> pair(server, code) }
+                .setNegativeButton(R.string.cancel, null)
+                .show()
             return
         }
         val debuggable = applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
@@ -506,10 +575,20 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
                     store.name = json.getString("name")
                     link.connect()
                     toast(getString(R.string.paired, store.name))
-                }.onFailure { e -> toast(getString(R.string.pair_failed, e.message)) }
+                }.onFailure { e -> showPairFailed(url, e) }
                 render()
             }
         }
+    }
+
+    // 配對失敗：用不會自動消失的對話框說清楚可以怎麼做。連不到電腦時列出要檢查的地方；電腦回了錯誤（例如 QR Code 過期）就照它的說明。
+    private fun showPairFailed(url: String, e: Throwable) {
+        val message = if (e is java.io.IOException) {
+            getString(R.string.pair_failed_network, url.removePrefix("http://")) + "\n\n" + getString(R.string.pair_failed_detail, e.message ?: e.javaClass.simpleName)
+        } else {
+            e.message ?: getString(R.string.pair_failed_network, url.removePrefix("http://"))
+        }
+        AlertDialog.Builder(this).setTitle(R.string.pair_failed_title).setMessage(message).setPositiveButton(android.R.string.ok, null).show()
     }
 
     // ---------- 狀態與畫面 ----------
@@ -543,7 +622,8 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
                 .put("audioInput", micLabel()) // 舊版電腦端顯示的說明文字
                 .put("zoom", camera.zoom.toDouble())
                 .put("zoomRange", JSONArray().put(camera.zoomRange.lower.toDouble()).put(camera.zoomRange.upper.toDouble()))
-                .put("orientation", orientationName()),
+                .put("orientation", orientationName())
+                .put("thermal", getSystemService(PowerManager::class.java).currentThermalStatus),
             queueIfOffline = false,
         )
     }
@@ -575,6 +655,7 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
             setText(if (dimmed) R.string.undim else R.string.dim)
         }
         cleanButton = findViewById<Button>(R.id.clean).apply { setOnClickListener { confirmClean() } }
+        uploadView.setOnClickListener { if (orphanFiles().isNotEmpty()) confirmSaveOrphans() }
         // 權限被拒絕過，系統就不會再問，只能到 App 的設定頁打開
         findViewById<View>(R.id.status).setOnClickListener {
             if (!hasPermissions()) {
@@ -595,15 +676,17 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
     private fun render() {
         nameView.text = store.name ?: Build.MODEL
         val unpaired = store.token == null
-        connectionView.setText(
-            when {
-                !hasPermissions() -> R.string.status_need_permission
-                unpaired -> R.string.status_unpaired
-                link.connected -> R.string.status_connected
-                SystemClock.elapsedRealtime() - disconnectedSince > 10_000 -> R.string.status_unreachable
-                else -> R.string.status_connecting
-            },
-        )
+        // 連不到電腦時寫出正在連的位址，可以和電腦上「手機會連到」的位址比對；連不到很久，多半是電腦的網路換了
+        val address = store.serverUrl?.removePrefix("http://") ?: ""
+        val offlineMs = SystemClock.elapsedRealtime() - disconnectedSince
+        connectionView.text = when {
+            !hasPermissions() -> getString(R.string.status_need_permission)
+            unpaired -> getString(R.string.status_unpaired)
+            link.connected -> getString(R.string.status_connected)
+            offlineMs > 60_000 -> getString(R.string.status_unreachable_long, address)
+            offlineMs > 10_000 -> getString(R.string.status_unreachable, address)
+            else -> getString(R.string.status_connecting)
+        }
         connectionView.setTextColor(
             when {
                 !hasPermissions() -> AMBER
@@ -670,6 +753,54 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
             .show()
     }
 
+    // ---------- 沒傳到電腦的影片 ----------
+
+    // 電腦不認得了的影片（例如在電腦上被刪掉，或換了一台電腦）。檔案還在手機上，不能默默不管。
+    private fun orphanFiles(): List<File> = store.orphans.map(::File).filter { it.exists() }
+
+    private fun confirmSaveOrphans() {
+        val files = orphanFiles()
+        AlertDialog.Builder(this)
+            .setTitle(R.string.orphans_title)
+            .setMessage(resources.getQuantityString(R.plurals.orphans_message, files.size, files.size, formatBytes(files.sumOf { it.length() })))
+            .setPositiveButton(R.string.orphans_save) { _, _ -> saveOrphans(files) }
+            .setNegativeButton(R.string.orphans_later, null)
+            .show()
+    }
+
+    // 存到系統的「影片／MultiCamRecorder」資料夾：相簿和檔案管理員都看得到，解除安裝 App 也不會被刪。存好就刪掉 App 裡的那份。
+    private fun saveOrphans(files: List<File>) {
+        toast(getString(R.string.orphans_saving))
+        thread {
+            val failed = files.filterNot { file ->
+                runCatching { exportToMovies(file) }.isSuccess.also { ok -> if (ok) file.delete() }
+            }
+            main.post {
+                store.orphans = failed.map { it.path }.toSet()
+                toast(if (failed.isEmpty()) getString(R.string.orphans_saved) else getString(R.string.orphans_failed, failed.size))
+                render()
+            }
+        }
+    }
+
+    private fun exportToMovies(file: File) {
+        val values = ContentValues().apply {
+            put(MediaStore.Video.Media.DISPLAY_NAME, file.name)
+            put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+            put(MediaStore.Video.Media.RELATIVE_PATH, "${Environment.DIRECTORY_MOVIES}/MultiCamRecorder")
+            put(MediaStore.Video.Media.IS_PENDING, 1)
+        }
+        val uri = contentResolver.insert(MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY), values)
+            ?: error("MediaStore insert failed")
+        try {
+            contentResolver.openOutputStream(uri)!!.use { out -> file.inputStream().use { it.copyTo(out, 1 shl 20) } }
+            contentResolver.update(uri, ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) }, null, null)
+        } catch (e: Exception) {
+            contentResolver.delete(uri, null, null) // 沒存完的不要留著
+            throw e
+        }
+    }
+
     // ---------- 小工具 ----------
 
     private fun openCamera() {
@@ -706,7 +837,7 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
 
     companion object {
         private const val TEXT = 0xFFECE8E1.toInt()
-        private const val MUTED = 0xFF8B919A.toInt()
+        private const val MUTED = 0xFFC9C6C0.toInt() // 亮的畫面上（白牆、窗邊）也要看得清楚
         private const val GREEN = 0xFF3DDC84.toInt()
         private const val RED = 0xFFFF3B3B.toInt()
         private const val AMBER = 0xFFFFB000.toInt()

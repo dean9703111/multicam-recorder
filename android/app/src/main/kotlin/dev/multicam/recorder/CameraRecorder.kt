@@ -16,6 +16,7 @@ import android.media.MediaRecorder
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
+import android.os.StatFs
 import android.os.SystemClock
 import android.util.Range
 import android.util.Size
@@ -23,6 +24,7 @@ import android.view.Surface
 import android.view.SurfaceHolder
 import java.io.File
 import java.util.concurrent.Executor
+import kotlin.math.log10
 
 // 後鏡頭的預覽和錄影（Camera2 + MediaRecorder）。
 // 錄影用的 surface 一開始就放進相機的 session，開始錄影只要切換 request，
@@ -32,20 +34,22 @@ import java.util.concurrent.Executor
 // 人像設定也都交給手機的相機處理，不經過 App 的影像處理，畫質不變：
 // - 臉部優先：場景模式 FACE_PRIORITY，對焦、曝光、白平衡以人臉為準，畫面裡沒有人臉時跟自動一樣。
 //   部分手機（例如 Pixel）的場景模式是 session 參數，改了要重建 session。
-// - 鎖定曝光和白平衡：開始錄影的那一刻鎖住，停止後恢復自動。
+// - 鎖定曝光、白平衡和對焦：開始錄影的那一刻鎖住，停止後恢復自動。
 //
 // 對外的方法都可以從主執行緒呼叫，實際工作在 camera 執行緒做，結果回到主執行緒。
 class CameraRecorder(private val context: Context, private val listener: Listener) {
     interface Listener {
         fun onReadyChanged(ready: Boolean)
         fun onMaxDurationReached()
+        fun onMaxFileSizeReached() // 手機空間快滿了，或碰到這支手機單一影片的大小上限（不少手機是 4 GB）
         fun onCameraError(message: String)
         fun onRecordingMic(mic: AudioDeviceInfo)
+        fun onAudioLevel(db: Double) // 錄影中每秒 4 次，這段時間最大的音量（dBFS）
     }
 
     class Spec(val size: Size, val fps: Int, val bitrate: Int, val maxDurationSec: Int, val lockExposure: Boolean)
 
-    class Started(val wallClockMs: Long, val mic: AudioDeviceInfo?)
+    class Started(val wallClockMs: Long, val mic: AudioDeviceInfo?, val channels: Int)
 
     // 開始錄影失敗：code 照 server/protocol.ts 的 FailureCode，電腦會用自己的語言顯示
     class StartFailure(val code: String, message: String) : Exception(message)
@@ -102,10 +106,23 @@ class CameraRecorder(private val context: Context, private val listener: Listene
     private var sessionGeneration = 0 // 每建一次 session 加一，只理會最新那個 session 的回報
     private var fps = 30
     private var prepared: MediaRecorder? = null // 準備好了，等開始時間到
+    private var preparedChannels = 1
     private var recorder: MediaRecorder? = null // 錄影中
+    private var focusLocked = false // 這次錄影有沒有鎖住對焦，停止時要解開
     private var pendingStart: (() -> Unit)? = null // 等 session 重建好才開始
     private var ready = false
     private val startToken = Any()
+
+    // 錄影中的音量：MediaRecorder 回報上次問到現在最大的振幅（0–32767），換成 dBFS
+    private val levelPoll = object : Runnable {
+        override fun run() {
+            val r = recorder ?: return
+            val amplitude = runCatching { r.maxAmplitude }.getOrDefault(0)
+            val db = if (amplitude <= 0) -90.0 else (20 * log10(amplitude / 32767.0)).coerceAtLeast(-90.0)
+            main.post { listener.onAudioLevel(db) }
+            handler.postDelayed(this, 250)
+        }
+    }
 
     // 要求的解析度不支援時，改用不超過它的最大 16:9
     fun videoSize(width: Int, height: Int): Size {
@@ -174,8 +191,9 @@ class CameraRecorder(private val context: Context, private val listener: Listene
             try {
                 // 相機太久沒準備好就放棄，免得很晚才突然開始錄
                 if (SystemClock.uptimeMillis() - atUptimeMs >= 5000) throw StartFailure("cameraNotReady", "camera took too long to get ready")
-                val r = buildRecorder(file, spec, orientationHint)
+                val (r, channels) = buildRecorder(file, spec, orientationHint)
                 prepared = r
+                preparedChannels = channels
                 handler.postAtTime({ begin(r, done) }, startToken, atUptimeMs) // 時間已過就馬上開始
             } catch (e: Exception) {
                 prepared?.release()
@@ -218,8 +236,13 @@ class CameraRecorder(private val context: Context, private val listener: Listene
             return@post
         }
         recorder = null
+        handler.removeCallbacks(levelPoll)
         val result = runCatching { r.stop() } // 錄太短（沒有任何畫面）時會失敗
         r.release()
+        if (focusLocked) {
+            focusLocked = false
+            runCatching { session?.capture(request(record = false, afTrigger = CaptureRequest.CONTROL_AF_TRIGGER_CANCEL), null, handler) }
+        }
         runCatching { session?.setRepeatingRequest(request(record = false), null, handler) }
         if (wantedSize != sessionSize || wantedFacePriority != sessionFacePriority) createSession()
         main.post { done(result) }
@@ -238,6 +261,8 @@ class CameraRecorder(private val context: Context, private val listener: Listene
     private fun closeCamera() {
         handler.removeCallbacksAndMessages(startToken)
         handler.removeCallbacks(retryOpen)
+        handler.removeCallbacks(levelPoll)
+        focusLocked = false
         pendingStart = null
         prepared?.release()
         prepared = null
@@ -325,13 +350,15 @@ class CameraRecorder(private val context: Context, private val listener: Listene
         }
     }
 
-    private fun request(record: Boolean): CaptureRequest {
+    // afTrigger：只用在單次的 capture。START 把連續對焦鎖在目前的焦點，CANCEL 解開
+    private fun request(record: Boolean, afTrigger: Int? = null): CaptureRequest {
         val builder = device!!.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
         builder.addTarget(previewSurface!!)
         if (record) builder.addTarget(recorderSurface!!)
         builder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fpsRange(fps))
         builder.set(CaptureRequest.CONTROL_ZOOM_RATIO, zoom)
         if (continuousAf) builder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
+        if (afTrigger != null) builder.set(CaptureRequest.CONTROL_AF_TRIGGER, afTrigger)
         if (sessionFacePriority && facePrioritySupported) {
             builder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_USE_SCENE_MODE)
             builder.set(CaptureRequest.CONTROL_SCENE_MODE, CaptureRequest.CONTROL_SCENE_MODE_FACE_PRIORITY)
@@ -370,31 +397,51 @@ class CameraRecorder(private val context: Context, private val listener: Listene
         return surface
     }
 
-    private fun buildRecorder(file: File, spec: Spec, orientationHint: Int): MediaRecorder {
+    // 外接麥克風支援雙聲道（例如雙發射器的無線麥克風）就錄雙聲道，兩個人的聲音剪輯時可以分開調；準備失敗就退回單聲道
+    private fun buildRecorder(file: File, spec: Spec, orientationHint: Int): Pair<MediaRecorder, Int> {
         val mic = externalMic()
-        return MediaRecorder(context).apply {
-            setAudioSource(if (mic != null) MediaRecorder.AudioSource.MIC else MediaRecorder.AudioSource.CAMCORDER)
-            setVideoSource(MediaRecorder.VideoSource.SURFACE)
-            setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-            setOutputFile(file)
-            setVideoEncoder(MediaRecorder.VideoEncoder.H264)
-            setVideoSize(spec.size.width, spec.size.height)
-            setVideoFrameRate(spec.fps)
-            setVideoEncodingBitRate(spec.bitrate)
-            setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-            setAudioSamplingRate(48_000)
-            setAudioEncodingBitRate(192_000)
-            setAudioChannels(1)
-            setOrientationHint(orientationHint)
-            setMaxDuration(spec.maxDurationSec * 1000)
-            setInputSurface(recorderSurface!!)
-            if (mic != null) setPreferredDevice(mic)
-            setOnInfoListener { _, what, _ ->
-                if (what == MediaRecorder.MEDIA_RECORDER_INFO_MAX_DURATION_REACHED) main.post { listener.onMaxDurationReached() }
+        val stereo = mic != null && (mic.channelCounts.isEmpty() || mic.channelCounts.contains(2))
+        if (stereo) runCatching { return newRecorder(file, spec, orientationHint, mic, 2) to 2 }
+        return newRecorder(file, spec, orientationHint, mic, 1) to 1
+    }
+
+    private fun newRecorder(file: File, spec: Spec, orientationHint: Int, mic: AudioDeviceInfo?, channels: Int): MediaRecorder {
+        // 手機空間快滿時提早正常收尾，不要寫到滿：寫不下的 MP4 收不了尾，整支都會壞掉
+        val free = runCatching { StatFs(file.parent).availableBytes }.getOrDefault(Long.MAX_VALUE)
+        val r = MediaRecorder(context)
+        try {
+            r.apply {
+                setAudioSource(if (mic != null) MediaRecorder.AudioSource.MIC else MediaRecorder.AudioSource.CAMCORDER)
+                setVideoSource(MediaRecorder.VideoSource.SURFACE)
+                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                setOutputFile(file)
+                setVideoEncoder(MediaRecorder.VideoEncoder.H264)
+                setVideoSize(spec.size.width, spec.size.height)
+                setVideoFrameRate(spec.fps)
+                setVideoEncodingBitRate(spec.bitrate)
+                setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                setAudioSamplingRate(48_000)
+                setAudioEncodingBitRate(if (channels == 2) 256_000 else 192_000)
+                setAudioChannels(channels)
+                setOrientationHint(orientationHint)
+                setMaxDuration(spec.maxDurationSec * 1000)
+                setMaxFileSize((free - FREE_SPACE_MARGIN).coerceAtLeast(MIN_FILE_SIZE))
+                setInputSurface(recorderSurface!!)
+                if (mic != null) setPreferredDevice(mic)
+                setOnInfoListener { _, what, _ ->
+                    when (what) {
+                        MediaRecorder.MEDIA_RECORDER_INFO_MAX_DURATION_REACHED -> main.post { listener.onMaxDurationReached() }
+                        MediaRecorder.MEDIA_RECORDER_INFO_MAX_FILESIZE_REACHED -> main.post { listener.onMaxFileSizeReached() }
+                    }
+                }
+                setOnErrorListener { _, what, extra -> main.post { listener.onCameraError(context.getString(R.string.recorder_error, "$what/$extra")) } }
+                prepare()
             }
-            setOnErrorListener { _, what, extra -> main.post { listener.onCameraError(context.getString(R.string.recorder_error, "$what/$extra")) } }
-            prepare()
+        } catch (e: Exception) {
+            r.release()
+            throw e
         }
+        return r
     }
 
     private fun begin(r: MediaRecorder, done: (Result<Started>) -> Unit) {
@@ -404,10 +451,16 @@ class CameraRecorder(private val context: Context, private val listener: Listene
             r.start()
             recorder = r
             prepared = null
-            val started = Started(System.currentTimeMillis(), r.routedDevice)
+            // 鎖定時連對焦一起鎖：訪談的人不會動，對焦就不會因為手勢或轉頭而忽遠忽近
+            if (lockExposure && continuousAf) {
+                focusLocked = runCatching { s.capture(request(record = true, afTrigger = CaptureRequest.CONTROL_AF_TRIGGER_START), null, handler) }.isSuccess
+            }
+            val started = Started(System.currentTimeMillis(), r.routedDevice, preparedChannels)
             main.post { done(Result.success(started)) }
-            // 實際用哪支麥克風，開始後才確定
+            // 實際用哪支麥克風，開始後才確定；錄影中換了（例如外接麥克風鬆脫，改用內建的）也馬上回報
             handler.postDelayed({ recorder?.routedDevice?.let { mic -> main.post { listener.onRecordingMic(mic) } } }, 1000)
+            r.addOnRoutingChangedListener({ router -> router.routedDevice?.let { mic -> main.post { listener.onRecordingMic(mic) } } }, handler)
+            handler.postDelayed(levelPoll, 250)
         } catch (e: Exception) {
             prepared = null
             r.release()
@@ -428,5 +481,13 @@ class CameraRecorder(private val context: Context, private val listener: Listene
             AudioDeviceInfo.TYPE_USB_HEADSET,
             AudioDeviceInfo.TYPE_WIRED_HEADSET,
         )
+        const val FREE_SPACE_MARGIN = 300L * 1000 * 1000 // 手機至少留這麼多空間給系統和其他 App
+        private const val MIN_FILE_SIZE = 10L * 1000 * 1000
+
+        // 有沒有後鏡頭；沒有的話這個 App 沒辦法用（MainActivity 會說明，不會當掉）
+        fun hasBackCamera(context: Context): Boolean = runCatching {
+            val manager = context.getSystemService(CameraManager::class.java)
+            manager.cameraIdList.any { manager.getCameraCharacteristics(it).get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_BACK }
+        }.getOrDefault(false)
     }
 }

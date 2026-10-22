@@ -1,0 +1,36 @@
+name: 回報問題 / Report a problem
+description: 錄影、配對、傳輸或安裝時遇到問題 / Something went wrong while recording, pairing, uploading, or installing
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        謝謝你回報！請寫下發生了什麼事、怎麼做會遇到，和電腦、手機的版本。
+
+        Thanks for reporting! Please describe what happened, how to reproduce it, and which computer and phones you use.
+  - type: textarea
+    id: what
+    attributes:
+      label: 發生了什麼事？ / What happened?
+      description: 例如：按 R 之後有一台沒開始錄、影片傳到一半停住、手機掃完 QR Code 網頁打不開 / For example, one phone didn't start, an upload stalled, or the page didn't open after scanning
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 怎麼做會遇到？ / How can it be reproduced?
+      placeholder: |
+        1.
+        2.
+        3.
+  - type: input
+    id: computer
+    attributes:
+      label: 電腦的系統和多機錄影的版本 / Computer OS and MultiCam Recorder version
+      description: 版本寫在控制台「設定」的最下面 / Shown at the bottom of Settings in the dashboard
+      placeholder: 例如 macOS 26、v0.5.0 / e.g. Windows 11, v0.5.0
+  - type: input
+    id: phones
+    attributes:
+      label: 手機的型號和 Android 版本 / Phone models and Android versions
+      placeholder: 例如 Pixel 9（Android 16）、ROG Phone 6D（Android 14） / e.g. Pixel 9 (Android 16)

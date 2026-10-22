@@ -4,6 +4,8 @@
 // 用法：node tools/fake-phone.ts --model "Pixel 11 Pro" [--tone 660] [--mic usb --mic-name "DJI Mic"] [--server http://127.0.0.1:8787]
 //                              [--encoder libx264]（預設 macOS 用硬體編碼 h264_videotoolbox，其他系統用 libx264）
 //                              [--orientation portrait]（模擬直拿的手機，預設是橫拿）
+//                              [--silent]（錄影中回報沒有聲音）[--hot]（回報手機太熱）[--free-gb 2]（回報手機只剩 2 GB）
+//                              [--offline-after 1000 --offline-for 12000]（開始錄影 1 秒後斷線 12 秒：WebSocket 和上傳都連不上）
 
 import { spawn, execFileSync, type ChildProcess } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -23,6 +25,7 @@ import {
   type StopReason,
   type VerifyResponse,
 } from '../server/protocol.ts';
+import { userDataDir } from '../server/platform.ts';
 
 const { values: args } = parseArgs({
   options: {
@@ -34,6 +37,11 @@ const { values: args } = parseArgs({
     server: { type: 'string', default: 'http://127.0.0.1:8787' },
     encoder: { type: 'string', default: process.platform === 'darwin' ? 'h264_videotoolbox' : 'libx264' },
     orientation: { type: 'string', default: 'landscape' },
+    silent: { type: 'boolean', default: false },
+    hot: { type: 'boolean', default: false },
+    'free-gb': { type: 'string', default: '180' }, // 回報的手機剩餘空間
+    'offline-after': { type: 'string' },
+    'offline-for': { type: 'string', default: '10000' },
   },
 });
 
@@ -43,7 +51,7 @@ const portrait = orientation === 'portrait';
 
 const model = args.model;
 const slug = model.replace(/\W+/g, '-').toLowerCase();
-const dataDir = process.env.RECORDER_DATA_DIR ?? path.join(import.meta.dirname, '../data');
+const dataDir = process.env.RECORDER_DATA_DIR ?? userDataDir(); // 和電腦端同一個資料夾
 const home = path.resolve(dataDir, 'fake-phones', slug);
 // 依伺服器的埠號分開存，同時開好幾個伺服器測試時才不會連錯
 const credsFile = path.join(home, `creds-${new URL(args.server).port || '80'}.json`);
@@ -64,8 +72,8 @@ interface Creds {
 }
 
 async function pair(): Promise<Creds> {
-  // 真的手機是掃 QR Code；模擬器在電腦本機，直接跟伺服器要 QR Code 的內容
-  const r = await fetch(`${args.server}/api/pairing`, { method: 'POST' });
+  // 真的手機是掃 QR Code；模擬器在電腦本機，直接跟伺服器要 QR Code 的內容（本機的 API 只收 JSON）
+  const r = await fetch(`${args.server}/api/pairing`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
   if (!r.ok) throw new Error(`拿不到配對碼：HTTP ${r.status}`);
   const { payload } = (await r.json()) as { payload: QrPayload };
   const deviceId = crypto.randomUUID();
@@ -95,10 +103,24 @@ const serverNow = () => Date.now() + clockOffset;
 
 function sendMsg(m: DeviceMessage): void {
   if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(m));
-  else if (m.type !== 'status' && m.type !== 'sync') outbox.push(m);
+  else if (m.type !== 'status' && m.type !== 'sync' && m.type !== 'audio') outbox.push(m);
+}
+
+// 模擬斷線（--offline-after）：WebSocket 斷掉，這段時間連不上電腦，上傳也失敗；手機照樣錄影
+let offlineUntil = 0;
+const offline = () => Date.now() < offlineUntil;
+
+function goOffline(ms: number): void {
+  offlineUntil = Date.now() + ms;
+  log(`模擬斷線 ${ms / 1000} 秒`);
+  ws?.terminate();
 }
 
 function connect(): void {
+  if (offline()) {
+    setTimeout(connect, offlineUntil - Date.now() + 100);
+    return;
+  }
   const url = creds.url.replace(/^http/, 'ws') + `/ws/device?token=${encodeURIComponent(creds.token)}`;
   const socket = new WebSocket(url);
   ws = socket;
@@ -106,7 +128,7 @@ function connect(): void {
     log('已連線');
     const camera = { facePriority: true, lockExposure: true };
     socket.send(
-      JSON.stringify({ type: 'hello', model, appVersion: 'fake-1', features: ['preview', 'zoom'], camera, lang: args.lang } satisfies DeviceMessage),
+      JSON.stringify({ type: 'hello', model, appVersion: 'fake-1', features: ['preview', 'zoom', 'audio'], camera, lang: args.lang } satisfies DeviceMessage),
     );
     for (const m of outbox.splice(0)) socket.send(JSON.stringify(m));
     bestRtt = Infinity;
@@ -185,7 +207,7 @@ function sendStatus(): void {
     battery: Math.round(battery),
     charging: false,
     temperatureC: temperature,
-    freeBytes: 180e9 - used,
+    freeBytes: Math.max(0, Number(args['free-gb']) * 1e9 - used),
     cameraReady: true,
     recordingFileId: rec?.fileId ?? null,
     audioSource: args.mic as AudioSource,
@@ -193,8 +215,16 @@ function sendStatus(): void {
     zoom,
     zoomRange: ZOOM_RANGE,
     orientation,
+    thermal: args.hot ? 3 : 0,
   });
 }
+
+// 錄影中每秒 4 次回報音量：平常約 -20 dBFS，--silent 時是 -90（沒有聲音）
+setInterval(() => {
+  if (!rec?.announced) return;
+  const level = args.silent ? -90 : -22 + Math.random() * 8;
+  sendMsg({ type: 'audio', level: Math.round(level * 10) / 10 });
+}, 250);
 
 setInterval(() => {
   if (rec?.proc) {
@@ -215,7 +245,11 @@ interface Rec {
   proc?: ChildProcess;
   startedLocal?: number;
   stopReason?: StopReason;
+  announce?: () => void; // 回報「開始錄影了」；檔案真的開始寫入才送
+  announced?: boolean;
 }
+
+let offlineDone = false; // --offline-after 只模擬一次
 
 let rec: Rec | undefined;
 
@@ -345,8 +379,19 @@ function startRecording(m: Extract<ServerMessage, { type: 'start' }>): void {
     proc.stderr!.on('data', (d) => (stderr += d));
     proc.on('exit', (code) => onRecordingEnded(r, code, stderr));
     jobs.push({ fileId: r.fileId, file: r.file, sent: 0 });
-    sendMsg({ type: 'recordingStarted', fileId: r.fileId, startedAt: Math.round(serverNow()), width, height, orientation });
-    log(`開始錄影 ${m.fileName}（${m.resolution}，最長 ${m.maxDurationSec} 秒）`);
+    // 和真的手機一樣，檔案真的開始寫入才回報開始了（ffmpeg 啟動要一點時間，每台機器快慢不一）
+    r.announce = () => {
+      if (r.announced) return;
+      r.announced = true;
+      clearInterval(watch);
+      sendMsg({ type: 'recordingStarted', fileId: r.fileId, startedAt: Math.round(serverNow()), width, height, orientation, audioChannels: 1 });
+      log(`開始錄影 ${m.fileName}（${m.resolution}，最長 ${m.maxDurationSec} 秒）`);
+      if (args['offline-after'] && !offlineDone) {
+        offlineDone = true;
+        setTimeout(() => goOffline(Number(args['offline-for'])), Number(args['offline-after']));
+      }
+    };
+    const watch = setInterval(() => sizeOf(r.file) > 0 && r.announce?.(), 20);
   }, delay);
 }
 
@@ -363,6 +408,7 @@ function stopRecording(fileId: string): void {
 }
 
 function onRecordingEnded(r: Rec, code: number | null, stderr: string): void {
+  r.announce?.(); // 還沒寫入就停了，也要先說開始過
   rec = undefined;
   sendStatus(); // 和真的 App 一樣，停止後馬上回報
   const job = jobs.find((j) => j.fileId === r.fileId);
@@ -424,6 +470,7 @@ class UploadError extends Error {
 }
 
 async function call<T>(method: string, urlPath: string, body?: Buffer<ArrayBuffer> | object): Promise<T> {
+  if (offline()) throw new Error('模擬斷線中');
   const bytes = Buffer.isBuffer(body) ? (body as Buffer<ArrayBuffer>) : undefined;
   const res = await fetch(`${creds.url}${urlPath}`, {
     method,

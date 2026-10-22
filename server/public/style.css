@@ -51,7 +51,7 @@
   --line-hi: #353c45;
   --text: #ece8e1;
   --muted: #8b919a;
-  --faint: #596069;
+  --faint: #80878f; /* 小字也要有 4.5:1 的對比（WCAG AA） */
   --red: #ff3b3b;
   --red-deep: #c81e1e;
   --red-glow: rgba(255, 59, 59, 0.42);
@@ -124,10 +124,17 @@ code {
 
 /* ---------- 上方控制列 ---------- */
 
-.topbar {
+/* 頂列和提醒一起固定在上方：捲動到下面的影片清單時，也一定看得到錄影狀態和出了什麼問題 */
+.head {
   position: sticky;
   top: 0;
   z-index: 10;
+}
+
+/* 選單從頂列往下開，要蓋在下面的提醒上（兩個都有 backdrop-filter，各自是一層） */
+.topbar {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -139,10 +146,19 @@ code {
 }
 
 .brand {
+  flex: 1 1 0; /* 用掉頂列剩下的空間，品牌文字不會把頂列擠成兩行 */
+  min-width: 30px;
+  container-type: inline-size;
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-right: auto;
+}
+
+/* 剩下的空間放不下品牌文字時只留標誌（分頁標題還看得到名稱），例如英文、專案名稱很長又在錄影時 */
+@container (max-width: 210px) {
+  .brand-text {
+    display: none;
+  }
 }
 
 .brand-mark {
@@ -160,6 +176,10 @@ code {
   border-radius: 50%;
   background: var(--red);
   box-shadow: 0 0 12px var(--red-glow);
+}
+
+.brand-text {
+  white-space: nowrap;
 }
 
 .brand-name {
@@ -186,14 +206,15 @@ code {
 .readout {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  align-items: flex-start;
+  gap: 3px;
 }
 
 .label {
   font-family: var(--label);
   font-weight: 600;
-  font-size: 11px;
-  letter-spacing: 0.2em;
+  font-size: 13px;
+  letter-spacing: 0.12em;
   color: var(--muted);
   text-transform: uppercase;
 }
@@ -205,13 +226,13 @@ code {
 }
 
 .readout-value small {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--muted);
   margin-left: 2px;
 }
 
 .readout-note {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--faint);
   white-space: nowrap;
 }
@@ -219,7 +240,28 @@ code {
 
 .transport {
   display: flex;
+  align-items: center;
   gap: 10px;
+}
+
+/* 錄影中：頂列直接顯示 REC 和錄了多久，停止鈕也變明顯 */
+.rec-readout {
+  margin-right: 4px;
+  font-family: var(--mono);
+  font-size: 15px;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+.rec-readout b {
+  font-weight: 500;
+  color: var(--red);
+}
+
+.btn-stop.live:not(:disabled) {
+  border-color: var(--text);
+  background: linear-gradient(180deg, #3a4048, #262b31);
+  box-shadow: 0 0 0 2px rgba(236, 232, 225, 0.14);
 }
 
 kbd {
@@ -317,9 +359,9 @@ kbd {
 }
 
 .btn-small {
-  height: 28px;
-  padding: 0 10px;
-  font-size: 13px;
+  height: 30px;
+  padding: 0 11px;
+  font-size: 14px;
   white-space: nowrap;
 }
 
@@ -337,7 +379,17 @@ kbd {
 .alerts {
   display: grid;
   gap: 8px;
-  padding: 14px 24px 0;
+  max-height: 45vh;
+  overflow-y: auto;
+  padding: 12px 24px;
+  background: rgba(10, 11, 13, 0.94);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+
+.alerts:empty {
+  padding: 0;
+  border-bottom: 0;
 }
 
 .alert {
@@ -500,7 +552,7 @@ kbd {
   padding: 1px 7px;
   border: 1px solid var(--line-hi);
   border-radius: 2px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
@@ -517,7 +569,7 @@ kbd {
   margin-left: auto;
   font-family: var(--label);
   font-weight: 600;
-  font-size: 13px;
+  font-size: 14px;
   letter-spacing: 0.12em;
   white-space: nowrap;
 }
@@ -543,6 +595,8 @@ kbd {
 }
 
 .tc {
+  flex: none;
+  white-space: nowrap; /* 英文的按鈕比較長時，計時和上限也不要拆成兩行 */
   font-family: var(--mono);
   font-weight: 500;
   font-size: 46px;
@@ -570,6 +624,8 @@ kbd {
 
 .bay-actions {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 6px;
 }
 
@@ -581,7 +637,7 @@ kbd {
 }
 
 .meter {
-  padding: 9px 16px;
+  padding: 10px 16px;
   border-right: 1px solid var(--line);
 }
 
@@ -590,8 +646,9 @@ kbd {
 }
 
 .meter-value {
+  margin-top: 2px;
   font-family: var(--mono);
-  font-size: 14px;
+  font-size: 16px;
   white-space: nowrap;
 }
 
@@ -652,14 +709,14 @@ kbd {
   place-items: center;
   text-align: center;
   color: var(--faint);
-  font-size: 14px;
+  font-size: 15px;
   background: repeating-linear-gradient(-45deg, #07080a 0 10px, #0b0d10 10px 20px);
 }
 
 .monitor-caption {
   margin: -8px 16px 10px;
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 13px;
   color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -679,7 +736,7 @@ kbd {
 .clips-empty {
   padding: 18px 16px;
   color: var(--faint);
-  font-size: 14px;
+  font-size: 15px;
 }
 
 /* 平常整列都是播放按鈕（.clip-open），右邊是標記和垃圾桶；選取模式左邊多一個勾選框 */
@@ -734,7 +791,7 @@ kbd {
 .clip-name {
   display: block;
   font-family: var(--mono);
-  font-size: 13px;
+  font-size: 14px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -744,8 +801,8 @@ kbd {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px 10px;
-  margin-top: 2px;
+  gap: 4px 12px;
+  margin-top: 4px;
   color: var(--muted);
   font-size: 13px;
 }
@@ -888,7 +945,7 @@ kbd {
 
 .trim-readout {
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 13px;
   color: var(--muted);
 }
 
@@ -980,7 +1037,7 @@ kbd {
 
 .trim .hint {
   margin-top: 8px;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.6;
 }
 
@@ -992,7 +1049,7 @@ kbd {
 }
 
 .trim-actions .btn-primary {
-  height: 28px;
+  height: 30px;
   padding: 0 14px;
 }
 
@@ -1014,7 +1071,7 @@ kbd {
   justify-self: center;
   width: 20px;
   height: 20px;
-  border: 1.5px solid var(--line-hi);
+  border: 1.5px solid var(--faint);
   border-radius: 4px;
   background: var(--bg);
 }
@@ -1053,7 +1110,7 @@ kbd {
 
 .selection-count {
   margin-right: 8px;
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .toast.raised {
@@ -1069,7 +1126,7 @@ kbd {
   border-radius: 3px;
   background: var(--bg);
   list-style: none;
-  font: 12px/1.8 var(--mono);
+  font: 13px/1.8 var(--mono);
   color: var(--muted);
 }
 
@@ -1096,7 +1153,7 @@ kbd {
   padding: 1px 7px 1px 16px;
   border-radius: 2px;
   background: rgba(10, 11, 13, 0.7);
-  font: 600 11px var(--label);
+  font: 600 12px var(--label);
   letter-spacing: 0.16em;
   color: var(--text);
 }
@@ -1133,7 +1190,7 @@ kbd {
   border: 1px solid var(--line-hi);
   border-radius: 12px;
   background: transparent;
-  font: 500 12px var(--mono);
+  font: 500 13px var(--mono);
   color: var(--muted);
 }
 
@@ -1152,7 +1209,7 @@ kbd {
 .zoom-value {
   flex: none;
   min-width: 44px;
-  font: 500 13px var(--mono);
+  font: 500 14px var(--mono);
   text-align: right;
 }
 
@@ -1165,9 +1222,9 @@ kbd {
 .picker {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  max-width: 230px;
-  padding: 3px 10px;
+  gap: 8px;
+  max-width: 200px; /* 專案名稱太長時用 … 收尾，滑過去看得到完整名稱 */
+  padding: 4px 10px;
   border: 1px solid var(--line-hi);
   border-radius: 3px;
   background: var(--panel-hi);
@@ -1188,13 +1245,29 @@ kbd {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: var(--mono);
-  font-size: 15px;
+  font-size: 16px;
 }
 
+/* 錄影規格：解析度後面是單段上限，再來是開著的人像設定 */
 .picker-value small {
   margin-left: 8px;
-  font-size: 11px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.spec-picker {
+  max-width: none;
+}
+
+.picker-tag {
+  flex: none;
+  padding: 0 6px;
+  border: 1px solid rgba(89, 194, 255, 0.5);
+  border-radius: 3px;
+  font-size: 12px;
+  line-height: 20px;
   color: var(--cyan);
+  white-space: nowrap;
 }
 
 .caret {
@@ -1227,14 +1300,14 @@ kbd {
   padding: 10px 10px 4px;
   font-family: var(--label);
   font-weight: 600;
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 0.16em;
   color: var(--muted);
 }
 
 .menu-hint {
   margin: 4px 10px 6px;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
   color: var(--faint);
 }
@@ -1249,7 +1322,7 @@ kbd {
   border-radius: 4px;
   background: transparent;
   text-align: left;
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .menu-item:not(:disabled):hover {
@@ -1272,98 +1345,235 @@ kbd {
 
 .project-item small {
   color: var(--faint);
-  font-size: 12px;
-}
-
-.spec-menu {
-  min-width: 340px;
-}
-
-.menu-item.res {
-  display: grid;
-  grid-template-columns: 18px 56px 1fr auto;
-}
-
-.menu-item.res::before {
-  content: '';
-  width: 10px;
-  height: 10px;
-  border: 1.5px solid var(--line-hi);
-  border-radius: 50%;
-}
-
-.menu-item.res.on::before {
-  border-color: var(--cyan);
-  background: var(--cyan);
-  box-shadow: inset 0 0 0 2px var(--panel);
-}
-
-.res-label {
-  font-family: var(--mono);
-  font-size: 14px;
-}
-
-.res-dim {
-  font-family: var(--mono);
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.res-size {
-  font-size: 12px;
-  color: var(--faint);
-}
-
-.guide-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 4px 10px 2px;
-}
-
-.guide-chip {
-  padding: 4px 10px;
-  border: 1px solid var(--line-hi);
-  border-radius: 14px;
-  background: transparent;
   font-size: 13px;
-  color: var(--muted);
 }
 
-.guide-chip.on {
-  border-color: var(--cyan);
-  background: rgba(89, 194, 255, 0.14);
+/* 錄影規格選單：四組，每組一個標題、一個控制項、一行說明 */
+.spec-menu {
+  width: 324px;
+  padding: 4px 16px 10px;
+}
+
+.spec-group {
+  padding: 12px 0;
+}
+
+.spec-group + .spec-group {
+  border-top: 1px solid var(--line);
+}
+
+.spec-menu .menu-title {
+  padding: 0 0 8px;
+}
+
+.spec-menu .menu-hint {
+  margin: 8px 0 0;
+}
+
+/* 分段按鈕：選項全部攤開，選中的亮起來。裡面是看不到的原生單選鈕 */
+.seg {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line-hi);
+  border-radius: 6px;
+  background: var(--bg);
+}
+
+.seg-item {
+  position: relative;
+  flex: 1 1 auto;
+  display: grid;
+  place-items: center;
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: 4px;
+  font-size: 14px;
+  color: var(--muted);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.seg-item input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.seg-item:hover {
   color: var(--text);
 }
 
-/* 人像設定的開關：方框打勾，下面一行小字說明 */
-.menu-item.toggle {
-  display: grid;
-  grid-template-columns: 18px 1fr;
-  align-items: start;
-  row-gap: 2px;
+.seg-item:has(input:checked) {
+  background: rgba(89, 194, 255, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(89, 194, 255, 0.6);
+  color: var(--text);
 }
 
-.menu-item.toggle::before {
-  content: '';
-  grid-row: span 2;
-  width: 10px;
-  height: 10px;
-  margin-top: 5px;
-  border: 1.5px solid var(--line-hi);
-  border-radius: 2px;
+.seg-item:has(input:focus-visible) {
+  outline: 2px solid var(--cyan);
+  outline-offset: 1px;
 }
 
-.menu-item.toggle.on::before {
+.seg-item:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* 單段上限：− 數字 分鐘 +，旁邊是錄滿一段要多少空間 */
+.stepper-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.stepper-aside {
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line-hi);
+  border-radius: 6px;
+  background: var(--bg);
+}
+
+.stepper:has(.stepper-input:focus) {
   border-color: var(--cyan);
-  background: var(--cyan);
-  box-shadow: inset 0 0 0 2px var(--panel);
+  box-shadow: 0 0 0 1px var(--cyan);
 }
 
-.toggle-note {
-  font-size: 12px;
-  line-height: 1.5;
+.stepper:has(.stepper-input[aria-invalid='true']) {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 1px var(--amber);
+}
+
+.stepper-btn {
+  width: 36px;
+  height: 38px;
+  border: 0;
+  background: transparent;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--muted);
+}
+
+.stepper-btn:first-child {
+  border-right: 1px solid var(--line-hi);
+  border-radius: 5px 0 0 5px;
+}
+
+.stepper-btn:last-child {
+  border-left: 1px solid var(--line-hi);
+  border-radius: 0 5px 5px 0;
+}
+
+.stepper-btn:not(:disabled):hover {
+  background: var(--panel-hi);
+  color: var(--text);
+}
+
+.stepper-btn:disabled {
+  opacity: 0.35;
+}
+
+.stepper-input {
+  width: 3ch;
+  padding: 0 2px 0 0;
+  border: 0;
+  background: transparent;
+  font: 500 18px var(--mono);
+  text-align: right;
+}
+
+.stepper-input:focus-visible {
+  outline: none; /* 外框整個變色，看得出在打字 */
+}
+
+.stepper-input:disabled {
+  color: var(--muted);
+}
+
+.stepper-unit {
+  padding: 0 12px 0 4px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+/* 開關：整列都能點，右邊的開關一看就知道開著還是關著 */
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  padding: 8px 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+
+.switch-text {
+  display: grid;
+  gap: 2px;
+  font-size: 15px;
+}
+
+.switch-text small {
+  font-size: 13px;
+  line-height: 1.45;
   color: var(--faint);
+}
+
+.switch {
+  position: relative;
+  flex: none;
+  width: 40px;
+  height: 24px;
+  border-radius: 12px;
+  background: var(--line-hi);
+  transition: background 0.15s ease;
+}
+
+.switch::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition:
+    transform 0.15s ease,
+    background 0.15s ease;
+}
+
+.switch-row[aria-checked='true'] .switch {
+  background: var(--cyan);
+}
+
+.switch-row[aria-checked='true'] .switch::after {
+  background: #fff;
+  transform: translateX(16px);
+}
+
+.switch-row:not(:disabled):hover .switch::after {
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.08);
+}
+
+.switch-row:disabled {
+  opacity: 0.5;
+}
+
+.switch-row:focus-visible {
+  outline-offset: 4px;
 }
 
 .menu-hint.warn {
@@ -1412,7 +1622,7 @@ kbd {
   padding: 1px 6px;
   border-radius: 2px;
   background: rgba(10, 11, 13, 0.7);
-  font: 500 11px var(--mono);
+  font: 500 12px var(--mono);
 }
 
 .alert.info {
@@ -1454,9 +1664,9 @@ kbd {
 }
 
 .btn-danger.btn-small {
-  height: 28px;
+  height: 30px;
   padding: 0 12px;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .btn-danger:disabled {
@@ -1520,7 +1730,7 @@ kbd {
 }
 
 .bays.compact .meter-value {
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .bays.compact .monitor {
@@ -1612,7 +1822,7 @@ kbd {
   place-items: center;
   width: 30px;
   height: 30px;
-  border: 1.5px solid var(--line-hi);
+  border: 1.5px solid var(--faint);
   border-radius: 50%;
   font: 500 13px var(--mono);
   color: var(--muted);
@@ -1637,7 +1847,7 @@ kbd {
 
 .step-desc {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   overflow-wrap: anywhere;
 }
 
@@ -1647,27 +1857,25 @@ kbd {
 
 /* ---------- 對話框 ---------- */
 
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 20;
-  display: grid;
-  place-items: center;
-  padding: 16px;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
-  animation: fade 0.18s ease both;
-}
-
+/* 原生的 <dialog>：拿掉瀏覽器預設的樣式，背景用 ::backdrop */
 .modal {
-  width: min(640px, 100%);
+  width: min(640px, calc(100% - 32px));
+  max-width: none;
   max-height: calc(100vh - 32px);
+  padding: 0;
+  color: inherit;
   overflow: auto;
   border: 1px solid var(--line-hi);
   border-radius: 6px;
   background: var(--panel);
   box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.8);
   animation: rise 0.22s ease both;
+}
+
+.modal::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  animation: fade 0.18s ease both;
 }
 
 .modal-head {
@@ -1768,7 +1976,7 @@ kbd {
 .pair-meta {
   margin-top: 16px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .paired {
@@ -1782,7 +1990,7 @@ kbd {
   padding: 2px 8px;
   border: 1px solid var(--line-hi);
   border-radius: 2px;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--muted);
 }
 
@@ -1815,27 +2023,7 @@ kbd {
   border-radius: 3px;
   background: var(--bg);
   font-family: var(--mono);
-  font-size: 13px;
-}
-
-/* 介面語言的下拉選單：和輸入框同一個樣子，右邊自己畫箭頭 */
-.field select {
-  width: 100%;
-  padding: 9px 36px 9px 12px;
-  border: 1px solid var(--line-hi);
-  border-radius: 3px;
-  background: var(--bg)
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%239aa0a8' stroke-width='1.6'/%3E%3C/svg%3E")
-    right 12px center / 12px 8px no-repeat;
-  color: var(--text);
-  font: inherit;
   font-size: 14px;
-  appearance: none;
-  cursor: pointer;
-}
-
-.field select:hover {
-  border-color: var(--muted);
 }
 
 .field .hint {
@@ -1849,7 +2037,7 @@ kbd {
 .hint {
   margin: 10px 0 0;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .hint.warn {
@@ -1950,6 +2138,98 @@ kbd {
   }
 }
 
+/* ---------- 出問題時的指示 ---------- */
+
+/* 和電腦上的多機錄影斷線：畫面上的狀態不再更新，先變暗、不能按（頂部的提醒會說明） */
+.bays.stale .bay {
+  opacity: 0.45;
+  filter: grayscale(0.6);
+  pointer-events: none;
+}
+
+/* 錄影中的音量條 */
+.audio-meter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.audio-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.audio-bar {
+  display: block;
+  height: 100%;
+  background: var(--green);
+  transition: width 0.15s linear;
+}
+
+.audio-bar.hot {
+  background: var(--amber);
+}
+
+.audio-bar.clip {
+  background: var(--red);
+}
+
+.audio-bar.silent {
+  background: var(--faint);
+}
+
+/* 手機的 App 太舊 */
+.bay-note {
+  margin: 0;
+  padding: 0 16px 10px;
+  font-size: 14px;
+  color: var(--amber);
+}
+
+/* 已經移除的手機：只列影片 */
+.bay.removed {
+  border-style: dashed;
+}
+
+.bay.removed > .hint {
+  margin: 0;
+  padding: 0 16px 12px;
+}
+
+/* 開始前的確認、配對時打不開的清單 */
+.warn-list {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding-left: 20px;
+  color: var(--amber);
+}
+
+.pair-trouble {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+}
+
+.pair-trouble summary {
+  cursor: pointer;
+  color: var(--cyan);
+}
+
+.pair-trouble ul {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding-left: 20px;
+  color: var(--muted);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -1959,8 +2239,8 @@ kbd {
   }
 }
 
-/* 頂列在筆電寬度也排成一列：先縮小間距，再收起品牌文字只留標誌（分頁標題還看得到名稱） */
-@media (max-width: 1439px) {
+/* 頂列在筆電寬度也排成一列：縮小間距。最寬的情況是英文、專案名稱很長、兩個人像設定都開著、錄影中 */
+@media (max-width: 1499px) {
   .topbar {
     column-gap: 18px;
   }
@@ -1969,22 +2249,23 @@ kbd {
   }
 }
 
-@media (max-width: 1365px) {
-  .brand-text {
-    display: none;
-  }
-}
-
 @media (max-width: 760px) {
   .topbar {
     padding: 12px 16px;
+  }
+  .readouts {
+    flex-wrap: wrap;
+    row-gap: 12px;
+  }
+  .spec-menu {
+    width: min(324px, calc(100vw - 32px));
   }
   .bays {
     grid-template-columns: 1fr;
     padding: 16px;
   }
   .alerts {
-    padding: 12px 16px 0;
+    padding: 12px 16px;
   }
   .meters {
     grid-template-columns: repeat(2, 1fr);

@@ -12,9 +12,10 @@
     <string name="need_permission">Camera and microphone access are needed to record</string>
 
     <string name="status_need_permission">Camera and microphone access are needed to record. Tap here to open settings</string>
-    <string name="status_unpaired">Not paired: tap “Scan QR code” to pair with the computer</string>
+    <string name="status_unpaired">Not paired: on the computer, open MultiCam Recorder and click “Pair phone”, then tap “Scan QR code” here. To set up the computer: deanlin.net/multicam-recorder</string>
     <string name="status_connected">Connected to the computer</string>
-    <string name="status_unreachable">Can\'t reach the computer. Make sure the server is running and the phone and computer are on the same Wi-Fi</string>
+    <string name="status_unreachable">Can\'t reach the computer (%1$s). Make sure MultiCam Recorder is running on it and both are on the same Wi-Fi</string>
+    <string name="status_unreachable_long">Can\'t reach the computer (%1$s). If the computer\'s network changed, scan the QR code again</string>
     <string name="status_connecting">Connecting…</string>
 
     <string name="mic_line">Mic: %1$s</string>
@@ -39,16 +40,23 @@
     <string name="fail_not_finalized">The recording didn\'t finish properly: %1$s</string>
     <string name="fail_app_closed">The app was closed while recording, so this video wasn\'t finalized</string>
 
-    <string name="camera_lost">The camera was interrupted by the system or another app</string>
+    <string name="camera_lost">The camera was interrupted, for example by another app, a call, or overheating. Come back to this screen and it reopens automatically</string>
     <string name="camera_error">Camera error (%1$s)</string>
     <string name="camera_unsupported_config">The camera doesn\'t support this setting (%1$s)</string>
-    <string name="recorder_error">Recording error (%1$s)</string>
+    <string name="recorder_error">Recording error (%1$s). This often happens when the phone is too hot or out of space</string>
 
-    <string name="scan_failed">Can\'t scan: %1$s</string>
+    <string name="scan_failed">Can\'t open the scanner: %1$s. You can also scan the QR code on the computer with the phone\'s camera app</string>
     <string name="pair_link_incomplete">The pairing link is incomplete</string>
     <string name="not_pairing_qr">This isn\'t a pairing QR code</string>
     <string name="paired">Paired: %1$s</string>
-    <string name="pair_failed">Pairing failed: %1$s</string>
+    <string name="pair_confirm_title">Connect to this computer?</string>
+    <string name="pair_confirm_message">%1$s\n\nOnly pair if this is your own computer.</string>
+    <string name="pair_confirm_ok">Pair</string>
+    <string name="pair_failed_title">Pairing failed</string>
+    <string name="pair_failed_network">Can\'t reach the computer (%1$s). Make sure the phone and computer are on the same Wi-Fi (not a guest network), MultiCam Recorder is running on the computer, and its firewall allows Node.js.</string>
+    <string name="pair_failed_detail">Details: %1$s</string>
+    <string name="no_camera">This device has no usable back camera, so it can\'t be used with MultiCam Recorder.</string>
+    <string name="back_while_recording">Recording. Stop it from the computer first</string>
 
     <string name="clean_nothing">No uploaded videos to clear</string>
     <plurals name="clean_confirm">
@@ -65,5 +73,21 @@
         <item quantity="one">%1$d video finishing (%2$s left)</item>
         <item quantity="other">%1$d videos finishing (%2$s left)</item>
     </plurals>
+    <plurals name="upload_orphans">
+        <item quantity="one">%1$d video didn\'t reach the computer (tap here)</item>
+        <item quantity="other">%1$d videos didn\'t reach the computer (tap here)</item>
+    </plurals>
     <string name="upload_separator">", "</string>
+
+    <!-- 電腦不認得了的影片（例如在電腦上被刪掉）：存到手機的影片資料夾 -->
+    <string name="orphans_title">Videos not on the computer</string>
+    <plurals name="orphans_message">
+        <item quantity="one">The computer no longer recognizes %1$d video (%2$s). It may have been deleted on the computer, or you switched computers. Save it to the phone\'s Movies folder so it stays even if you uninstall the app.</item>
+        <item quantity="other">The computer no longer recognizes %1$d videos (%2$s). They may have been deleted on the computer, or you switched computers. Save them to the phone\'s Movies folder so they stay even if you uninstall the app.</item>
+    </plurals>
+    <string name="orphans_save">Save to Movies</string>
+    <string name="orphans_later">Later</string>
+    <string name="orphans_saving">Saving…</string>
+    <string name="orphans_saved">Saved to Movies/MultiCamRecorder</string>
+    <string name="orphans_failed">%1$d videos couldn\'t be saved. Try again later</string>
 </resources>

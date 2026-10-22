@@ -9,13 +9,17 @@
 - 價格：免費，MIT 授權開源。Free, MIT license.
 - 電腦：macOS、Windows，需要 Node.js 24 以上。Computer: macOS or Windows with Node.js 24+.
 - 手機：Android 12 以上，最多 10 台；目前沒有 iPhone 版。Phones: Android 12+, up to 10; no iPhone app yet.
-- 錄影：4K（3840×2160）、2K、1080p、720p，每秒 30 格，MP4（H.264＋AAC），單段最長 30 分鐘。Video: up to 4K at 30 fps, MP4, up to 30 minutes per take.
+- 錄影：4K（3840×2160）、2K、1080p、720p，每秒 30 格，MP4（H.264＋AAC），單段上限可設 10～90 分鐘。Video: up to 4K at 30 fps, MP4, takes of 10 to 90 minutes.
 - 方向：手機橫拿錄 16:9、直拿錄 9:16，可以一台錄長影片、一台錄短影音（Reels、Shorts、TikTok）。Portrait 9:16 and landscape 16:9 phones can record in the same take.
-- 人像設定：臉部優先（預設開，對焦、曝光、白平衡以人臉為準，大部分手機都能用）、錄影時鎖定曝光和白平衡（預設關）；都由手機的相機處理，解析度和畫質不變。沒有背景虛化（只有少數手機做得到、限制多，已經拿掉）、濾鏡和美顏，調色建議在剪輯軟體裡做。Portrait settings: face priority (on by default) and exposure/white-balance lock; no background blur, filters or beauty effects.
+- 人像設定：臉部優先（預設開，對焦、曝光、白平衡以人臉為準，大部分手機都能用）、錄影時鎖定曝光、白平衡和對焦（預設關）；都由手機的相機處理，解析度和畫質不變。沒有背景虛化（只有少數手機做得到、限制多，已經拿掉）、濾鏡和美顏，調色建議在剪輯軟體裡做。Portrait settings: face priority (on by default) and exposure/white-balance/focus lock; no background blur, filters or beauty effects.
+- 安裝和啟動：在終端機裝好 Git 和 Node.js 24 以上（用 nvm），再執行 git clone、npm install、npm start，瀏覽器會自動打開控制台。Install Git and Node.js 24+ (via nvm), then run git clone, npm install and npm start in a terminal; the dashboard opens in your browser.
+- 出問題時說清楚：開始前先檢查每支手機的空間和電量；錄影中每台都有音量表，沒有聲音、爆音、外接麥克風鬆脫、手機太熱時控制台會警示，並說明可以怎麼做。Problems are flagged with what to do: free space and battery are checked before starting, and silence, clipping, an unplugged mic or an overheating phone raise an alert.
 - 同步：按一個鍵（R），電腦先和每台手機對時，約好同一刻一起開始錄影。One key starts every phone at the same scheduled moment.
 - 傳檔：影片在手機上用原生畫質錄，錄影中就經由區域網路傳回電腦，停止後用 SHA-256 分段驗證，馬上能在電腦上播放。Footage is uploaded while recording and verified with SHA-256.
 - 整理：同一段的每台手機一起標記或刪除（進系統垃圾桶），也能在有縮圖的時間軸上拖拉、裁掉頭尾，每台一起裁、另存成檔名加 _1 的新檔，不重新壓縮（需要 ffmpeg，開頭對齊關鍵影格）。Organize: star or delete a take across all angles, and trim heads and tails losslessly into new _1 files (requires ffmpeg).
 - 隱私：不需要雲端帳號，影片只在手機和電腦之間的區域網路傳輸，不會上傳到網路。No cloud account; footage stays on the local network.
+- 和 Blackmagic Camera 的差別：Blackmagic Camera 有手動 ISO、快門，也能遙控多支手機，但 Android 版只支援指定機型、原檔留在各支手機；多機錄影任何 Android 12 以上的手機都能用、用電腦瀏覽器控制，錄完檔案已經在電腦裡（2026 年 10 月查證）。Unlike Blackmagic Camera, it works with any Android 12+ phone and the footage ends up on the computer.
+- 安全：App 只連到配對的電腦，不會把影片傳到網際網路；正式版 APK 的簽章憑證 SHA-256 指紋是 851e9e8652eceeeb10277a3a92b9defcc25150e5e1566ede4495de85990552f4。The release APK's signing certificate SHA-256 fingerprint is 851e9e8652eceeeb10277a3a92b9defcc25150e5e1566ede4495de85990552f4.
 - 不是直播工具：不把畫面即時串流到網路，適合錄完要剪輯的拍攝（訪談、Podcast、課程、講座、產品拍攝）。It is not a live-streaming tool.
 - 其他：外接 USB／耳機孔麥克風、構圖輔助框（9:16、4:5、1:1）、專案資料夾、標記好的段落、一鍵把沒標記的移到垃圾桶。
 - 介面：繁體中文和英文（控制台、配對網頁、手機 App），跟著瀏覽器和手機的語言。The dashboard, pairing page and phone app are available in English and Traditional Chinese.
@@ -27,7 +31,7 @@
 
 ## Docs
 
-- [README](https://github.com/dean9703111/multicam-recorder/blob/main/README.md): 功能、規格、快速開始、使用情境、常見問題（繁體中文，附英文摘要）
+- [README](https://github.com/dean9703111/multicam-recorder/blob/main/README.md): 功能、規格、快速開始、開拍前準備清單、使用情境、常見問題、疑難排解（繁體中文，附英文摘要）
 - [開發者文件](https://github.com/dean9703111/multicam-recorder/blob/main/docs/development.md): 架構、模擬手機、自動測試、自己編譯 App、傳輸流程
 - [通訊格式](https://github.com/dean9703111/multicam-recorder/blob/main/server/protocol.ts): 手機和電腦之間的 WebSocket／HTTP 格式，其他平台照著實作就能接上
 

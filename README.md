@@ -24,11 +24,12 @@
   <a href="#功能特色">功能特色</a> ・
   <a href="#規格一覽">規格</a> ・
   <a href="#常見問題">常見問題</a> ・
+  <a href="#疑難排解">疑難排解</a> ・
   <a href="#關於作者">關於作者</a> ・
   <a href="#english">English</a>
 </p>
 
-![多機錄影控制台截圖：兩支 Android 手機同步用 4K 錄影，左邊橫拿 16:9、右邊直拿 9:16，監看區顯示即時畫面，下方是邊錄邊傳回電腦的影片清單](docs/images/console.png)
+![多機錄影控制台截圖：兩支 Android 手機同步用 4K 錄影，左邊橫拿 16:9、右邊直拿 9:16，頂列顯示 REC 計時，監看區顯示即時畫面和音量表，下方是邊錄邊傳回電腦的影片清單](docs/images/console.png)
 
 <p align="center"><sub>電腦上的控制台：兩支手機同時錄 4K，左邊橫拿 16:9、右邊直拿 9:16。每台都看得到即時畫面，影片一邊錄一邊傳回電腦。<br>（畫面中的漸層動畫來自開發用的模擬手機，實際使用時就是手機拍到的畫面。）</sub></p>
 
@@ -63,10 +64,10 @@
 **錄影**
 
 - **一鍵同步開始、停止**：按 `R` 全部開始、`S` 全部停止，也能單獨控制某一台。開始前電腦會先和每台手機對時，約好同一刻一起開始，清單上會顯示各台實際的開始時間差。
-- **手機原生畫質**：4K、2K、1080p、720p 可選，所有手機一起套用。單段最長 30 分鐘，剩 3 分鐘時網頁和手機都會提醒。
+- **手機原生畫質**：4K、2K、1080p、720p 可選，所有手機一起套用。單段上限可以自己設 10～90 分鐘，剩 3 分鐘時網頁和手機都會提醒。
 - **直式、橫式都能錄**：手機橫拿錄 16:9、直拿錄 9:16，App 會自動跟著手機轉，錄影中鎖住方向。
-- **人像設定**：「臉部優先」預設開啟，對焦、曝光、白平衡都以人臉為準；也可以在錄影時鎖定曝光和白平衡，亮度和顏色不會錄到一半變掉。這些都交給手機的相機處理，**畫質和解析度都不變**。[詳細說明](#人像設定臉部優先鎖定曝光)
-- **外接麥克風**：接上 USB 或耳機孔麥克風會自動改用它收音，App 和網頁都會顯示目前用的是哪一支。
+- **人像設定**：「臉部優先」預設開啟，對焦、曝光、白平衡都以人臉為準；也可以在錄影時鎖定曝光、白平衡和對焦，亮度、顏色和對焦都不會錄到一半變掉。這些都交給手機的相機處理，**畫質和解析度都不變**。[詳細說明](#人像設定臉部優先鎖定曝光)
+- **外接麥克風**：接上 USB 或耳機孔麥克風會自動改用它收音，App 和網頁都會顯示目前用的是哪一支；支援雙聲道的會錄雙聲道，雙發射器的無線麥克風設成左右分開時，兩個人的聲音可以分開調整。
 
 **監看**
 
@@ -74,6 +75,7 @@
 - **各別變焦**：常用倍率的按鈕加上滑桿，每台各自設定；有超廣角或望遠鏡頭的手機會自動換鏡頭。
 - **構圖輔助框**：在手機預覽、即時畫面和播放器上疊一個 9:16、4:5 或 1:1 的框，架機時就照最後要出的比例構圖。
 - **狀態一目瞭然**：每台的電量、溫度、剩餘空間、還能錄幾分鐘、傳輸速度。電腦的硬碟快滿、傳輸停住、手機斷線時都會直接提示。
+- **出問題馬上知道**：錄影中每台都有音量表。沒有聲音、爆音、外接麥克風鬆脫、手機太熱時，控制台上方會說清楚是哪一台、可以怎麼辦；空間或電量不夠錄完一段，按 `R` 時就先提醒。
 
 **傳檔與整理**
 
@@ -94,11 +96,11 @@
 | 手機 | Android 12 以上，**最多 10 台**；目前沒有 iPhone 版 |
 | 解析度 | 4K（3840×2160）、2K（2560×1440）、1080p、720p，每秒 30 格；直拿時寬高對調 |
 | 影片格式 | MP4（H.264 影像、AAC 聲音），4K 約 40 Mbps |
-| 人像設定 | 臉部優先（預設開）、錄影時鎖定曝光和白平衡（預設關） |
-| 單段長度 | 最長 30 分鐘；4K 每台約 9 GB |
+| 人像設定 | 臉部優先（預設開）、錄影時鎖定曝光、白平衡和對焦（預設關） |
+| 單段長度 | 10～90 分鐘，自己設（預設 30）；4K 每 30 分鐘每台約 9 GB |
 | 裁剪 | 只裁頭尾、每台手機一起裁、另存新檔，不重新壓縮（需要另外安裝 ffmpeg） |
 | 連線方式 | 手機和電腦連同一個 Wi-Fi，影片只在區域網路裡傳輸 |
-| 收音 | 手機內建麥克風，或 USB、耳機孔外接麥克風 |
+| 收音 | 手機內建麥克風，或 USB、耳機孔外接麥克風（支援雙聲道的錄雙聲道） |
 | 即時畫面 | 每秒約 5 張（橫拿 640×360、直拿 360×640） |
 | 介面語言 | 繁體中文、英文（控制台、配對網頁、手機 App） |
 
@@ -116,13 +118,52 @@
 ## 快速開始
 
 > [!TIP]
-> 第一次設定大約 10 分鐘：裝好電腦端和手機 App、掃 QR Code 配對、新增專案，就能開始錄影。之後每次只要 `npm start`、打開 App。
+> 第一次設定大約 15 分鐘：在電腦上裝好 Git、Node.js 和多機錄影，手機裝好 App、掃 QR Code 配對，再新增專案就能開始錄影。之後每次只要在終端機執行 `npm start`、打開 App。
 
 ### 1. 安裝並啟動電腦端
 
-1. 安裝 [Node.js](https://nodejs.org/)（選 **LTS** 版本，需要 24 以上），照安裝程式一路按下一步。
-2. 下載這個專案：會用 Git 的話執行下面的 `git clone`；不會的話，在這個頁面上方按綠色的 **Code → Download ZIP**，再解壓縮（資料夾會叫 `multicam-recorder-main`）。
-3. 打開終端機（macOS 是「終端機」App，Windows 是「PowerShell」），執行下面的指令。用 ZIP 下載的話，跳過前兩行，改用 `cd` 進到解壓縮出來的 `multicam-recorder-main` 資料夾；`npm install` 只有第一次需要。
+電腦端要在「終端機」裡打幾行指令來安裝，**照著複製貼上就好**。每一步都寫了怎麼確認成功；出現錯誤的話，請看[疑難排解](#疑難排解)。
+
+**① 打開終端機**
+
+- **macOS**：按 `⌘`＋`空白鍵`，輸入「終端機」，按 Enter。
+- **Windows**：按「開始」，輸入 `cmd`，打開「命令提示字元」。請不要用 PowerShell，它可能會擋下 npm。
+
+**② 安裝 Git**：下載和更新多機錄影都會用到。
+
+- **macOS**：執行下面這行，跳出視窗時按「安裝」，等它裝完。顯示 `already installed` 的話，表示已經裝過了，直接到下一步。
+
+  ```sh
+  xcode-select --install
+  ```
+
+- **Windows**：到 [git-scm.com](https://git-scm.com/downloads/win) 下載安裝程式，選項都用預設的，一路按「Next」。裝好後關掉命令提示字元，再打開一個新的。
+
+**③ 安裝 Node.js 24 以上**：先執行 `node -v`。顯示 `v24` 或更新的版本的話，直接跳到第 ④ 步。
+
+- **macOS**：用 [nvm](https://github.com/nvm-sh/nvm) 安裝，執行下面兩行：
+
+  ```sh
+  touch ~/.zshrc
+  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.8/install.sh | bash
+  ```
+
+  跑完後**關掉終端機，再打開一個新的**，執行：
+
+  ```sh
+  nvm install --lts
+  ```
+
+- **Windows**：用 [nvm for Windows](https://github.com/nvm-windows/nvm/releases) 安裝。在最新版的 Assets 裡下載結尾是 `x64-setup.exe` 的檔案（Snapdragon 這類 ARM 處理器的電腦選 `arm64-setup.exe`），直接雙擊安裝，不要用「以系統管理員身分執行」。電腦裡有舊版的 Node.js 的話，先到「設定 → 應用程式」解除安裝。裝好後**關掉命令提示字元，再打開一個新的**，執行：
+
+  ```sh
+  nvm install lts
+  nvm use lts
+  ```
+
+再執行一次 `node -v`，看到 `v24` 以上就好了。
+
+**④ 下載並啟動多機錄影**：執行下面四行，第一次的 `npm install` 會下載需要的套件，大約 1 分鐘。
 
 ```sh
 git clone https://github.com/dean9703111/multicam-recorder.git
@@ -131,19 +172,36 @@ npm install
 npm start
 ```
 
-4. 看到 `控制台：http://localhost:8787` 就成功了。用瀏覽器打開 <http://localhost:8787>，畫面上的「開始使用」會帶你走完三個步驟：確認錄影資料夾、配對手機、新增專案。要關掉時，在終端機按 `Ctrl＋C`。
+看到 `控制台：http://localhost:8787` 就成功了，瀏覽器會自動打開控制台；沒有打開的話，自己用瀏覽器打開 <http://localhost:8787>。
+
+> [!IMPORTANT]
+> **錄影時，執行 `npm start` 的終端機要一直開著**，關掉就會停止。拍完要結束時，按 `Ctrl`＋`C` 或直接關掉視窗。
+
+**之後每次要用**，打開終端機執行這兩行就好：
+
+```sh
+cd multicam-recorder
+npm start
+```
+
+用 Linux 的話，先用套件管理員裝 git 和 curl（例如 `sudo apt install git curl`），再照 macOS 的方式用 nvm 裝 Node.js。
+
+啟動後，控制台上的「開始使用」會帶你走完三個步驟：確認錄影資料夾、配對手機、新增專案。
 
 ![控制台的「開始使用」畫面：確認錄影資料夾、配對手機、新增專案三個步驟](docs/images/setup.png)
 
 - **錄影資料夾**預設是「影片」資料夾底下的 `MultiCamRecorder`（macOS 是 `~/Movies/MultiCamRecorder`，Windows 是 `~/Videos/MultiCamRecorder`）。要改的話按右上角「設定」，再按「選擇資料夾…」挑一個，**建議選外接 SSD**；也可以直接貼上路徑。資料夾必須已經存在。
 - 想用「裁掉頭尾」的話，另外安裝 [ffmpeg](https://ffmpeg.org/)：macOS 執行 `brew install ffmpeg`（要先裝 [Homebrew](https://brew.sh/)），Windows 執行 `winget install Gyan.FFmpeg`，Linux（Ubuntu、Debian）執行 `sudo apt install ffmpeg`。不裝也能正常錄影和傳檔；控制台開著的時候才裝也沒關係，在安裝說明的視窗按「重新檢查」就能用。
-- 第一次有手機連線時，系統可能會問要不要讓 node 接受連入連線：macOS 請按「允許」；Windows 防火牆請勾選「私人網路」再按「允許存取」。
+- **防火牆**：第一次啟動時，系統可能會問要不要讓 node 接受連入的連線，不允許的話手機會連不到電腦。
+  - macOS：按「允許」。
+  - Windows：跳出「Windows 安全性警訊」時，**「私人網路」和「公用網路」兩個都勾**，再按「允許存取」。只勾一個的話，Windows 把你的 Wi-Fi 當成另一種網路時，手機一樣連不到。
+  - 按錯或按了「取消」：打開「控制台 → Windows Defender 防火牆 → 允許應用程式或功能通過 Windows Defender 防火牆」，按「變更設定」，把「Node.js JavaScript Runtime」那一列的「私人」和「公用」都勾起來，再按「確定」。
 
 ### 2. 安裝手機 App
 
 1. 到 [Releases](https://github.com/dean9703111/multicam-recorder/releases/latest) 下載 **`MultiCamRecorder.apk`**，傳到手機上點開安裝。也可以直接跳到下一步，用手機相機掃配對的 QR Code，打開的網頁裡就有下載連結。
-2. 第一次安裝時，手機會要你允許瀏覽器或檔案 App「安裝不明應用程式」。
-3. 之後有新版時，下載新的 APK 直接安裝就會覆蓋舊版，**配對和設定都會保留**。
+2. 第一次安裝時，手機會要你允許瀏覽器或檔案 App「安裝不明應用程式」。Google Play 安全防護也可能跳出提醒或建議先掃描，因為這個 App 不是從 Google Play 下載的，讓它掃描完再繼續安裝就好。想確認下載到的 APK 真的是作者發佈的，請看[這個 App 安全嗎？](#這個-app-安全嗎)
+3. 之後有新版時，下載新的 APK 直接安裝就會覆蓋舊版，**配對和設定都會保留**。App 太舊時，控制台會提醒，並顯示下載新版的 QR Code。
 
 想自己從原始碼編譯 App，請看[開發者文件](docs/development.md#自己編譯-app)。
 
@@ -165,13 +223,15 @@ npm start
 - **人像設定**：「臉部優先」預設開著，拍人不用特別調。要鎖定曝光的話，在同一個選單打開，做法請看[人像設定](#人像設定臉部優先鎖定曝光)。
 - **即時畫面與變焦**：監看區平常顯示手機的即時畫面。下面的「變焦」可以按常用倍率或拖滑桿，每台手機各自設定，邊看即時畫面邊調；App 重開也會記得，錄影中也能調。
 - **直拿或橫拿**：手機怎麼放就錄怎麼樣的影片，橫拿 16:9、直拿 9:16，系統的自動旋轉關著也一樣。一台直、一台橫同時錄的做法，請看[使用情境](#使用情境一次錄好長影片和短影音)。
-- **開始和停止**：按網頁上的「開始錄影」或鍵盤 `R`，所有手機一起開始；「停止」或 `S` 全部停止。每個監看區也有「單獨開始／單獨停止」。快捷鍵只在控制台分頁是目前視窗時有效。
-- **30 分鐘會自動停止**。最後 3 分鐘網頁會跳出提示並發出提示音。
+- **開始和停止**：按網頁上的「開始錄影」或鍵盤 `R`，所有手機一起開始；「停止」或 `S` 全部停止。每個監看區也有「單獨開始／單獨停止」。快捷鍵只在控制台分頁是目前視窗時有效。錄影中，頂列會顯示「● REC 12:34・2 台」，瀏覽器的分頁標題也會跟著變，切到別的分頁也看得出來還在錄。
+- **到單段上限會自動停止**：預設 30 分鐘，在「錄影規格」的「單段上限」可以改成 10～90 分鐘（直接打數字，或按 − ＋ 一次調 5 分鐘），旁邊會寫錄滿一段每台手機要多少空間。最後 3 分鐘網頁會跳出提示並發出提示音；電腦離麥克風很近的話，提示音可能會被錄進去，可以在「設定」把「提示音」關掉。
+- **開始前先檢查**：按 `R` 時，如果有手機的空間不夠錄完一段、電量太低又沒充電，或電腦的錄影資料夾快滿了，會先告訴你是哪一台、大概能錄多久、可以怎麼辦，再讓你選「仍要開始」或「取消」。
+- **錄影中的警示**：每台都有音量表；超過 10 秒沒有聲音、爆音、外接麥克風鬆脫改用手機內建麥克風，或手機太熱時，控制台上方會跳出警示，捲動時也看得到。
 
 > [!IMPORTANT]
-> 錄影時 App 要一直開在前景，螢幕不能關，因為 Android 不允許背景 App 使用相機。長時間錄影可以按 App 上的「調暗螢幕」省電、降溫。
+> 錄影時 App 要一直開在前景，螢幕不能關，因為 Android 不允許背景 App 使用相機。錄影中按返回鍵不會離開 App；建議開啟手機的「固定應用程式」（在設定裡搜尋「固定」），連切換 App 的手勢也擋得住。長時間錄影可以按 App 上的「調暗螢幕」省電、降溫。
 
-![錄影規格選單：解析度（4K、2K、1080p、720p）、構圖輔助框，最下面是人像設定（臉部優先開著、錄影時鎖定曝光和白平衡）；橫拿那台的即時畫面上疊著 9:16 的框，直拿那台本來就是 9:16](docs/images/spec-guide.png)
+![錄影規格選單：解析度（4K、2K、1080p、720p）、單段上限（輸入 10～90 分鐘，旁邊寫每台要多少空間）、構圖輔助框，最下面是人像設定的兩個開關；頂列的按鈕寫著 4K、30 分鐘和「臉部優先」；橫拿那台的即時畫面上疊著 9:16 的框，直拿那台本來就是 9:16](docs/images/spec-guide.png)
 
 手機上的 App 畫面長這樣：
 
@@ -205,7 +265,7 @@ npm start
   3. 按「裁剪」。**同一段的每台手機會一起裁**，用開始時間差換算，裁的是同一段時間。
   4. 裁好的影片另存成檔名後面加 `_1` 的新檔（同一支再裁一次就是 `_2`、`_3`），**原本的影片不動**。裁好會直接在監看區播放，清單上標「裁剪過」。
 - 裁剪不重新壓縮，畫質完全不變，幾 GB 的 4K 也只要幾秒。代價是開頭只能從關鍵影格開始，所以可能比你設的早一點（手機大多每 1 秒一個關鍵影格）；各台的關鍵影格位置不同，裁好的幾支開始時間會差零點幾秒，清單上會標出來，剪輯時一樣用音訊對齊。
-- 裁剪要用到 ffmpeg。沒裝的話按「裁剪…」會跳出安裝說明，只列你電腦的系統（macOS、Windows 或 Linux）要用的指令，可以一鍵複製；裝好後按「重新檢查」，找到就直接打開時間軸，不用重開 `npm start`。
+- 裁剪要用到 ffmpeg。沒裝的話按「裁剪…」會跳出安裝說明，只列你電腦的系統（macOS、Windows 或 Linux）要用的指令，可以一鍵複製；裝好後按「重新檢查」，找到就直接打開時間軸，不用重新啟動。
 
 <p align="center">
   <img src="docs/images/trim.png" width="560" alt="裁剪頭尾：在監看區播放 ROG6D 的影片，下方是有縮圖的時間軸，兩個琥珀色把手設定開頭 00:03.2、結尾 00:22.7，中間是留下的 19.5 秒、外面調暗，白線是目前播放的位置；上面有「播放這段」，下面是說明和「取消」「裁剪」">
@@ -215,6 +275,32 @@ npm start
 - 清單上會顯示同一次錄影的各台開始時間差幾毫秒，剪輯時可以參考；要精準對齊，建議用剪輯軟體依音訊自動同步。
 - 在 Finder 或檔案總管裡刪掉影片或專案資料夾，清單上也會跟著拿掉。外接硬碟沒接上時紀錄會先保留，接回來就恢復。
 - 手機上的原檔不會自動刪除。確認電腦上的檔案沒問題後，可以在 App 按「清除已傳完的影片」，它只會刪掉已經傳到電腦並驗證過的檔案。
+
+### 更新到新版
+
+在終端機執行下面四行。配對、專案和設定都會保留，影片也還在原本的錄影資料夾。
+
+```sh
+cd multicam-recorder
+git pull
+npm install
+npm start
+```
+
+- **之前用 ZIP 下載的**（v0.5.0 或更早）：照[安裝並啟動電腦端](#1-安裝並啟動電腦端)裝好 Git、用 `git clone` 重新下載一次（第 ②、④ 步）。執行 `npm start` 之前，先把舊資料夾裡的 `data` 資料夾複製到新的 `multicam-recorder` 資料夾，配對才會跟著搬過去。之後更新就照上面做。
+- **手機 App**：見[安裝手機 App](#2-安裝手機-app)的第 3 點。目前的版本寫在控制台「設定」的最下面，旁邊有「看最新版」的連結。
+
+## 開拍前準備清單
+
+正式開拍前花一分鐘檢查，最常見的意外都能先避開：
+
+- [ ] **手機空間夠**：「錄影規格」的單段上限旁邊會寫每支手機要空出多少（4K 每 30 分鐘約 9 GB）。不夠的話，按 `R` 時也會先提醒是哪一台。
+- [ ] **手機接上充電**，長時間錄影可以按 App 上的「調暗螢幕」省電、降溫。
+- [ ] **手機開啟「固定應用程式」和勿擾模式**：來電或不小心切到別的 App，那一台都會提早停止。
+- [ ] **電腦接上電源，不要闔上螢幕**：闔上會讓電腦睡著，錄影控制和傳輸都會停下來。
+- [ ] **執行 `npm start` 的終端機開著**，控制台上每一台都看得到即時畫面。
+- [ ] **外接麥克風**：App 和控制台上的收音來源顯示「外接 USB」或「耳機孔外接」。
+- [ ] **試錄 10 秒**：按 `R`、說幾句話、按 `S`，確認每台的音量表會動、影片傳完能播放。
 
 ## 使用情境：一次錄好長影片和短影音
 
@@ -250,13 +336,13 @@ npm start
 拍訪談、Podcast、課程這類以人為主的內容時，「錄影規格」選單最下面的「人像」有兩個設定，所有手機一起套用。**全部交給手機的相機處理，解析度、位元率和每秒格數都不變**。
 
 <p align="center">
-  <img src="docs/images/portrait-settings.png" width="420" alt="錄影規格選單最下面的「人像」：臉部優先打勾（對焦、曝光、白平衡以人臉為準），錄影時鎖定曝光和白平衡沒勾（亮度和顏色不會在錄到一半時變動，適合燈光固定的室內）">
+  <img src="docs/images/portrait-settings.png" width="420" alt="錄影規格選單最下面的「人像」：臉部優先的開關打開（對焦、曝光、白平衡以人臉為準），錄影時鎖定曝光、白平衡和對焦的開關關著（適合人和燈光都固定的訪談）">
 </p>
 
 | 設定 | 預設 | 效果 | 適合 |
 | --- | --- | --- | --- |
 | **臉部優先** | 開 | 對焦、曝光、白平衡以人臉為準：背後有亮窗時臉不會黑掉，對焦也不會跑到背景。光線平均、人在畫面中間時，看起來和一般的自動模式一樣 | 有人入鏡的拍攝 |
-| **錄影時鎖定曝光和白平衡** | 關 | 按下開始的那一刻鎖住，到停止前亮度和顏色都不變 | 燈光固定的室內 |
+| **錄影時鎖定曝光、白平衡和對焦** | 關 | 按下開始的那一刻鎖住，到停止前亮度、顏色和對焦都不變 | 人和燈光都固定的訪談 |
 
 ### 臉部優先
 
@@ -267,16 +353,17 @@ npm start
 - **大部分手機都做得到**：Android 規定，相機只要支援臉部偵測，就要提供這個模式。萬一哪台做不到，選單裡會提醒，那台就照一般的自動模式錄。
 - **它不是看得出來的特效**，而是讓相機在難拍的光線下把臉拍對：人背對窗戶時，曝光以臉為準，臉不會黑掉；對焦也不會跑到背景。光線平均、人在畫面中間時，結果和自動模式差不多。
 
-### 鎖定曝光和白平衡
+### 鎖定曝光、白平衡和對焦
 
 <p align="center">
   <img src="docs/images/compare-exposure-lock.png" width="560" alt="示意圖：不鎖定時，有人走過、窗外雲飄過，兩支手機的曝光和白平衡都跟著變，而且變得不一樣；鎖定時，從按下開始的那一刻起，兩支手機的曝光和白平衡都維持不變">
 </p>
 
 - 平常手機會一直自動調整亮度和顏色。錄到一半有人走過、窗外的雲飄過，畫面就跟著變；兩台手機還會各變各的，剪輯時很難對色。
-- 打開後，每台在**按下開始的那一刻**鎖住當下的亮度和顏色，停止後恢復自動。錄影中，監看區下方會寫「鎖定曝光」。
+- 打開後，每台在**按下開始的那一刻**鎖住當下的亮度、顏色和對焦，停止後恢復自動。錄影中，監看區下方會寫「已鎖定」。
+- 對焦一起鎖住，訪談時畫面不會忽遠忽近地「呼吸」。人會前後走動的話，請關掉。
 - 開始前先讓畫面穩定下來（例如人先坐好、燈先打開），鎖住的才是你要的樣子。
-- 適合燈光固定的室內。**戶外或燈光會變的場合請關掉**，不然光線一變，畫面就會太亮或太暗。
+- 適合人和燈光都固定的室內訪談。**戶外或燈光會變的場合請關掉**，不然光線一變，畫面就會太亮或太暗。
 
 沒有背景虛化、濾鏡和美顏，原因請看常見問題的[有人像模式嗎？](#有人像模式嗎可以背景虛化嗎)和[有濾鏡或美顏嗎？](#有濾鏡或美顏嗎)。
 
@@ -290,6 +377,8 @@ npm start
 - **不要用訪客網路**，訪客網路通常會隔離裝置，手機會連不到電腦。
 - 電腦開著 VPN 時手機可能連不到，請關掉 VPN，或開啟它的區域網路存取選項。
 - 電腦的 IP 變了手機就會連不到，重新掃一次配對的 QR Code 就好。常用的話，建議在路由器裡把電腦的 IP 固定下來。
+- **外拍時帶一台旅行路由器**：手機和電腦都連它，不用管場地的 Wi-Fi 是不是訪客網路、有沒有隔離裝置；路由器不用連上網際網路也能用。
+- **拍敏感內容時用自己的網路**：影片在區網裡用 http 傳，沒有加密，同一個 Wi-Fi 上的其他人理論上可以側錄傳輸中的影片。在家裡或自己的路由器上用沒問題；在咖啡店、飯店這類公用 Wi-Fi，請改用自己的旅行路由器。
 
 ## 常見問題
 
@@ -303,11 +392,23 @@ npm start
 
 ### 電腦端支援 Windows 嗎？
 
-**支援。** Windows 和 Apple Silicon 的 Mac 都實際用手機錄過，可以正常使用。每次更新程式，GitHub Actions 也會在 Windows、macOS、Linux 上用兩支模擬手機（一支橫拿、一支直拿）把整個流程跑一遍：配對、即時畫面、變焦、人像設定、兩支同時錄影、裁剪、傳檔和 SHA-256 驗證、中文的資料夾路徑、專案、標記、移到資源回收筒、偵測硬碟格式（NTFS、FAT32）。遇到問題歡迎開 issue。
+**支援。** Windows 和 Apple Silicon 的 Mac 都實際用手機錄過，可以正常使用。每次更新程式，GitHub Actions 也會在 Windows、macOS、Linux 上用兩支模擬手機（一支橫拿、一支直拿）把整個流程跑一遍：配對、即時畫面、變焦、人像設定、兩支同時錄影、裁剪、傳檔和 SHA-256 驗證、中文的資料夾路徑、專案、標記、移到資源回收筒、偵測硬碟格式（NTFS、FAT32）。
 
 ### 需要網路嗎？影片會上傳到雲端嗎？
 
 **不會上傳到雲端。** 錄影和傳檔只在你的手機和電腦之間進行，走同一個 Wi-Fi 的區域網路，不需要任何帳號；影片存在電腦上你選的錄影資料夾。只有第一次下載程式和 App 時需要上網。
+
+### 這個 App 安全嗎？
+
+**程式碼全部公開，App 只會連到你配對的那台電腦。** 手機 App 只用到相機、麥克風和網路，不會讀你的照片、聯絡人或位置，也不會把影片傳到網際網路上（掃 QR Code 用的是 Google Play 服務內建的掃描器）。
+
+因為不是從 Google Play 下載，安裝時手機會要你允許「安裝不明應用程式」，Google Play 安全防護也可能跳出提醒，這些都是正常的。想確認下載到的 APK 真的是作者發佈、沒有被改過，可以核對簽章憑證的 SHA-256 指紋，正式版一律是：
+
+```text
+851e9e8652eceeeb10277a3a92b9defcc25150e5e1566ede4495de85990552f4
+```
+
+在裝了 Android SDK 的電腦上執行 `apksigner verify --print-certs MultiCamRecorder.apk`，看 `certificate SHA-256 digest` 那一行是不是一樣（大小寫和冒號不影響）。每一版都用同一把金鑰簽章，**指紋不一樣就不要安裝**。
 
 ### 錄影畫質會受 Wi-Fi 影響嗎？
 
@@ -345,14 +446,71 @@ npm start
 
 ### 介面有英文嗎？
 
-**有。** 控制台、配對網頁和手機 App 都有繁體中文和英文。控制台跟著瀏覽器的語言，也可以按右上角的「English」一鍵切換，或在「設定」裡選；手機 App 跟著手機的語言（繁體中文的手機顯示繁體中文，其他語言顯示英文），Android 13 以上也能在系統設定的「應用程式語言」單獨替 App 選。
+**有。** 控制台、配對網頁和手機 App 都有繁體中文和英文。控制台跟著瀏覽器的語言，也可以按右上角的「English」一鍵切換；手機 App 跟著手機的語言（繁體中文的手機顯示繁體中文，其他語言顯示英文），Android 13 以上也能在系統設定的「應用程式語言」單獨替 App 選。
 
 ## 疑難排解
+
+遇到問題時，控制台和 App 上的提示都會寫出「發生什麼事、可以怎麼做」，先照著做。下面是比較常見的狀況。
+
+<details>
+<summary>手機連不到電腦（App 顯示「連不到電腦」，或掃完 QR Code 網頁打不開）？</summary>
+
+照順序檢查：
+
+1. 電腦上的多機錄影開著（執行 `npm start` 的終端機沒有關）。
+2. 手機和電腦連的是同一個 Wi-Fi，而且不是訪客網路；手機的行動數據先關掉。
+3. 防火牆允許了 node：Windows 要「私人網路」和「公用網路」兩個都勾，按錯的救法見[安裝並啟動電腦端](#1-安裝並啟動電腦端)。
+4. 電腦開著 VPN 的話，先關掉。
+5. 在手機的瀏覽器輸入 App 上顯示的位址（例如 `http://192.168.1.20:8787`）。打得開就表示網路沒問題；打不開的話，問題在網路或防火牆。
+
+App 上的「連不到電腦」後面會寫它正在連的位址。電腦換過網路、IP 變了的話，在控制台按「配對手機」重新掃一次 QR Code 就好。
+</details>
+
+<details>
+<summary>在終端機安裝或啟動時出現錯誤？</summary>
+
+- **`nvm: command not found`**（macOS）：執行 `touch ~/.zshrc`，再跑一次安裝 nvm 的那一行，然後關掉終端機、打開一個新的。
+- **`'git' 不是內部或外部命令`**、**`'nvm' 不是內部或外部命令`**（Windows）：裝好之後要關掉命令提示字元、打開一個新的，才找得到剛裝的程式。
+- **`Unknown file extension ".ts"`** 或 **`EBADENGINE`**：Node.js 太舊了，照[安裝並啟動電腦端](#1-安裝並啟動電腦端)的第 ③ 步裝 24 以上的版本。
+- **「因為這個系統上已停用指令碼執行」**：這是 PowerShell 擋下了 npm，改用「命令提示字元」。
+- **`destination path 'multicam-recorder' already exists`**：已經下載過了，執行 `cd multicam-recorder` 再 `npm start` 就好。
+- **「多機錄影已經在執行了」**：它已經開著了，直接用瀏覽器打開 <http://localhost:8787>。
+</details>
+
+<details>
+<summary>安裝 App 時跳出警告？</summary>
+
+這是因為 App 不是從 Google Play 下載的。手機問要不要允許瀏覽器或檔案 App「安裝不明應用程式」時，按「設定」並允許；Google Play 安全防護建議先掃描的話，讓它掃描完再繼續安裝。想確認 APK 沒有被改過，請看[這個 App 安全嗎？](#這個-app-安全嗎)
+
+之前裝過自己編譯的版本（debug 版）時，正式版不能直接覆蓋，要先解除安裝。**解除安裝會刪掉 App 裡的影片**，請先確認影片都已經傳到電腦。
+</details>
+
+<details>
+<summary>影片還在手機上，怎麼拿出來？</summary>
+
+一般不用處理：手機連回電腦後，還沒傳完的影片會自動補傳。
+
+如果 App 下方寫著「有 N 支影片沒傳到電腦」，表示電腦已經不認得這些影片了（例如在電腦上移到了垃圾桶，或換了一台電腦）。點一下那行字，選「存到影片資料夾」，影片會存到手機的「影片／MultiCamRecorder」，之後解除安裝 App 也不會被刪，可以用 USB 線或相簿 App 拿出來。
+
+要注意，還沒存出來的影片放在 App 自己的資料夾，**解除安裝 App 會連影片一起刪掉**。
+</details>
+
+<details>
+<summary>手機空間不夠？</summary>
+
+按 `R` 時，空間不夠錄完一段的手機會先列出來，告訴你大概能錄多久。可以在那支手機上按「清除已傳完的影片」（只刪已經傳到電腦並驗證過的），或在「錄影規格」改用低一點的解析度、短一點的單段上限。錄到一半空間滿了，App 會正常收尾，已經錄到的部分照常傳到電腦。
+</details>
+
+<details>
+<summary>錄到十幾分鐘，有一台就自己停了？</summary>
+
+不少手機的單一影片最大是 4 GB，4K 大約錄 13 分鐘就會碰到。App 會正常收尾，已經錄到的部分照常傳到電腦，控制台會寫出原因；下次開始前，控制台也會提醒那一台大概能錄多久。要錄更久，請在「錄影規格」改用 2K 或 1080p。
+</details>
 
 <details>
 <summary>用手機相機掃 QR Code，只看到一串網址？</summary>
 
-點開那個連結，會打開一個寫著「配對這支手機」的網頁，再按「打開 App 並配對」就好。網址列顯示「不安全」是因為區網用的是 http，可以放心。
+點開那個連結，會打開一個寫著「配對這支手機」的網頁，再按「打開 App 並配對」就好。網址列顯示「不安全」是因為區網用的是 http，在自己的 Wi-Fi 上可以放心使用，詳見[網路設定建議](#網路設定建議)。
 </details>
 
 <details>
@@ -382,13 +540,13 @@ npm start
 <details>
 <summary>手機在錄影中被切到背景或來電了？</summary>
 
-App 會先把影片正常收尾再停止，已經錄到的部分會照常傳到電腦，網頁上會標示「手機端中斷，提早停止」。回到 App 後相機會自動恢復。
+App 會先把影片正常收尾再停止，已經錄到的部分會照常傳到電腦，控制台會跳出警示，說明是哪一台、在第幾分鐘中斷。回到 App 後相機會自動恢復。下次可以開啟手機的「固定應用程式」和勿擾模式，避免不小心切走或被來電打斷。
 </details>
 
 <details>
 <summary>系統一直詢問權限？</summary>
 
-第一次接受手機連線時，macOS 或 Windows 防火牆可能會問要不要讓 node 接受連入連線，請允許（Windows 請勾選「私人網路」）。在 macOS 上第一次寫入外接 SSD 時，也可能會問終端機能不能存取外接磁碟上的檔案，請按「允許」。
+第一次啟動時，macOS 或 Windows 防火牆可能會問要不要讓 node 接受連入連線，請允許（Windows 請把「私人網路」和「公用網路」都勾起來）。在 macOS 上第一次寫入外接 SSD 時，也可能會問終端機能不能存取外接磁碟上的檔案，請按「允許」。
 </details>
 
 <details>
@@ -413,7 +571,8 @@ App 會先把影片正常收尾再停止，已經錄到的部分會照常傳到�
 
 - 手機端目前只有 Android App，錄影時 App 必須留在前景。
 - 電腦端在 Linux 上沒有選擇資料夾的視窗，要直接貼上路徑。
-- 影片存在 App 自己的資料夾（`Android/data/dev.multicam.recorder/files/Movies`），解除安裝 App 會連影片一起刪掉。
+- 影片存在 App 自己的資料夾（`Android/data/dev.multicam.recorder/files/Movies`），解除安裝 App 會連影片一起刪掉。電腦不認得的影片可以先存到手機的「影片」資料夾，見[疑難排解](#疑難排解)。
+- 不少手機的單一影片最大是 4 GB，4K 大約 13 分鐘就會提早停止；要錄更久請用 2K 或 1080p。
 - 外接麥克風能不能被選用，依手機和麥克風而定，請以 App 上顯示的收音來源為準。
 - 即時畫面是每秒約 5 張的低解析度預覽，只用來確認構圖和變焦，不能取代監看螢幕。
 - 手機平放（例如從正上方往下拍）時分不出直拿或橫拿，會沿用平放前的方向。
@@ -446,18 +605,19 @@ App 會先把影片正常收尾再停止，已經錄到的部分會照常傳到�
 
 **MultiCam Recorder** is a free, open-source multi-camera recording tool that turns Android phones into synchronized cameras. Open the web dashboard on your Mac or Windows PC, watch every phone's live view, set each phone's zoom, and start or stop all of them with one key. Each phone records phone-native 4K locally and streams the footage to your computer over local Wi-Fi while recording, so you can play it back shortly after you stop. No cloud account is needed and footage never leaves your local network.
 
-![MultiCam Recorder dashboard: two Android phones recording 4K in sync, one landscape 16:9 and one portrait 9:16, with live views and clips uploading to the computer](docs/images/console-en.png)
+![MultiCam Recorder dashboard: two Android phones recording 4K in sync, one landscape 16:9 and one portrait 9:16, with a REC timer in the top bar, live views, audio meters and clips uploading to the computer](docs/images/console-en.png)
 
 - **Synchronized start**: press `R` / `S` to start or stop every phone (up to 10) at the same moment. The computer syncs clocks and schedules a common start time, and the dashboard shows the measured start offset between phones.
 - **Portrait or landscape**: hold a phone sideways to record 16:9 or upright to record 9:16, so one phone can shoot the long-form video while another shoots the shorts in the same take. The app follows each phone's orientation and locks it while recording.
-- **Portrait settings**: face priority (on by default) makes focus, exposure and white balance follow faces, and exposure and white balance can be locked for the whole take. Both run in the phone's camera pipeline, so resolution and bitrate stay the same. Background blur was tried and removed because only a few phones support it, with resolution limits; there are no filters on purpose either, so grade the clean footage in your editor.
+- **Portrait settings**: face priority (on by default) makes focus, exposure and white balance follow faces, and exposure, white balance and focus can be locked for the whole take. Both run in the phone's camera pipeline, so resolution and bitrate stay the same. Background blur was tried and removed because only a few phones support it, with resolution limits; there are no filters on purpose either, so grade the clean footage in your editor.
 - **Live view and per-phone zoom**: about 5 fps for framing; pressing record always switches every monitor back to the live view. Phones with ultra-wide or telephoto lenses switch lenses automatically.
 - **Instant playback**: footage is uploaded while recording; after you stop, only the tail is sent and the file is verified chunk by chunk with SHA-256 against the phone's original.
 - **Framing guides**: optional 9:16, 4:5 or 1:1 guides on the phone preview, the live view and the dashboard player; the full frame is always recorded.
 - **Projects, marking and cleanup**: takes go into `<recording folder>/<project name>`; star the good takes (all angles together), delete a take with the trash button on its row, or move every unstarred take to the system Trash / Recycle Bin in one go.
 - **Trim heads and tails**: drag the in and out handles on a thumbnail timeline while a clip plays, and every angle of that take is trimmed together into new `_1`, `_2`… files without re-encoding (requires ffmpeg); the originals are kept.
-- **External microphones**: USB and headset-jack mics are detected automatically, and the active input is shown on both the phone and the dashboard.
+- **External microphones**: USB and headset-jack mics are detected automatically, and the active input is shown on both the phone and the dashboard. Stereo-capable mics are recorded in stereo, so a dual-transmitter wireless kit set to split channels keeps each person on their own channel.
 - **Resilient**: recording continues if Wi-Fi drops, and uploads resume automatically.
+- **Problems are obvious**: every phone has an audio meter while recording. Silence, clipping, an unplugged mic, an overheating phone, or not enough space or battery for a take shows up at the top of the dashboard with what to do.
 - **English and Traditional Chinese**: the dashboard follows your browser's language and switches with one click at the top right; the phone app follows the phone's language.
 
 | | |
@@ -465,20 +625,78 @@ App 會先把影片正常收尾再停止，已經錄到的部分會照常傳到�
 | Price | Free, MIT license |
 | Computer | macOS or Windows with Node.js 24+ |
 | Phones | Android 12+, up to 10 (no iPhone app yet) |
-| Video | 4K / 2K / 1080p / 720p at 30 fps, MP4 (H.264 + AAC), up to 30 minutes per take |
+| Video | 4K / 2K / 1080p / 720p at 30 fps, MP4 (H.264 + AAC), takes of 10 to 90 minutes (you set the length) |
 | Network | Phones and computer on the same Wi-Fi; footage stays on your local network |
 | Interface | English and Traditional Chinese (dashboard, pairing page, phone app) |
 
-Quick start:
+### Quick start
 
-```sh
-git clone https://github.com/dean9703111/multicam-recorder.git
-cd multicam-recorder
-npm install
-npm start
+The computer side is installed with a few commands in a terminal: **just copy and paste them**.
+
+1. **Open a terminal.** On macOS, press `⌘ Space`, type *Terminal* and press Enter. On Windows, press Start, type `cmd` and open **Command Prompt** (not PowerShell, which may block npm).
+2. **Install Git.** On macOS, run `xcode-select --install` and click **Install** (if it says *already installed*, move on). On Windows, download it from [git-scm.com](https://git-scm.com/downloads/win), keep the default options, then close Command Prompt and open a new one.
+3. **Install Node.js 24 or newer.** Run `node -v`; if it shows `v24` or newer, skip this step.
+   - macOS, with [nvm](https://github.com/nvm-sh/nvm):
+
+     ```sh
+     touch ~/.zshrc
+     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.8/install.sh | bash
+     ```
+
+     Then **close the terminal, open a new one** and run `nvm install --lts`.
+   - Windows, with [nvm for Windows](https://github.com/nvm-windows/nvm/releases): from the latest release, download the file ending in `x64-setup.exe` (`arm64-setup.exe` on ARM PCs such as Snapdragon laptops) and double-click it; don't run it as administrator. Uninstall any older Node.js first. Then **open a new Command Prompt** and run `nvm install lts`, then `nvm use lts`.
+
+   Run `node -v` again: it should show `v24` or newer.
+4. **Download and start MultiCam Recorder:**
+
+   ```sh
+   git clone https://github.com/dean9703111/multicam-recorder.git
+   cd multicam-recorder
+   npm install
+   npm start
+   ```
+
+   The dashboard opens in your browser at <http://localhost:8787>. **Keep the terminal open while recording**; closing it or pressing `Ctrl+C` stops MultiCam Recorder. Next time, just run `cd multicam-recorder` and `npm start`. On Linux, install git and curl with your package manager, then use nvm as on macOS.
+   - **Firewall**: allow node to accept incoming connections, or phones can't reach the computer. On Windows, tick **both Private and Public networks**. If you clicked Cancel, open Control Panel → Windows Defender Firewall → Allow an app or feature through Windows Defender Firewall → Change settings, and tick both boxes for **Node.js JavaScript Runtime**.
+5. Download `MultiCamRecorder.apk` from [Releases](https://github.com/dean9703111/multicam-recorder/releases/latest) (or scan the pairing QR code and use the download link on the page that opens), pair each phone, create a project and press `R`.
+
+**Updating**: run `cd multicam-recorder`, `git pull`, `npm install` and `npm start`. Pairing, projects and settings are kept in your user data folder, and footage stays in your recording folder. If you downloaded v0.5.0 or earlier as a ZIP, install Git and clone the project (steps 2 and 4), then copy the old folder's `data` folder into the new `multicam-recorder` folder before running `npm start`. Install a newer APK right over the old one; the dashboard tells you when a phone's app is out of date and shows a QR code to download the new one.
+
+### Before you shoot
+
+- [ ] **Enough free space on each phone**: the take length under **Recording settings** shows how much a full take needs (4K takes about 9 GB per 30 minutes), and pressing `R` warns you about any phone that's short.
+- [ ] **Phones charging**; for long takes, tap **Dim screen** in the app.
+- [ ] **App pinning and Do Not Disturb on**: a call or switching apps stops that phone early.
+- [ ] **Computer plugged in with the lid open**: a sleeping computer stops control and uploads.
+- [ ] **The terminal running `npm start` is open** and every phone shows a live view.
+- [ ] **External mics** show as the input (USB or Headset jack) in the app and the dashboard.
+- [ ] **A 10-second test take**: press `R`, say a few words, press `S`, and check that every audio meter moves and every clip plays.
+
+### Troubleshooting
+
+When something goes wrong, the dashboard and the app say what happened and what to do. The most common cases are below.
+
+- **A phone can't reach the computer**: check that MultiCam Recorder is running, the phone and computer are on the same Wi-Fi (not a guest network) with mobile data off, the firewall allows node (both boxes on Windows), and any VPN is off. Type the address shown in the app (for example `http://192.168.1.20:8787`) into the phone's browser: if it opens, the network is fine. If the computer's IP changed, pair again.
+- **Errors in the terminal**: for `nvm: command not found` on macOS, run `touch ~/.zshrc`, run the nvm install line again and open a new terminal. For `'git' is not recognized` or `'nvm' is not recognized` on Windows, open a new Command Prompt after installing. `Unknown file extension ".ts"` or `EBADENGINE` means Node.js is too old: install 24 or newer (step 3). *Running scripts is disabled on this system* is PowerShell blocking npm: use Command Prompt.
+- **Install warnings**: allow your browser or Files app to install unknown apps, and let Google Play Protect scan the app if it asks. A build you compiled yourself (debug) must be uninstalled before installing the release, and **uninstalling deletes the videos stored in the app**.
+- **Footage is still on the phone**: it uploads automatically when the phone reconnects. If the app says some videos didn't reach the computer, tap that line and choose **Save to Movies**; they're saved to `Movies/MultiCamRecorder` and survive uninstalling the app.
+- **A phone stopped after about 13 minutes of 4K**: many phones cap a single video at 4 GB. Use 2K or 1080p for longer takes; the dashboard warns you before the next take.
+- **Not enough space on a phone**: the dashboard asks before starting. Tap **Clear uploaded videos** on the phone (it only deletes verified uploads), or pick a lower resolution or a shorter take length.
+- **The app was interrupted** (sent to the background or by a call): it finishes the file properly and what it recorded still uploads; turn on app pinning and Do Not Disturb next time.
+
+### Is the app safe?
+
+It's open source and only talks to the computer you paired with. It uses the camera, microphone and network, doesn't read your photos, contacts or location, and never uploads footage to the internet (QR scanning uses the scanner built into Google Play services). Because it doesn't come from Google Play, Android asks you to allow installing unknown apps and Play Protect may show a warning; that's expected. Every release APK is signed with the same key, whose certificate SHA-256 fingerprint is:
+
+```text
+851e9e8652eceeeb10277a3a92b9defcc25150e5e1566ede4495de85990552f4
 ```
 
-Open <http://localhost:8787>, then download `MultiCamRecorder.apk` from [Releases](https://github.com/dean9703111/multicam-recorder/releases/latest) (or scan the pairing QR code and use the download link on the page that opens), pair each phone, create a project and press `R`.
+Check it with `apksigner verify --print-certs MultiCamRecorder.apk` (look at the `certificate SHA-256 digest` line). **If it doesn't match, don't install it.**
+
+### Network tips
+
+Wire the computer to the router if you can, or put the phones on 2.4 GHz and the computer on 5 GHz. Avoid guest networks (they usually isolate devices) and turn off VPNs. On location, bring a travel router: connect the phones and the computer to it, no internet needed. Footage travels over plain HTTP on your local network, so others on the same Wi-Fi could in theory capture it; for sensitive shoots, use your own router instead of café or hotel Wi-Fi.
 
 It has been used with real phones on both Windows and an Apple Silicon Mac, and every push runs an end-to-end test with two simulated phones (one portrait, one landscape) on Windows, macOS and Linux in GitHub Actions. The phone protocol is documented in [`server/protocol.ts`](server/protocol.ts), so other phone platforms can be added. Developer notes are in [`docs/development.md`](docs/development.md) (in Traditional Chinese). Product site: <https://deanlin.net/multicam-recorder/en/>
 

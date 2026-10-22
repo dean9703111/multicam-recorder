@@ -1,4 +1,4 @@
-// 產品網站的小互動：首屏的錄影計時、指令的複製按鈕、捲動時的進場和示意動畫、臉部優先的左右拖拉。
+// 產品網站的小互動：首屏的錄影計時、指令的複製按鈕、安裝步驟的系統切換、捲動時的進場和示意動畫、臉部優先的左右拖拉。
 // 沒有 JavaScript 也能正常看：動畫的最後一格就是沒有 JavaScript 時看到的樣子。
 
 const root = document.documentElement;
@@ -30,6 +30,11 @@ for (const block of document.querySelectorAll('.code')) {
     }
     setTimeout(() => (button.textContent = label), 1600);
   });
+}
+
+// 安裝步驟預設是 macOS，用 Windows 看的話先切到 Windows
+if ((navigator.userAgentData?.platform ?? navigator.platform ?? '').startsWith('Win')) {
+  for (const input of document.querySelectorAll('.os-switch input[value="win"]')) input.checked = true;
 }
 
 // 窄螢幕的選單：點了連結、按 Esc 或點選單外面就收起來

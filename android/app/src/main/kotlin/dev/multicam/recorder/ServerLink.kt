@@ -82,7 +82,7 @@ class ServerLink(private val store: Store, private val listener: Listener, priva
         connected = true
         socket.send(
             JSONObject().put("type", "hello").put("model", Build.MODEL).put("appVersion", APP_VERSION)
-                .put("features", JSONArray(listOf("preview", "zoom"))).put("camera", camera).put("lang", language()).toString(),
+                .put("features", JSONArray(listOf("preview", "zoom", "audio"))).put("camera", camera).put("lang", language()).toString(),
         )
         while (outbox.isNotEmpty()) socket.send(outbox.removeFirst())
         bestRtt = Long.MAX_VALUE
@@ -140,6 +140,7 @@ class ServerLink(private val store: Store, private val listener: Listener, priva
     }
 
     companion object {
-        const val APP_VERSION = "0.5.0"
+        // 就是 build.gradle.kts 的 versionName，發佈新版時只要改那裡
+        const val APP_VERSION = BuildConfig.VERSION_NAME
     }
 }

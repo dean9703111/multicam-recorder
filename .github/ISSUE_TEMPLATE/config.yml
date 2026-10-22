@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 常見問題和疑難排解 / FAQ and troubleshooting
+    url: https://github.com/dean9703111/multicam-recorder#疑難排解
+    about: 很多問題在這裡有答案，例如手機連不到電腦、影片還在手機上 / Many problems are answered here, such as phones that can't reach the computer

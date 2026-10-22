@@ -39,6 +39,11 @@ class Store(context: Context) {
         get() = prefs.getStringSet("transferred", emptySet())!!.toSet()
         set(value) = prefs.edit().putStringSet("transferred", value).apply()
 
+    // 電腦不認得了的影片（例如在電腦上被刪掉，或換了一台電腦）：沒傳到電腦，留在手機上，畫面上會一直提醒
+    var orphans: Set<String>
+        get() = prefs.getStringSet("orphans", emptySet())!!.toSet()
+        set(value) = prefs.edit().putStringSet("orphans", value).apply()
+
     fun loadJobs(): List<UploadJob> {
         val array = JSONArray(prefs.getString("jobs", "[]"))
         return (0 until array.length()).map { i ->

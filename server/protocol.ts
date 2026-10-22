@@ -12,9 +12,15 @@
 // 4. 停止後：傳完剩下的位元組 → POST finish → 把整個檔案以 CHUNK_SIZE 分段算 SHA-256
 //    → POST verify，依回覆補傳 resend 列出的分段，再 verify 一次，直到 ok。
 //    （MP4 在停止時會改寫檔頭，所以第 0 段幾乎一定要補傳。）
+//    已經傳完的檔案，GET 回完整大小、finish 和 verify 都回 ok，沒收到回覆時重送也不會出錯。
+//    電腦回 404（不認得這支影片，例如在電腦上被刪掉了）時不要再傳，但影片要留在手機上，
+//    並讓使用者看得到「有影片沒傳到電腦」，可以存到手機的影片資料夾。
 //
 // 其他規則：
-// - 錄到 maxDurationSec 時手機自己停止，reason 用 'maxDuration'。
+// - 錄到 maxDurationSec 時手機自己停止，reason 用 'maxDuration'；手機空間快滿時提早停止，reason 用 'storageFull'；
+//   碰到手機單一影片的大小上限（不少手機的 MediaRecorder 是 4 GB）時用 'fileSizeLimit'。
+// - 錄影中大約每秒 4 次送 audio，回報這段時間最大的音量（dBFS），電腦用來顯示音量表、偵測沒有聲音或爆音。
+// - status 的 thermal 是系統的發熱等級（PowerManager.getCurrentThermalStatus），太熱時電腦會提醒。
 // - 還沒到 startAt 就收到 stop：取消這次錄影，回 recordingFailed。
 // - WebSocket 斷線時照常錄影和上傳；recordingStarted、recordingStopped 等訊息先排隊，連回來再送。
 // - 即時畫面：收到 preview on 之後，大約每秒 5 張，把目前的預覽畫面轉正、壓成 JPEG（長邊 640，直拿時是 360×640），
@@ -82,9 +88,10 @@ export interface DeviceStatus {
   zoom?: number; // 目前的變焦倍率
   zoomRange?: [number, number]; // 這支手機能用的變焦範圍，例如 [0.5, 10]
   orientation?: Orientation; // 錄影中是開始時鎖住的方向
+  thermal?: number; // 發熱等級：0 正常、1 微溫、2 中等、3 嚴重、4 危急、5 緊急、6 即將關機
 }
 
-export type StopReason = 'user' | 'maxDuration' | 'error';
+export type StopReason = 'user' | 'maxDuration' | 'storageFull' | 'fileSizeLimit' | 'error';
 
 // 收音來源：手機內建、USB、耳機孔、其他
 export type AudioSource = 'builtin' | 'usb' | 'wired' | 'other';
@@ -104,13 +111,22 @@ export type FailureCode =
 
 // 手機 → 電腦
 export type DeviceMessage =
-  // features：'preview'、'zoom'；lang 是手機的語言（例如 zh-TW、en），電腦送給這支手機的訊息會用這個語言
+  // features：'preview'、'zoom'、'audio'；lang 是手機的語言（例如 zh-TW、en），電腦送給這支手機的訊息會用這個語言
   | { type: 'hello'; model: string; appVersion: string; features?: string[]; camera?: CameraCapabilities; lang?: string }
   | { type: 'sync'; t0: number }
   | ({ type: 'status' } & DeviceStatus)
   // startedAt 要換算成電腦時間；width、height 是實際錄的解析度（手機不支援要求的解析度時會降級），
-  // 直拿時也是橫的寬高，影片檔裡另外記著播放時要轉 90°
-  | { type: 'recordingStarted'; fileId: string; startedAt: number; width?: number; height?: number; orientation?: Orientation }
+  // 直拿時也是橫的寬高，影片檔裡另外記著播放時要轉 90°；audioChannels 是錄到的聲道數（外接麥克風支援時錄雙聲道）
+  | {
+      type: 'recordingStarted';
+      fileId: string;
+      startedAt: number;
+      width?: number;
+      height?: number;
+      orientation?: Orientation;
+      audioChannels?: number;
+    }
+  | { type: 'audio'; level: number } // dBFS，-90（沒有聲音）到 0（最大）
   | { type: 'recordingStopped'; fileId: string; reason: StopReason; durationMs: number; size: number }
   // error 是給舊版電腦端看的說明文字；新版看 code 和 detail
   | { type: 'recordingFailed'; fileId: string; error: string; code?: FailureCode; detail?: string };

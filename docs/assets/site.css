@@ -167,6 +167,10 @@ kbd { display: inline-block; min-width: 1.7em; padding: 0 6px; border: 1px solid
 }
 .rec-kicker .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--red); box-shadow: 0 0 10px var(--red); animation: blink 1.6s steps(1) infinite; }
 .rec-kicker .sep { color: rgba(255, 180, 180, 0.4); }
+.rec-kicker > span { white-space: nowrap; }
+/* 放不下時只留錄影計時，後半段不要被拆成兩行（英文比較長，比較早就要藏） */
+@media (max-width: 359px) { .rec-kicker .sep, .rec-kicker .sep + span { display: none; } }
+@media (max-width: 428px) { :lang(en) .rec-kicker .sep, :lang(en) .rec-kicker .sep + span { display: none; } }
 @keyframes blink { 50% { opacity: 0.2; } }
 .hero .brandline { margin-top: 24px; font: 700 15px var(--label); letter-spacing: 0.32em; color: var(--muted); }
 .hero h1 { margin: 10px auto 0; max-width: 13em; font: 700 clamp(38px, 6.4vw, 70px)/1.14 var(--label); letter-spacing: 0.01em; }
@@ -230,6 +234,13 @@ figcaption { margin-top: 14px; font-size: 14px; color: var(--muted); text-align:
 /* 比較表、規格表 */
 .table-wrap { margin-top: 32px; overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); }
 table { width: 100%; border-collapse: collapse; min-width: 560px; }
+/* 規格表在手機上改成項目在上、說明在下，不用左右滑 */
+@media (max-width: 640px) {
+  .specs-table { min-width: 0; }
+  .specs-table th, .specs-table td { display: block; width: auto; }
+  .specs-table tbody th { padding-bottom: 4px; border-bottom: 0; background: none; color: var(--muted); font-size: 14px; }
+  .specs-table td { padding-top: 0; }
+}
 th, td { padding: 14px 18px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; font-size: 15.5px; }
 tr:last-child th, tr:last-child td { border-bottom: 0; }
 thead th { font: 700 15px var(--label); letter-spacing: 0.08em; color: var(--muted); background: var(--panel); }
@@ -297,12 +308,49 @@ td { color: var(--soft); }
 .step .figure { margin-top: 20px; }
 @media (max-width: 640px) { .step { grid-template-columns: 1fr; gap: 6px; padding: 22px 18px; } .step::before { font-size: 28px; } }
 
-/* 指令區塊，附複製按鈕 */
-.code { position: relative; margin: 14px 0 0; border: 1px solid var(--line-hi); border-radius: 8px; background: #07080a; }
-.code pre { margin: 0; padding: 16px 18px; overflow-x: auto; font: 400 14px/1.7 var(--mono); color: #d7e3ee; }
-.code .c { color: var(--faint); }
-.code button { position: absolute; top: 8px; right: 8px; padding: 4px 10px; border: 1px solid var(--line-hi); border-radius: 4px; background: var(--panel-hi); color: var(--muted); font: 600 13px var(--label); letter-spacing: 0.08em; cursor: pointer; }
+/* 指令區塊，附複製按鈕。按鈕自己佔右邊一欄（手機上放在指令上面），指令太長時自己捲動，不會被按鈕蓋住 */
+.code { display: flex; align-items: flex-start; margin: 12px 0 0; border: 1px solid var(--line-hi); border-radius: 8px; background: #07080a; }
+.code pre { flex: 1; min-width: 0; margin: 0; padding: 14px 18px; overflow-x: auto; font: 400 14px/1.7 var(--mono); color: #d7e3ee; }
+.code button { order: 1; flex: none; margin: 8px; padding: 4px 10px; border: 1px solid var(--line-hi); border-radius: 4px; background: var(--panel-hi); color: var(--muted); font: 600 13px var(--label); letter-spacing: 0.08em; cursor: pointer; }
 .code button:hover { color: var(--text); }
+@media (max-width: 640px) {
+  .code { flex-direction: column; }
+  .code pre { flex: none; align-self: stretch; padding-top: 0; }
+  .code button { order: 0; align-self: flex-end; margin: 6px 6px 0; }
+}
+
+/* 安裝步驟：先選電腦的系統，只顯示那一套（瀏覽器不支援 :has() 時兩套都顯示）。選中的亮紅色的燈，像導播台上正在播的那一台 */
+.os-switch { display: inline-flex; gap: 4px; margin-top: 16px; padding: 4px; border: 1px solid var(--line-hi); border-radius: 999px; background: #07080a; }
+.os-switch label { position: relative; display: inline-flex; align-items: center; gap: 9px; padding: 6px 18px; border-radius: 999px; font: 700 16px/1.4 var(--label); letter-spacing: 0.06em; color: var(--muted); cursor: pointer; transition: background-color 0.15s, color 0.15s; }
+.os-switch label::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--line-hi); transition: background-color 0.15s, box-shadow 0.15s; }
+.os-switch label:hover { color: var(--text); }
+.os-switch input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
+.os-switch label:has(input:checked) { background: var(--panel-hi); color: var(--text); box-shadow: inset 0 0 0 1px var(--line-hi); }
+.os-switch label:has(input:checked)::before { background: var(--red); box-shadow: 0 0 8px var(--red); }
+.os-switch label:has(input:focus-visible) { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.os-guide:has(input[value='mac']:checked) .os-win,
+.os-guide:has(input[value='win']:checked) .os-mac { display: none; }
+
+.install { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; margin: 22px 0 0; padding: 0; list-style: none; counter-reset: install; } /* 長的指令在框裡捲動，不要撐開整頁 */
+.install > li { position: relative; padding-left: 42px; }
+.install > li::before { counter-increment: install; content: counter(install); position: absolute; left: 0; top: 0; display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid var(--line-hi); border-radius: 50%; font: 700 15px/1 var(--label); color: var(--text); }
+.install h4 { margin: 0; padding-top: 1px; font: 700 18px/1.4 var(--label); letter-spacing: 0.02em; color: var(--text); }
+.install code { white-space: nowrap; } /* 檔名、指令不要在連字號的地方斷開 */
+@media (max-width: 640px) { .install > li { padding-left: 36px; } .install > li::before { width: 24px; height: 24px; font-size: 14px; } }
+
+/* 第一次啟動時要注意的事（防火牆） */
+.first-run { margin: 16px 0 0; padding: 14px 18px; border: 1px solid rgba(255, 176, 0, 0.35); border-radius: 8px; background: rgba(255, 176, 0, 0.06); }
+.first-run p { margin: 0; color: #ffe2a8; }
+.first-run ul { margin-top: 6px; }
+
+/* 下載 App 的 QR Code：電腦上用手機掃，手機上直接點連結（窄螢幕不顯示 QR Code） */
+.apk-get { display: flex; align-items: center; gap: 20px; margin-top: 10px; }
+.apk-get p { margin: 0; }
+.apk-qr { flex: none; width: 132px; height: 132px; padding: 8px; border-radius: 8px; background: #fff; box-shadow: 0 0 0 1px var(--line-hi), 0 18px 40px -20px rgba(255, 59, 59, 0.5); }
+@media (max-width: 640px) { .apk-qr { display: none; } }
+
+/* 簽章憑證的指紋很長，任何地方都可以換行 */
+code.fp { word-break: break-all; }
 
 /* 提示 */
 .note { display: flex; gap: 12px; margin: 18px 0 0; padding: 14px 18px; border: 1px solid rgba(89, 194, 255, 0.35); border-radius: 8px; background: rgba(89, 194, 255, 0.07); color: #cfe9ff; font-size: 15px; }
@@ -333,7 +381,7 @@ td { color: var(--soft); }
 .faq details[open] summary::after { content: '−'; }
 .faq .answer { padding: 0 22px 20px; color: var(--soft); }
 .faq .answer p { margin: 0; }
-.faq .answer p + p { margin-top: 10px; }
+.faq .answer p + p, .faq .answer .code + p { margin-top: 10px; }
 
 /* 結尾的呼籲 */
 .final { margin-top: 104px; padding: 64px 28px; border: 1px solid rgba(255, 59, 59, 0.35); border-radius: 16px; text-align: center; background:

@@ -1,11 +1,16 @@
 {
   "name": "multicam-recorder",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
-    "start": "node server/server.ts",
+    "start": "node server/server.ts --open",
     "fake-phone": "node tools/fake-phone.ts",
     "typecheck": "tsc --noEmit",
+    "check": "node tools/check.ts",
     "smoke-test": "node tools/smoke-test.ts",
     "android:build": "cd android && JAVA_HOME=${JAVA_HOME:-$(brew --prefix openjdk@21)/libexec/openjdk.jdk/Contents/Home} ./gradlew :app:assembleDebug",
     "android:install": "sh tools/install-android.sh"
