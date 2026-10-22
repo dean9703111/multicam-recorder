@@ -45,7 +45,7 @@ import { finalPath, finish, partPath, receivedBytes, verify, writeChunk } from '
 const PORT = Number(process.env.PORT ?? 8787);
 const VERSION: string = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, '../package.json'), 'utf8')).version;
 // 最新版的手機 App。比這個舊的，控制台會提醒更新（發新版 APK 時要一起改，tools/check-release.ts 會檢查）
-const LATEST_APP_VERSION = '0.5.0';
+const LATEST_APP_VERSION = '0.6.0';
 // 單段上限由使用者在錄影規格裡設定（db.settings.maxMinutes）；測試時可以用環境變數縮短
 const MAX_SEC_OVERRIDE = process.env.RECORDER_MAX_SEC ? Number(process.env.RECORDER_MAX_SEC) : undefined;
 const maxDurationSec = (): number => MAX_SEC_OVERRIDE ?? db.settings.maxMinutes * 60;
