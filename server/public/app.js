@@ -79,6 +79,12 @@ const resolutionOf = (state) => state.resolutions.find((r) => r.id === state.set
 const bytesPerTake = (state, r) => (r.bitrate / 8) * state.limits.maxDurationSec;
 // 實際尺寸對應到選項名稱，例如 3840×2160 → 4K
 const sizeLabel = (state, w, h) => state.resolutions.find((r) => r.width === w && r.height === h)?.label ?? `${w}×${h}`;
+// 手機錄不到選的解析度時，會改用不超過它的最大 16:9。回傳實際會錄的大小；錄得到或舊版 App 沒有回報時是 null
+const fallbackOf = (state, device) => {
+  const v = device.status.videoSize;
+  const r = resolutionOf(state);
+  return v && (v[0] !== r.width || v[1] !== r.height) ? sizeLabel(state, v[0], v[1]) : null;
+};
 // 顯示用的路徑，用伺服器那台電腦的分隔符號（Windows 是 \）
 const joinPath = (state, ...parts) => parts.join(state.sep);
 // 可以移到垃圾桶的影片：傳完的和失敗的。錄影中、傳輸中的不能刪。
@@ -253,7 +259,7 @@ function App() {
   const warnedTakes = useRef(new Set());
   const chimedTakes = useRef(null); // 已經響過「自動停止」的段落；第一次載入時先把現有的記起來，不響
 
-  const notify = (text, kind = 'info') => setToast({ text, kind, id: Date.now() });
+  const notify = (text, kind = 'info', action) => setToast({ text, kind, action, id: Date.now() });
   const dismiss = (key) => setDismissed((cur) => new Set(cur).add(key));
   const run = async (fn) => {
     try {
@@ -289,7 +295,10 @@ function App() {
     const slow = state.platform === 'win32' && setTimeout(() => notify(tr('toast.trashSlowWin', { trash: state.trashName }), 'warn'), 3000);
     try {
       const r = await post('/api/files/trash', { fileIds: ids });
-      notify(tr('toast.trashed', { n: r.trashed, trash: state.trashName }));
+      notify(tr('toast.trashed', { n: r.trashed, trash: state.trashName }), 'info', {
+        label: tr('toast.openTrash', { trash: state.trashName }),
+        onClick: () => run(() => post('/api/open-trash')),
+      });
       setSelection(null);
     } finally {
       clearTimeout(slow);
@@ -304,8 +313,8 @@ function App() {
 
   useEffect(() => {
     if (!toast) return;
-    // 錯誤停久一點，來得及看完
-    const t = setTimeout(() => setToast(null), toast.kind === 'error' ? 10_000 : 4500);
+    // 錯誤停久一點，來得及看完；有按鈕的也是，來得及按
+    const t = setTimeout(() => setToast(null), toast.kind === 'error' ? 10_000 : toast.action ? 8000 : 4500);
     return () => clearTimeout(t);
   }, [toast]);
 
@@ -595,7 +604,10 @@ function App() {
       onTrash=${(ids) => setModal({ kind: 'trash', unmarked: false, ids })}
     />`}
     <div class="toast-region" role="status" aria-live="polite">
-      ${toast && html`<div class=${`toast ${toast.kind} ${selection ? 'raised' : ''}`} key=${toast.id}>${toast.text}</div>`}
+      ${toast &&
+      html`<div class=${`toast ${toast.kind} ${selection ? 'raised' : ''}`} key=${toast.id}>
+        ${toast.text}${toast.action && html`<button class="btn-link toast-action" onClick=${toast.action.onClick}>${toast.action.label}</button>`}
+      </div>`}
     </div>
   `;
 }
@@ -766,6 +778,9 @@ function SpecControl({ state, open, recording, onToggle, onClose, run }) {
           onChange=${(id) => set({ resolution: id })}
         />
         <p class="menu-hint">${r.width} × ${r.height}</p>
+        ${state.devices
+          .filter((d) => d.online && fallbackOf(state, d))
+          .map((d) => html`<p class="menu-hint warn">${tr('spec.fallback', { name: d.name, wanted: r.label, actual: fallbackOf(state, d) })}</p>`)}
       </div>
       <div class="spec-group">
         <div class="menu-title">${tr('spec.maxMinutes')}${locked}</div>
@@ -1082,6 +1097,7 @@ function Bay({ state, device, letter, t, compact, onStart, onStop, onRemove, onU
   const minutesLeft = st.freeBytes != null ? Math.floor(st.freeBytes / (bitrate / 8) / 60) : null;
   const locked = recording && active.spec.lockExposure && device.camera?.lockExposure;
   const outdated = device.online && isOlder(device.appVersion, state.latestAppVersion);
+  const fallback = device.online && fallbackOf(state, device);
   // 溫度的顏色以系統回報的發熱等級為準（2 中等、3 以上嚴重），舊版 App 沒回報時看電池溫度
   const hot = st.thermal != null ? (st.thermal >= 3 ? 'bad' : st.thermal === 2 ? 'warn' : '') : st.temperatureC >= 48 ? 'bad' : st.temperatureC >= 42 ? 'warn' : '';
   const nameId = `bay-name-${device.id}`;
@@ -1145,6 +1161,7 @@ function Bay({ state, device, letter, t, compact, onStart, onStop, onRemove, onU
           ${tr('bay.howToUpdate')}
         </button>
       </p>`}
+      ${fallback && html`<p class="bay-note">${tr('bay.fallback', { wanted: resolutionOf(state).label, actual: fallback })}</p>`}
 
       <div class="bay-timecode">
         <div class=${`tc ${recording ? 'live' : ''} ${warn ? 'warn' : ''}`} aria-live="off">
@@ -1913,9 +1930,18 @@ function FfmpegModal({ state, onClose, onReady }) {
 
 function SettingsModal({ state, onClose, notify }) {
   const [dir, setDir] = useState(state.settings.storageDir);
+  const [checked, setChecked] = useState(null); // 還沒儲存的資料夾查到的空間：{ dir, info }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
-  const s = state.storage;
+  const saved = dir === state.settings.storageDir;
+  const s = saved ? state.storage : checked?.dir === dir ? checked.info : null;
+
+  // 選了或打了別的資料夾就先查那裡剩多少空間、能不能用，不用等到儲存；打字時停一下才查
+  useEffect(() => {
+    if (saved || !dir.trim()) return;
+    const timer = setTimeout(() => post('/api/folder-info', { dir }).then((info) => setChecked({ dir, info }), () => {}), 300);
+    return () => clearTimeout(timer);
+  }, [dir, saved]);
 
   // 儲存時伺服器會檢查資料夾存在而且可以寫入，不會自動建立
   const save = async () => {
@@ -1964,9 +1990,10 @@ function SettingsModal({ state, onClose, notify }) {
       </div>
       ${error && html`<p class="hint bad" role="alert">${error}</p>`}
       <p class="hint">${tr('settings.folderHint', { formats: state.diskFormats })}</p>
-      ${s.available
+      ${s &&
+      (s.available
         ? html`<p class=${`hint ${s.warning ? 'warn' : ''}`}>${tr('settings.free', { free: fmtBytes(s.freeBytes), format: s.format, warning: s.warning })}</p>`
-        : html`<p class="hint bad">${tr('settings.bad', { error: s.error })}</p>`}
+        : html`<p class="hint bad">${tr('settings.bad', { error: s.error })}</p>`)}
     </div>
     <div class="field">
       <span class="label">${tr('settings.sounds')}</span>

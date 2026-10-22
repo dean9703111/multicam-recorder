@@ -19,10 +19,10 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'multicam-smoke-'));
 const dataDir = path.join(tmp, 'data');
 const recDir = path.join(tmp, '錄影資料夾'); // 中文路徑：Windows 上也要能用
 const PROJECT = '測試專案';
-// 一支橫拿、一支直拿一起錄，例如同時錄長影片和短影音
+// 一支橫拿、一支直拿一起錄，例如同時錄長影片和短影音；直拿的那支錄不到 4K
 const PHONES = [
-  { model: 'Smoke Phone', orientation: 'landscape' },
-  { model: 'Smoke Portrait', orientation: 'portrait' },
+  { model: 'Smoke Phone', orientation: 'landscape', maxResolution: '2160p' },
+  { model: 'Smoke Portrait', orientation: 'portrait', maxResolution: '1080p' },
 ];
 const slugOf = (model: string) => model.replace(/\W+/g, '-').toLowerCase(); // 和 fake-phone.ts 存檔的資料夾名稱一樣
 const logs: string[] = [];
@@ -142,6 +142,15 @@ async function main(): Promise<void> {
   assert((await state()).settings.maxMinutes === 45, '單段上限應該存成 45 分鐘');
   step(`設定錄影資料夾（硬碟格式 ${format}，剩 ${Math.round(s.storage.freeBytes / 1e9)} GB）和單段上限`);
 
+  // 設定裡選了別的資料夾、還沒儲存時就查得到那裡的空間；不存在的資料夾要說不能用
+  const other = await ok('POST', '/api/folder-info', { dir: dataDir });
+  assert(other.available && other.freeBytes > 0, `應該查得到還沒儲存的資料夾剩多少空間：${other.error}`);
+  assert(!(await ok('POST', '/api/folder-info', { dir: path.join(dataDir, 'missing') })).available, '不存在的資料夾應該回報不能用');
+  // 欄位清空就按儲存要擋下，不能變成程式所在的資料夾
+  for (const bad of ['', '   ']) assert((await api('POST', '/api/settings', { storageDir: bad })).status === 400, `錄影資料夾 ${JSON.stringify(bad)} 應該被擋下`);
+  assert((await state()).settings.storageDir === recDir, '錄影資料夾空白時不應該改掉原本的');
+  step('還沒儲存的資料夾也查得到剩多少空間，不存在的會說不能用，空白的不能儲存');
+
   for (const bad of ['CON', 'lpt1.mp4', '結尾句點.', 'a/b']) {
     assert((await api('POST', '/api/projects', { name: bad })).status === 400, `專案名稱「${bad}」應該被擋下`);
   }
@@ -188,9 +197,11 @@ async function main(): Promise<void> {
   }
 
   const phones = PHONES.map((p, i) =>
-    start(`phone${i + 1}`, ['tools/fake-phone.ts', '--model', p.model, '--orientation', p.orientation, '--server', BASE, '--encoder', 'libx264'], {
-      RECORDER_DATA_DIR: dataDir,
-    }),
+    start(
+      `phone${i + 1}`,
+      ['tools/fake-phone.ts', '--model', p.model, '--orientation', p.orientation, '--max-resolution', p.maxResolution, '--server', BASE, '--encoder', 'libx264'],
+      { RECORDER_DATA_DIR: dataDir },
+    ),
   );
   const devices = await waitFor('兩支模擬手機上線', async () => {
     const all = (await state()).devices;
@@ -230,6 +241,20 @@ async function main(): Promise<void> {
   await waitFor('手機回報變焦 2×', async () => (await state()).devices.find((d: any) => d.id === phone.id)?.status.zoom === 2, 10_000);
   await ok('POST', `/api/devices/${phone.id}/zoom`, { ratio: 1 });
   step('調整變焦倍率');
+
+  // 錄不到要求的解析度時，手機改用它能錄的最大的，開始錄影前就回報，控制台才能提醒
+  await ok('POST', '/api/settings', { resolution: '2160p' });
+  const expected = ['3840x2160', '1920x1080'];
+  await waitFor(
+    '手機回報實際會錄的解析度',
+    async () => {
+      const all = (await state()).devices;
+      return devices.every((d, i) => all.find((x: any) => x.id === d.id)?.status.videoSize?.join('x') === expected[i]);
+    },
+    10_000,
+  );
+  await ok('POST', '/api/settings', { resolution: '720p' });
+  step('選 4K 時，錄不到的手機在開始錄影前就回報會改用 1080p');
 
   // 人像設定：臉部優先預設開、鎖定曝光預設關；打開鎖定曝光再錄，錄影中不能改
   s = await state();

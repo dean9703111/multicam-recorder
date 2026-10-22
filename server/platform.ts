@@ -108,7 +108,10 @@ export async function moveToTrash(files: string[]): Promise<void> {
   if (process.platform === 'darwin') {
     // macOS 15 起有內建的 trash 指令；舊版請 Finder 代勞（第一次會問要不要讓終端機控制 Finder）
     if (fs.existsSync('/usr/bin/trash')) {
-      await run('/usr/bin/trash', files);
+      // 一次給好幾個檔案時，只有第一個會記下原本的位置，其他的在垃圾桶裡不能「放回原處」，所以一個一個丟
+      let error: unknown;
+      for (const file of files) await run('/usr/bin/trash', [file]).catch((e) => (error ??= e));
+      if (error) throw error;
     } else {
       const list = files.map((f) => `POSIX file "${f.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`).join(', ');
       await run('osascript', ['-e', `tell application "Finder" to delete {${list}}`]);
@@ -130,6 +133,17 @@ export async function moveToTrash(files: string[]): Promise<void> {
     if ((e as NodeJS.ErrnoException).code === 'ENOENT') throw new Error(m('trash.noGio'));
     throw e;
   }
+}
+
+// 打開系統的垃圾桶，刪掉的影片在裡面按右鍵就能放回原處
+export function openTrash(): void {
+  const [command, args] =
+    process.platform === 'darwin'
+      ? ['open', [path.join(os.homedir(), '.Trash')]]
+      : process.platform === 'win32'
+        ? ['explorer.exe', ['shell:RecycleBinFolder']]
+        : ['gio', ['open', 'trash:///']];
+  execFile(command, args, () => {}); // explorer.exe 成功時也會回傳非 0，所以不看結果
 }
 
 // ---------- 外部工具（ffmpeg） ----------

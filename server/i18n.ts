@@ -163,6 +163,7 @@ const ZH: Record<string, Message> = {
   'settings.portraitBool': '人像設定只能是開或關',
   'settings.portraitWhileRecording': '錄影中不能改人像設定，停止後再調整',
   'settings.badLanguage': '不支援這個語言',
+  'settings.noFolder': '錄影資料夾不能空白，請按「選擇資料夾…」挑選，或直接貼上路徑',
 
   // 影片失敗的原因：伺服器自己判斷的，和手機回報的（手機用代碼回報，detail 是系統給的技術訊息）
   'fileError.removed': '這支手機已經從電腦上移除，影片還在手機上。重新配對後會自動補傳',
@@ -184,6 +185,9 @@ const ZH: Record<string, Message> = {
   'log.folder': '錄影資料夾：{dir}',
   'log.keepOpen': '錄影時這個視窗要一直開著，關掉就會停止。',
   'log.portInUse': '多機錄影已經在執行了（連接埠 {port} 被占用），直接打開 {url} 就好',
+  'log.demo': '示範模式：從剛安裝好的樣子開始。這次的配對和設定只是暫時的，關掉就不留，原本的不會動到。',
+  'log.demoEnd': '示範完按 Ctrl+C 關掉，再執行 npm start 開回原本的；手機重新掃一次 QR Code，名稱和影片清單都還在。',
+  'log.demoPortInUse': '多機錄影已經在執行了（連接埠 {port} 被占用）。要示範的話，先在那個視窗按 Ctrl+C 關掉，再執行 npm run demo',
 };
 
 const EN: Record<string, Message> = {
@@ -306,6 +310,7 @@ const EN: Record<string, Message> = {
   'settings.portraitBool': 'Portrait settings must be on or off.',
   'settings.portraitWhileRecording': "You can't change portrait settings while recording. Stop first.",
   'settings.badLanguage': 'Unsupported language.',
+  'settings.noFolder': "The recording folder can't be empty. Click “Choose folder…” or paste the path.",
 
   'fileError.removed': "This phone was removed from the computer. The video is still on the phone and will upload after it's paired again.",
   'fileError.noStart': "The phone didn't respond to the start command. If it was actually recording, the video will upload when it reconnects.",
@@ -327,6 +332,9 @@ const EN: Record<string, Message> = {
   'log.folder': 'Recording folder: {dir}',
   'log.keepOpen': 'Keep this window open while recording. Closing it stops MultiCam Recorder.',
   'log.portInUse': 'MultiCam Recorder is already running (port {port} is in use). Just open {url}.',
+  'log.demo': 'Demo mode: starting as if freshly installed. Pairings and settings made now are temporary and discarded when you close it; your real ones are untouched.',
+  'log.demoEnd': 'When the demo is over, press Ctrl+C and run npm start to go back. Scan the QR code again on each phone; names and clip lists are kept.',
+  'log.demoPortInUse': 'MultiCam Recorder is already running (port {port} is in use). To start the demo, press Ctrl+C in that window first, then run npm run demo.',
 };
 
 const MESSAGES: Record<Lang, Record<string, Message>> = { 'zh-TW': ZH, en: EN };

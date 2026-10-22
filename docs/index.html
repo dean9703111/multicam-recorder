@@ -135,7 +135,8 @@
         { "@type": "Question", "name": "多支手機錄的影片怎麼對齊？", "acceptedAnswer": { "@type": "Answer", "text": "電腦會先和每支手機對時，約好同一刻開始，清單上會顯示各台實際的開始時間差。要精準到同一格畫面，建議用剪輯軟體依音訊自動同步。" } },
         { "@type": "Question", "name": "可以用外接麥克風嗎？", "acceptedAnswer": { "@type": "Answer", "text": "可以。手機接上 USB 或耳機孔麥克風時會自動改用它收音，App 和電腦網頁都會顯示目前用的是哪一支。支援雙聲道的會錄雙聲道；錄影中麥克風鬆脫、改用手機內建麥克風時，控制台會跳出警示。" } },
         { "@type": "Question", "name": "怎麼更新到新版？", "acceptedAnswer": { "@type": "Answer", "text": "電腦在終端機執行 cd multicam-recorder、git pull、npm install，再執行 npm start；手機下載新的 MultiCamRecorder.apk 直接安裝，會覆蓋舊版。配對、專案和設定都會保留。之前用 ZIP 下載 v0.5.0 或更早版本的，照開始使用的步驟裝好 Git、用 git clone 重新下載，第一次執行 npm start 之前，先把舊資料夾裡的 data 資料夾複製過去。App 太舊時，控制台會提醒並顯示下載的 QR Code。" } },
-        { "@type": "Question", "name": "介面有英文嗎？", "acceptedAnswer": { "@type": "Answer", "text": "有。控制台、配對網頁和手機 App 都有繁體中文和英文。控制台跟著瀏覽器的語言，也可以按右上角的「English」一鍵切換；手機 App 跟著手機的語言（繁體中文的手機顯示繁體中文，其他語言顯示英文），Android 13 以上也能在系統設定的「應用程式語言」單獨替 App 選。" } }
+        { "@type": "Question", "name": "介面有英文嗎？", "acceptedAnswer": { "@type": "Answer", "text": "有。控制台、配對網頁和手機 App 都有繁體中文和英文。控制台跟著瀏覽器的語言，也可以按右上角的「English」一鍵切換；手機 App 跟著手機的語言（繁體中文的手機顯示繁體中文，其他語言顯示英文），Android 13 以上也能在系統設定的「應用程式語言」單獨替 App 選。" } },
+        { "@type": "Question", "name": "想示範第一次怎麼設定，要怎麼回到剛裝好的樣子？", "acceptedAnswer": { "@type": "Answer", "text": "在終端機執行 npm run demo，不用清除任何東西。控制台會從剛安裝好的樣子開始，還沒有手機、也還沒有專案；示範時的配對和設定只是暫時的，原本的都不會動到。原本的多機錄影開著的話，先按 Ctrl+C 關掉。手機連上示範用的控制台時會回到「尚未配對」，正好從掃 QR Code 開始示範。示範完按 Ctrl+C、再執行 npm start，每支手機重新掃一次 QR Code，名稱和影片清單都還在。" } }
       ]
     }
   ]
@@ -361,7 +362,7 @@
         <article class="card reveal"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 7A2.5 2.5 0 0 1 5 4.5h4l2 2h8A2.5 2.5 0 0 1 21.5 9v8a2.5 2.5 0 0 1-2.5 2.5H5A2.5 2.5 0 0 1 2.5 17z"/></svg></div><h3>用專案整理</h3><p>影片存進「錄影資料夾／專案名稱」，檔名是時間加手機名稱，同一段的檔案會排在一起。</p></article>
         <article class="card reveal"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3.2l2.7 5.5 6 .9-4.4 4.2 1.1 6-5.4-2.9-5.4 2.9 1.1-6-4.4-4.2 6-.9z"/></svg></div><h3>標記好的段落</h3><p>點星號標記好的段落，同一段的每台手機一起標，剪輯時一眼就找到。</p></article>
         <article class="card reveal"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.2 8.2L20 20M8.2 15.8L20 4"/></svg></div><h3>裁掉頭尾</h3><p>在有縮圖的時間軸上拖拉開頭和結尾，每台手機一起裁，另存成加 _1 的新檔，原本的不動；不重新壓縮，畫質不變。</p></article>
-        <article class="card reveal"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9.5 7V4.5h5V7M6 7l1 12.5a1.5 1.5 0 0 0 1.5 1.4h7a1.5 1.5 0 0 0 1.5-1.4L18 7M10 11v6M14 11v6"/></svg></div><h3>刪掉不要的</h3><p>每一列的垃圾桶刪掉那一段，沒標記的也能一鍵清掉；都進系統的垃圾桶，刪錯也救得回來。</p></article>
+        <article class="card reveal"><div class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9.5 7V4.5h5V7M6 7l1 12.5a1.5 1.5 0 0 0 1.5 1.4h7a1.5 1.5 0 0 0 1.5-1.4L18 7M10 11v6M14 11v6"/></svg></div><h3>刪掉不要的</h3><p>每一列的垃圾桶刪掉那一段，沒標記的也能一鍵清掉；都進系統的垃圾桶，刪錯了在垃圾桶裡放回原處就好。</p></article>
       </div>
     </div>
   </section>
@@ -716,7 +717,7 @@ npm start</pre></div>
             <tr><th scope="row">價格</th><td><strong>免費</strong>，MIT 授權開源</td></tr>
             <tr><th scope="row">電腦</th><td>macOS、Windows，需要 Node.js 24 以上</td></tr>
             <tr><th scope="row">手機</th><td>Android 12 以上，<strong>最多 10 台</strong>；目前沒有 iPhone 版</td></tr>
-            <tr><th scope="row">解析度</th><td>4K（3840×2160）、2K（2560×1440）、1080p、720p，每秒 30 格；直拿時寬高對調</td></tr>
+            <tr><th scope="row">解析度</th><td>4K（3840×2160）、2K（2560×1440）、1080p、720p，每秒 30 格；直拿時寬高對調。手機錄不到所選的解析度時，改用它能錄、又不超過所選的最高解析度，控制台會先寫出來</td></tr>
             <tr><th scope="row">影片格式</th><td>MP4（H.264 影像、AAC 聲音），4K 約 40 Mbps</td></tr>
             <tr><th scope="row">人像設定</th><td>臉部優先（預設開）、錄影時鎖定曝光、白平衡和對焦（預設關）</td></tr>
             <tr><th scope="row">單段長度</th><td>10～90 分鐘，自己設（預設 30）；4K 每 30 分鐘每台約 9 GB</td></tr>
@@ -756,6 +757,7 @@ git pull
 npm install
 npm start</pre></div><p>之前用 ZIP 下載 v0.5.0 或更早版本的，照<a href="#start">開始使用</a>的步驟裝好 Git、用 <code>git clone</code> 重新下載，第一次執行 <code>npm start</code> 之前，先把舊資料夾裡的 <code>data</code> 資料夾複製到新的 <code>multicam-recorder</code> 資料夾。手機下載新的 <strong>MultiCamRecorder.apk</strong> 直接安裝，會覆蓋舊版；App 太舊時，控制台會提醒並顯示下載的 QR Code。</p></div></details>
         <details><summary>介面有英文嗎？</summary><div class="answer"><p><strong>有。</strong>控制台、配對網頁和手機 App 都有繁體中文和英文。控制台跟著瀏覽器的語言，也可以按右上角的「English」一鍵切換；手機 App 跟著手機的語言（繁體中文的手機顯示繁體中文，其他語言顯示英文），Android 13 以上也能在系統設定的「應用程式語言」單獨替 App 選。</p></div></details>
+        <details><summary>想示範第一次怎麼設定，要怎麼回到剛裝好的樣子？</summary><div class="answer"><p><strong>在終端機執行 <code>npm run demo</code> 就好，不用清除任何東西。</strong>控制台會從剛安裝好的樣子開始，還沒有手機、也還沒有專案；示範時的配對和設定只是暫時的，原本的都不會動到。原本的多機錄影開著的話，先按 <kbd>Ctrl</kbd>＋<kbd>C</kbd> 關掉。</p><p>手機連上示範用的控制台時會回到「尚未配對」，正好從掃 QR Code 開始示範。示範完按 <kbd>Ctrl</kbd>＋<kbd>C</kbd>、再執行 <code>npm start</code>，每支手機重新掃一次 QR Code，名稱和影片清單都還在。</p></div></details>
       </div>
     </div>
   </section>

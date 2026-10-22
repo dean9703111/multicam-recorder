@@ -374,6 +374,7 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
         videoSize = camera.videoSize(requested.width, requested.height)
         // 人像設定；舊版的電腦沒有送，就跟以前一樣不開
         if (recording == null) camera.configure(videoSize, spec.optBoolean("facePriority"))
+        sendStatus() // 錄不到要求的解析度時，電腦開始錄影前就能提醒
     }
 
     private fun startRecording(msg: JSONObject) {
@@ -623,7 +624,8 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
                 .put("zoom", camera.zoom.toDouble())
                 .put("zoomRange", JSONArray().put(camera.zoomRange.lower.toDouble()).put(camera.zoomRange.upper.toDouble()))
                 .put("orientation", orientationName())
-                .put("thermal", getSystemService(PowerManager::class.java).currentThermalStatus),
+                .put("thermal", getSystemService(PowerManager::class.java).currentThermalStatus)
+                .put("videoSize", JSONArray().put(videoSize.width).put(videoSize.height)), // 不支援要求的解析度時已經降級
             queueIfOffline = false,
         )
     }

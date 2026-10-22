@@ -4,6 +4,7 @@
 // 用法：node tools/fake-phone.ts --model "Pixel 11 Pro" [--tone 660] [--mic usb --mic-name "DJI Mic"] [--server http://127.0.0.1:8787]
 //                              [--encoder libx264]（預設 macOS 用硬體編碼 h264_videotoolbox，其他系統用 libx264）
 //                              [--orientation portrait]（模擬直拿的手機，預設是橫拿）
+//                              [--max-resolution 1080p]（模擬錄不到 4K 的手機，要求更高的解析度時改用 1080p）
 //                              [--silent]（錄影中回報沒有聲音）[--hot]（回報手機太熱）[--free-gb 2]（回報手機只剩 2 GB）
 //                              [--offline-after 1000 --offline-for 12000]（開始錄影 1 秒後斷線 12 秒：WebSocket 和上傳都連不上）
 
@@ -37,6 +38,7 @@ const { values: args } = parseArgs({
     server: { type: 'string', default: 'http://127.0.0.1:8787' },
     encoder: { type: 'string', default: process.platform === 'darwin' ? 'h264_videotoolbox' : 'libx264' },
     orientation: { type: 'string', default: 'landscape' },
+    'max-resolution': { type: 'string', default: '2160p' },
     silent: { type: 'boolean', default: false },
     hot: { type: 'boolean', default: false },
     'free-gb': { type: 'string', default: '180' }, // 回報的手機剩餘空間
@@ -56,6 +58,12 @@ const home = path.resolve(dataDir, 'fake-phones', slug);
 // 依伺服器的埠號分開存，同時開好幾個伺服器測試時才不會連錯
 const credsFile = path.join(home, `creds-${new URL(args.server).port || '80'}.json`);
 const SIZE: Record<Resolution, string> = { '2160p': '3840x2160', '1440p': '2560x1440', '1080p': '1920x1080', '720p': '1280x720' };
+const maxResolution = args['max-resolution'] as Resolution;
+if (!(maxResolution in SIZE)) throw new Error('--max-resolution 只能是 2160p、1440p、1080p 或 720p');
+// 和真的手機一樣，錄不到要求的解析度時改用這支手機能錄的最大的
+const widthOf = (r: Resolution) => Number(SIZE[r].split('x')[0]);
+const recordable = (r: Resolution): Resolution => (widthOf(r) > widthOf(maxResolution) ? maxResolution : r);
+let resolution: Resolution = '2160p'; // 電腦現在的錄影設定
 const PIECE = 4 * 1024 * 1024; // 每次 PUT 的大小
 const ZOOM_RANGE: [number, number] = [1, 4]; // 模擬的變焦只能放大（從畫面中間裁切）
 const TAIL_GUARD = 256 * 1024; // 錄影中最後這段可能還在寫入，先不傳
@@ -172,6 +180,8 @@ function onMessage(m: ServerMessage): void {
       break;
     case 'welcome':
       setZoom(m.zoom);
+      resolution = m.spec.resolution;
+      sendStatus();
       log(`電腦上的名稱：${m.name}`);
       break;
     case 'rename':
@@ -185,6 +195,8 @@ function onMessage(m: ServerMessage): void {
       setPreview(m.on);
       break;
     case 'config':
+      resolution = m.resolution;
+      sendStatus();
       log(`電腦的錄影設定改成 ${m.resolution}，輔助框 ${m.guide}，臉部優先${m.facePriority ? '開' : '關'}、鎖定曝光${m.lockExposure ? '開' : '關'}`);
       break;
     case 'error':
@@ -216,6 +228,7 @@ function sendStatus(): void {
     zoomRange: ZOOM_RANGE,
     orientation,
     thermal: args.hot ? 3 : 0,
+    videoSize: SIZE[recordable(resolution)].split('x').map(Number) as [number, number],
   });
 }
 
@@ -361,7 +374,7 @@ function startRecording(m: Extract<ServerMessage, { type: 'start' }>): void {
   rec = r;
   const delay = Math.max(0, m.startAt - serverNow());
   r.timer = setTimeout(() => {
-    const [width, height] = SIZE[m.resolution].split('x').map(Number);
+    const [width, height] = SIZE[recordable(m.resolution)].split('x').map(Number);
     // 真的手機直拿時照樣錄橫的畫面，在檔案裡記著播放時要轉 90°。ffmpeg 即時編碼時寫不了這個記號，所以模擬手機直接錄直的。
     const ffmpegArgs = [
       ...['-hide_banner', '-loglevel', 'error'],
@@ -385,7 +398,7 @@ function startRecording(m: Extract<ServerMessage, { type: 'start' }>): void {
       r.announced = true;
       clearInterval(watch);
       sendMsg({ type: 'recordingStarted', fileId: r.fileId, startedAt: Math.round(serverNow()), width, height, orientation, audioChannels: 1 });
-      log(`開始錄影 ${m.fileName}（${m.resolution}，最長 ${m.maxDurationSec} 秒）`);
+      log(`開始錄影 ${m.fileName}（${recordable(m.resolution)}，最長 ${m.maxDurationSec} 秒）`);
       if (args['offline-after'] && !offlineDone) {
         offlineDone = true;
         setTimeout(() => goOffline(Number(args['offline-for'])), Number(args['offline-after']));

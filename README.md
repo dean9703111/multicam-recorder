@@ -94,7 +94,7 @@
 | 價格 | **免費**，MIT 授權開源 |
 | 電腦 | macOS、Windows，需要 [Node.js](https://nodejs.org/) 24 以上 |
 | 手機 | Android 12 以上，**最多 10 台**；目前沒有 iPhone 版 |
-| 解析度 | 4K（3840×2160）、2K（2560×1440）、1080p、720p，每秒 30 格；直拿時寬高對調 |
+| 解析度 | 4K（3840×2160）、2K（2560×1440）、1080p、720p，每秒 30 格；直拿時寬高對調。手機錄不到所選的解析度時，改用它能錄、又不超過所選的最高解析度，控制台會先寫出來 |
 | 影片格式 | MP4（H.264 影像、AAC 聲音），4K 約 40 Mbps |
 | 人像設定 | 臉部優先（預設開）、錄影時鎖定曝光、白平衡和對焦（預設關） |
 | 單段長度 | 10～90 分鐘，自己設（預設 30）；4K 每 30 分鐘每台約 9 GB |
@@ -190,7 +190,7 @@ npm start
 
 ![控制台的「開始使用」畫面：確認錄影資料夾、配對手機、新增專案三個步驟](docs/images/setup.png)
 
-- **錄影資料夾**預設是「影片」資料夾底下的 `MultiCamRecorder`（macOS 是 `~/Movies/MultiCamRecorder`，Windows 是 `~/Videos/MultiCamRecorder`）。要改的話按右上角「設定」，再按「選擇資料夾…」挑一個，**建議選外接 SSD**；也可以直接貼上路徑。資料夾必須已經存在。
+- **錄影資料夾**預設是「影片」資料夾底下的 `MultiCamRecorder`（macOS 是 `~/Movies/MultiCamRecorder`，Windows 是 `~/Videos/MultiCamRecorder`）。要改的話按右上角「設定」，再按「選擇資料夾…」挑一個，**建議選外接 SSD**；也可以直接貼上路徑。資料夾必須已經存在。選好後，下面馬上會寫出那個資料夾剩多少空間和硬碟格式，不能用的話也會說明原因；確認沒問題再按「儲存」。
 - 想用「裁掉頭尾」的話，另外安裝 [ffmpeg](https://ffmpeg.org/)：macOS 執行 `brew install ffmpeg`（要先裝 [Homebrew](https://brew.sh/)），Windows 執行 `winget install Gyan.FFmpeg`，Linux（Ubuntu、Debian）執行 `sudo apt install ffmpeg`。不裝也能正常錄影和傳檔；控制台開著的時候才裝也沒關係，在安裝說明的視窗按「重新檢查」就能用。
 - **防火牆**：第一次啟動時，系統可能會問要不要讓 node 接受連入的連線，不允許的話手機會連不到電腦。
   - macOS：按「允許」。
@@ -219,7 +219,7 @@ npm start
 ### 4. 新增專案、開始錄影
 
 - **專案**：按上方「專案」選單裡的「新增專案…」，預設名稱是今天的日期。影片會存進「錄影資料夾／專案名稱」。還沒有專案就按開始的話，會先請你新增一個。
-- **錄影規格**：「錄影規格」選單可以選解析度、構圖輔助框和人像設定，所有手機一起套用。解析度和人像設定從下一次開始錄影時生效，錄影中不能改；輔助框隨時可以換。手機不支援選的解析度時，會改錄它能錄的最大解析度，影片清單上會標出實際的大小。
+- **錄影規格**：「錄影規格」選單可以選解析度、構圖輔助框和人像設定，所有手機一起套用。解析度和人像設定從下一次開始錄影時生效，錄影中不能改；輔助框隨時可以換。手機錄不到選的解析度時，會改用它能錄、又不超過所選的最高解析度（預設選 4K，所以就是每支手機各自的最高畫質）。開始錄影前，那台的卡片上和「錄影規格」選單裡就會寫出來，例如「這支手機錄不到 4K，改用 1080p 錄」，錄好的影片清單上也會標出實際的大小。
 - **人像設定**：「臉部優先」預設開著，拍人不用特別調。要鎖定曝光的話，在同一個選單打開，做法請看[人像設定](#人像設定臉部優先鎖定曝光)。
 - **即時畫面與變焦**：監看區平常顯示手機的即時畫面。下面的「變焦」可以按常用倍率或拖滑桿，每台手機各自設定，邊看即時畫面邊調；App 重開也會記得，錄影中也能調。
 - **直拿或橫拿**：手機怎麼放就錄怎麼樣的影片，橫拿 16:9、直拿 9:16，系統的自動旋轉關著也一樣。一台直、一台橫同時錄的做法，請看[使用情境](#使用情境一次錄好長影片和短影音)。
@@ -255,7 +255,7 @@ npm start
 
 - **停止後馬上看**：影片傳完會自動放進那台手機的監看區播放，按「回到即時畫面」回去；點清單上的任何一列，就會在監看區播放那一支。按下開始錄影時，監看區會一律切回即時畫面，原本在播的影片會停掉；錄影中，上一段傳完也不會自動切去播放。
 - **打開資料夾**：監看區下方的「在 Finder 中顯示」（Windows 是「在檔案總管中顯示」）會直接打開影片所在的資料夾，「專案」選單裡也有「打開專案資料夾」。
-- **標記和清理**：覺得不錯的段落點右邊的星號，同一段的每台手機會一起標記。不要的那一段，點最右邊的垃圾桶，確認後同一段的每台手機一起移到垃圾桶（只有一台手機時就是那一支）。「專案」選單裡的「把沒標記的移到垃圾桶…」會一次清掉其他段；「選取要刪除的影片…」可以自己勾選，只想刪其中一台時用這個（「選取沒標記的」能先幫你勾好）。刪掉的影片會進系統的垃圾桶（Windows 是資源回收筒），之後還救得回來；手機上的原檔不受影響。
+- **標記和清理**：覺得不錯的段落點右邊的星號，同一段的每台手機會一起標記。不要的那一段，點最右邊的垃圾桶，確認後同一段的每台手機一起移到垃圾桶（只有一台手機時就是那一支）。「專案」選單裡的「把沒標記的移到垃圾桶…」會一次清掉其他段；「選取要刪除的影片…」可以自己勾選，只想刪其中一台時用這個（「選取沒標記的」能先幫你勾好）。刪掉的影片會進系統的垃圾桶（Windows 是資源回收筒），刪完的提示上可以直接按「打開垃圾桶」；刪錯了，在垃圾桶裡對影片按右鍵選「放回原處」（Windows 是「還原」），就會回到專案資料夾。手機上的原檔不受影響。
 
 ![選取模式：勾選要刪的影片，標記星號的段落留下，下方工具列可以一起移到垃圾桶](docs/images/select-trash.png)
 
@@ -448,6 +448,15 @@ npm start
 
 **有。** 控制台、配對網頁和手機 App 都有繁體中文和英文。控制台跟著瀏覽器的語言，也可以按右上角的「English」一鍵切換；手機 App 跟著手機的語言（繁體中文的手機顯示繁體中文，其他語言顯示英文），Android 13 以上也能在系統設定的「應用程式語言」單獨替 App 選。
 
+### 想示範第一次怎麼設定，要怎麼回到剛裝好的樣子？
+
+**執行 `npm run demo` 就好，不用清除任何東西。** 控制台會從剛安裝好的樣子開始，還沒有手機、也還沒有專案，可以從頭示範選錄影資料夾、配對和新增專案。示範時的配對和設定只是暫時的，原本的都不會動到。
+
+- 原本的多機錄影開著的話，先在那個終端機按 `Ctrl`＋`C` 關掉。
+- 手機上的 App 連到示範用的控制台時，會回到「尚未配對」，正好從掃 QR Code 開始示範。
+- 示範完按 `Ctrl`＋`C`，再執行 `npm start` 開回原本的，每支手機重新掃一次 QR Code，名稱和之前的影片清單都還在。
+- 示範時錄的影片會留在當時的錄影資料夾，不需要的話自己刪掉。
+
 ## 疑難排解
 
 遇到問題時，控制台和 App 上的提示都會寫出「發生什麼事、可以怎麼做」，先照著做。下面是比較常見的狀況。
@@ -613,7 +622,7 @@ App 會先把影片正常收尾再停止，已經錄到的部分會照常傳到�
 - **Live view and per-phone zoom**: about 5 fps for framing; pressing record always switches every monitor back to the live view. Phones with ultra-wide or telephoto lenses switch lenses automatically.
 - **Instant playback**: footage is uploaded while recording; after you stop, only the tail is sent and the file is verified chunk by chunk with SHA-256 against the phone's original.
 - **Framing guides**: optional 9:16, 4:5 or 1:1 guides on the phone preview, the live view and the dashboard player; the full frame is always recorded.
-- **Projects, marking and cleanup**: takes go into `<recording folder>/<project name>`; star the good takes (all angles together), delete a take with the trash button on its row, or move every unstarred take to the system Trash / Recycle Bin in one go.
+- **Projects, marking and cleanup**: takes go into `<recording folder>/<project name>`; star the good takes (all angles together), delete a take with the trash button on its row, or move every unstarred take to the system Trash / Recycle Bin in one go. The notice after deleting has an **Open Trash** button, and **Put Back** (Windows: **Restore**) returns a clip to the project folder.
 - **Trim heads and tails**: drag the in and out handles on a thumbnail timeline while a clip plays, and every angle of that take is trimmed together into new `_1`, `_2`… files without re-encoding (requires ffmpeg); the originals are kept.
 - **External microphones**: USB and headset-jack mics are detected automatically, and the active input is shown on both the phone and the dashboard. Stereo-capable mics are recorded in stereo, so a dual-transmitter wireless kit set to split channels keeps each person on their own channel.
 - **Resilient**: recording continues if Wi-Fi drops, and uploads resume automatically.
@@ -625,7 +634,7 @@ App 會先把影片正常收尾再停止，已經錄到的部分會照常傳到�
 | Price | Free, MIT license |
 | Computer | macOS or Windows with Node.js 24+ |
 | Phones | Android 12+, up to 10 (no iPhone app yet) |
-| Video | 4K / 2K / 1080p / 720p at 30 fps, MP4 (H.264 + AAC), takes of 10 to 90 minutes (you set the length) |
+| Video | 4K / 2K / 1080p / 720p at 30 fps (a phone that can't record the chosen resolution uses the highest one it can below it, and the dashboard says so before you record), MP4 (H.264 + AAC), takes of 10 to 90 minutes (you set the length) |
 | Network | Phones and computer on the same Wi-Fi; footage stays on your local network |
 | Interface | English and Traditional Chinese (dashboard, pairing page, phone app) |
 
@@ -661,6 +670,8 @@ The computer side is installed with a few commands in a terminal: **just copy an
 5. Download `MultiCamRecorder.apk` from [Releases](https://github.com/dean9703111/multicam-recorder/releases/latest) (or scan the pairing QR code and use the download link on the page that opens), pair each phone, create a project and press `R`.
 
 **Updating**: run `cd multicam-recorder`, `git pull`, `npm install` and `npm start`. Pairing, projects and settings are kept in your user data folder, and footage stays in your recording folder. If you downloaded v0.5.0 or earlier as a ZIP, install Git and clone the project (steps 2 and 4), then copy the old folder's `data` folder into the new `multicam-recorder` folder before running `npm start`. Install a newer APK right over the old one; the dashboard tells you when a phone's app is out of date and shows a QR code to download the new one.
+
+**Demoing the setup**: run `npm run demo` to start as if freshly installed, with no phones and no projects, without clearing anything. Pairings and settings made during the demo are temporary; your real ones are untouched. If MultiCam Recorder is already running, press `Ctrl+C` in that terminal first. Phones that connect to the demo show "Not paired", so you can start by scanning the QR code. Afterwards, press `Ctrl+C`, run `npm start` and scan the QR code again on each phone; names and clip lists are kept. Clips recorded during the demo stay in the recording folder you chose.
 
 ### Before you shoot
 

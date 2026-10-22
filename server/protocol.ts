@@ -28,6 +28,8 @@
 // - 方向：直拿錄直的、橫拿錄橫的。在 status 回報 orientation，轉向時馬上回報；
 //   開始錄影時鎖住當下的方向直到停止，recordingStarted 也帶 orientation。
 // - 變焦：收到 zoom 就把倍率套到預覽和錄影（超出範圍時取最接近的值），在 status 回報實際倍率和可用範圍。
+// - 解析度：手機不支援要求的解析度時，改用不超過它的最大 16:9。在 status 的 videoSize 回報實際會錄的大小，
+//   收到 welcome、config 時馬上回報一次，電腦開始錄影前就能提醒。
 // - 人像設定（facePriority、lockExposure）跟著錄影設定一起送。手機在 hello 的 camera 回報做得到哪些，做不到的就略過。
 //   完整的參考實作在 tools/fake-phone.ts。
 
@@ -89,6 +91,7 @@ export interface DeviceStatus {
   zoomRange?: [number, number]; // 這支手機能用的變焦範圍，例如 [0.5, 10]
   orientation?: Orientation; // 錄影中是開始時鎖住的方向
   thermal?: number; // 發熱等級：0 正常、1 微溫、2 中等、3 嚴重、4 危急、5 緊急、6 即將關機
+  videoSize?: [number, number]; // 照電腦現在的錄影設定，實際會錄的寬高（直拿時也是橫的寬高）
 }
 
 export type StopReason = 'user' | 'maxDuration' | 'storageFull' | 'fileSizeLimit' | 'error';

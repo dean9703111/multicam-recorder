@@ -88,8 +88,10 @@ interface Db {
 // macOS 的「影片」資料夾叫 Movies，Windows 和 Linux 叫 Videos
 export const DEFAULT_STORAGE_DIR = path.join(os.homedir(), process.platform === 'darwin' ? 'Movies' : 'Videos', 'MultiCamRecorder');
 
+// npm run demo 會帶 --demo：從剛安裝好的樣子開始示範，配對和設定存在新的暫存資料夾，原本的不會動到
+export const DEMO = process.argv.includes('--demo');
 // 測試時用 RECORDER_DATA_DIR 指到別的資料夾，不會動到正式的配對與影片清單
-export const DATA_DIR = path.resolve(process.env.RECORDER_DATA_DIR ?? userDataDir());
+export const DATA_DIR = path.resolve(process.env.RECORDER_DATA_DIR ?? (DEMO ? fs.mkdtempSync(path.join(os.tmpdir(), 'multicam-demo-')) : userDataDir()));
 const DB_PATH = path.join(DATA_DIR, 'db.json');
 const BACKUP_PATH = DB_PATH + '.bak'; // 上次成功啟動時的內容
 // v0.5.0 以前存在程式資料夾的 data/ 裡，第一次啟動時複製過來（舊的留著當備份）
@@ -129,7 +131,7 @@ function load(): Db {
   };
   fs.mkdirSync(DATA_DIR, { recursive: true });
   initLog(DATA_DIR);
-  if (!process.env.RECORDER_DATA_DIR && !fs.existsSync(DB_PATH) && fs.existsSync(LEGACY_DB_PATH)) {
+  if (!process.env.RECORDER_DATA_DIR && !DEMO && !fs.existsSync(DB_PATH) && fs.existsSync(LEGACY_DB_PATH)) {
     fs.copyFileSync(LEGACY_DB_PATH, DB_PATH);
     logEvent('db.moved', { from: LEGACY_DB_PATH, to: DB_PATH });
   }

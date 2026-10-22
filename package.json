@@ -8,6 +8,7 @@
   },
   "scripts": {
     "start": "node server/server.ts --open",
+    "demo": "node server/server.ts --open --demo",
     "fake-phone": "node tools/fake-phone.ts",
     "typecheck": "tsc --noEmit",
     "check": "node tools/check.ts",

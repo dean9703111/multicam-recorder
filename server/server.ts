@@ -10,7 +10,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import { logEvent } from './events.ts';
 import { fromDashboard, HttpError, isLoopback, readJson, sendFile, sendJson } from './http.ts';
 import { currentLang, joinList, LANG_SETTINGS, m, parseLang, PHONE_ERRORS, setDefaultLang, systemLang, withLang, type Lang, type LangSetting } from './i18n.ts';
-import { ffmpegInstallCommand, moveToTrash, openUrl, powershellArgs, psQuote, toolDirs } from './platform.ts';
+import { ffmpegInstallCommand, moveToTrash, openTrash, openUrl, powershellArgs, psQuote, toolDirs } from './platform.ts';
 import type {
   CameraCapabilities,
   DeviceMessage,
@@ -30,6 +30,7 @@ import {
   db,
   dbProblem,
   DEFAULT_STORAGE_DIR,
+  DEMO,
   save,
   saveError,
   saveNow,
@@ -172,6 +173,7 @@ function statusOf(m: Record<string, unknown>): DeviceStatus {
   if (Array.isArray(m.zoomRange) && m.zoomRange.length === 2 && m.zoomRange.every(isNumber)) s.zoomRange = [m.zoomRange[0], m.zoomRange[1]];
   if (m.orientation === 'portrait' || m.orientation === 'landscape') s.orientation = m.orientation;
   if (isNumber(m.thermal)) s.thermal = m.thermal;
+  if (Array.isArray(m.videoSize) && m.videoSize.length === 2 && m.videoSize.every((n) => isNumber(n) && n > 0)) s.videoSize = [m.videoSize[0], m.videoSize[1]];
   return s;
 }
 
@@ -838,6 +840,12 @@ function folderPicker(start: string): [string, string[], (code: number | null, s
   return undefined;
 }
 
+// 使用者打的資料夾路徑：開頭的 ~ 換成家目錄。空白要擋下來，不然會變成程式所在的資料夾
+const folderPath = (input: unknown): string => {
+  if (typeof input !== 'string' || !input.trim()) throw new HttpError(400, m('settings.noFolder'));
+  return path.resolve(input.trim().replace(/^~(?=$|[\\/])/, os.homedir()));
+};
+
 async function chooseFolder(): Promise<{ path?: string; canceled?: boolean }> {
   if (choosing) throw new HttpError(409, m('folder.busy'));
   const current = db.settings.storageDir;
@@ -1129,10 +1137,19 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
       return sendJson(res, 200, stopRecording(b.deviceIds));
     }
     if (p === '/api/choose-folder') return sendJson(res, 200, await chooseFolder());
+    // 設定裡選了別的資料夾、還沒儲存時，先查那裡剩多少空間、能不能用
+    if (p === '/api/folder-info') {
+      const b = await readJson<{ dir?: string }>(req);
+      return sendJson(res, 200, storageInfo(folderPath(b.dir)));
+    }
     if (p === '/api/ffmpeg/check') return sendJson(res, 200, { ffmpeg: await checkFfmpeg() });
     if (p === '/api/open-folder') {
       const b = await readJson<{ fileId?: string }>(req);
       openFolder(b.fileId);
+      return sendJson(res, 200, { ok: true });
+    }
+    if (p === '/api/open-trash') {
+      openTrash();
       return sendJson(res, 200, { ok: true });
     }
     if (p === '/api/projects') {
@@ -1201,7 +1218,7 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
         db.settings.language = b.language;
       }
       if (b.storageDir !== undefined) {
-        const dir = path.resolve(b.storageDir.trim().replace(/^~(?=$|[\\/])/, os.homedir()));
+        const dir = folderPath(b.storageDir);
         const error = checkDir(dir);
         if (error) throw new HttpError(400, error);
         db.settings.storageDir = dir;
@@ -1484,7 +1501,10 @@ const DASHBOARD_URL = `http://localhost:${PORT}`;
 const openDashboard = process.argv.includes('--open');
 
 server.on('error', (e: NodeJS.ErrnoException) => {
-  if (e.code === 'EADDRINUSE') {
+  if (e.code === 'EADDRINUSE' && DEMO) {
+    // 開著的那個是原本的控制台，不能拿來示範，要先關掉
+    console.error(m('log.demoPortInUse', { port: PORT }));
+  } else if (e.code === 'EADDRINUSE') {
     // 已經在執行的話，直接打開它就好
     console.error(m('log.portInUse', { port: PORT, url: DASHBOARD_URL }));
     if (openDashboard) openUrl(DASHBOARD_URL);
@@ -1511,10 +1531,12 @@ if (db.settings.storageDir === DEFAULT_STORAGE_DIR) fs.mkdirSync(DEFAULT_STORAGE
 
 server.listen(PORT, '0.0.0.0', () => {
   const ip = lanAddress();
+  if (DEMO) console.log(m('log.demo'));
   console.log(m('log.dashboard', { url: DASHBOARD_URL }));
   console.log(ip ? m('log.phones', { url: `http://${ip}:${PORT}` }) : m('log.noIp'));
   console.log(m('log.folder', { dir: db.settings.storageDir }));
   console.log(m('log.keepOpen'));
+  if (DEMO) console.log(m('log.demoEnd'));
   logEvent('server.started', { version: VERSION, node: process.version, platform: process.platform });
   // 重新啟動時，開著的控制台分頁每 1.5 秒重連一次，3 秒內就會連回來，這時不用再開一個新分頁
   if (openDashboard) setTimeout(() => uiClients.size === 0 && openUrl(DASHBOARD_URL), 3000);

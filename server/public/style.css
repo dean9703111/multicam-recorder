@@ -1773,8 +1773,11 @@ kbd {
 
 /* ---------- 尚未配對：開始使用 ---------- */
 
+/* 寬螢幕時放在畫面中間，不要靠左、右邊空一大片 */
 .setup {
   grid-column: 1 / -1;
+  justify-self: center;
+  width: min(100%, 1000px);
   padding: 32px 36px 36px;
   border: 1px dashed var(--line-hi);
   border-radius: 6px;
@@ -2092,6 +2095,10 @@ kbd {
   border-color: var(--red);
 }
 
+.toast-action {
+  margin-left: 12px;
+}
+
 /* ---------- 動畫 ---------- */
 
 @keyframes rise {
@@ -2281,5 +2288,19 @@ kbd {
   }
   .qr-frame {
     width: 220px;
+  }
+  /* 窄視窗時按鈕移到說明下面，說明才不會被擠成一行幾個字 */
+  .setup {
+    padding: 24px 20px 28px;
+  }
+  .setup-steps li {
+    grid-template-columns: 32px 1fr;
+    row-gap: 12px;
+  }
+  .setup-steps li > div:last-child {
+    grid-column: 2;
+  }
+  .setup-steps li > div:empty {
+    display: none;
   }
 }
