@@ -448,7 +448,13 @@ async function resumeAfterRestart(): Promise<void> {
   );
   const local = path.join(data, 'fake-phones', slugOf(model), done.name);
   assert(sha256(path.join(rec, 'restart', done.name)) === sha256(local), `${done.name} 和手機上的原檔不一樣`);
-  assert(done.stopReason === 'maxDuration', `應該記成到上限自動停止，結果是 ${done.stopReason}`);
+  // 上傳不用等 WebSocket 連回來，影片可能比「到上限停止」那則訊息早傳完，等那則訊息到了再檢查
+  const stopped = await waitFor(
+    '手機補送停止的原因',
+    async () => (await state(base)).files.find((x: any) => x.id === lost.id && x.stopReason),
+    10_000,
+  );
+  assert(stopped.stopReason === 'maxDuration', `應該記成到上限自動停止，結果是 ${stopped.stopReason}`);
   phone.kill();
   server.kill();
   step('手機錄到一半斷線、電腦端又重開了一次，手機連回來後影片照樣傳完，也記得是到上限自動停止');
