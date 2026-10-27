@@ -1,4 +1,4 @@
-// 產品網站的小互動：首屏的錄影計時、指令的複製按鈕、安裝步驟的系統切換、捲動時的進場和示意動畫、臉部優先的左右拖拉。
+// 產品網站的小互動：首屏的錄影計時、介紹影片、指令的複製按鈕、安裝步驟的系統切換、捲動時的進場和示意動畫、臉部優先的左右拖拉。
 // 沒有 JavaScript 也能正常看：動畫的最後一格就是沒有 JavaScript 時看到的樣子。
 
 const root = document.documentElement;
@@ -14,6 +14,22 @@ if (timecode && motion) {
   };
   tick();
   setInterval(tick, 1000);
+}
+
+// 介紹影片：點了封面才載入 YouTube 的播放器；按著 ⌘／Ctrl／Shift 點的，照原本的連結去 YouTube
+for (const poster of document.querySelectorAll('[data-youtube]')) {
+  poster.addEventListener('click', (e) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey) return;
+    e.preventDefault();
+    const frame = document.createElement('iframe');
+    frame.src = `https://www.youtube-nocookie.com/embed/${poster.dataset.youtube}?autoplay=1&rel=0`;
+    frame.title = poster.dataset.title;
+    frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+    frame.allowFullscreen = true;
+    frame.referrerPolicy = 'strict-origin-when-cross-origin'; // YouTube 要知道是哪個網站嵌入的，不然播不了
+    poster.replaceWith(frame);
+    frame.focus();
+  });
 }
 
 for (const block of document.querySelectorAll('.code')) {

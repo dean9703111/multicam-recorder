@@ -20,6 +20,7 @@
 <p align="center">
   <a href="https://deanlin.net/multicam-recorder/"><b>產品網站</b></a> ・
   <a href="#快速開始"><b>快速開始</b></a> ・
+  <a href="#影片介紹"><b>影片介紹</b></a> ・
   <a href="#適合哪些情境">使用情境</a> ・
   <a href="#功能特色">功能特色</a> ・
   <a href="#規格一覽">規格</a> ・
@@ -32,6 +33,12 @@
 ![多機錄影控制台截圖：兩支 Android 手機同步用 4K 錄影，左邊橫拿 16:9、右邊直拿 9:16，頂列顯示 REC 計時，監看區顯示即時畫面和音量表，下方是邊錄邊傳回電腦的影片清單](docs/images/console.png)
 
 <p align="center"><sub>電腦上的控制台：兩支手機同時錄 4K，左邊橫拿 16:9、右邊直拿 9:16。每台都看得到即時畫面，影片一邊錄一邊傳回電腦。<br>（畫面中的漸層動畫來自開發用的模擬手機，實際使用時就是手機拍到的畫面。）</sub></p>
+
+## 影片介紹
+
+[![影片封面：為什麼做多機錄影？安裝、使用，和 AI 一起開發的過程。點一下到 YouTube 觀看](docs/images/video.png)](https://youtu.be/fHN0WMLYOL8)
+
+[**▶ 在 YouTube 觀看**](https://youtu.be/fHN0WMLYOL8)：作者親自說明**為什麼做這個工具**、怎麼安裝和使用，以及**和 AI 一起開發**的過程。
 
 ## 多機錄影是什麼？
 
@@ -637,6 +644,12 @@ App 會先把影片正常收尾再停止，已經錄到的部分會照常傳到�
 | Video | 4K / 2K / 1080p / 720p at 30 fps (a phone that can't record the chosen resolution uses the highest one it can below it, and the dashboard says so before you record), MP4 (H.264 + AAC), takes of 10 to 90 minutes (you set the length) |
 | Network | Phones and computer on the same Wi-Fi; footage stays on your local network |
 | Interface | English and Traditional Chinese (dashboard, pairing page, phone app) |
+
+### Video
+
+[![Video cover: Why MultiCam Recorder? Installing, using, and building it with AI. Click to watch on YouTube](docs/images/video-en.png)](https://youtu.be/fHN0WMLYOL8)
+
+[**▶ Watch on YouTube**](https://youtu.be/fHN0WMLYOL8) (in Chinese): the author explains **why this tool was built**, how to install and use it, and what **building it together with AI** looked like.
 
 ### Quick start
 

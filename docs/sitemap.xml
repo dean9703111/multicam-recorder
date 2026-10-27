@@ -2,11 +2,12 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
     <loc>https://deanlin.net/multicam-recorder/</loc>
-    <lastmod>2026-10-22</lastmod>
+    <lastmod>2026-10-27</lastmod>
     <xhtml:link rel="alternate" hreflang="zh-TW" href="https://deanlin.net/multicam-recorder/" />
     <xhtml:link rel="alternate" hreflang="en" href="https://deanlin.net/multicam-recorder/en/" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://deanlin.net/multicam-recorder/" />
     <image:image><image:loc>https://deanlin.net/multicam-recorder/images/console.png</image:loc></image:image>
+    <image:image><image:loc>https://deanlin.net/multicam-recorder/images/video.png</image:loc></image:image>
     <image:image><image:loc>https://deanlin.net/multicam-recorder/images/use-cases.png</image:loc></image:image>
     <image:image><image:loc>https://deanlin.net/multicam-recorder/images/portrait-settings.png</image:loc></image:image>
     <image:image><image:loc>https://deanlin.net/multicam-recorder/images/how-it-works.png</image:loc></image:image>
@@ -16,7 +17,7 @@
   </url>
   <url>
     <loc>https://deanlin.net/multicam-recorder/en/</loc>
-    <lastmod>2026-10-22</lastmod>
+    <lastmod>2026-10-27</lastmod>
     <xhtml:link rel="alternate" hreflang="zh-TW" href="https://deanlin.net/multicam-recorder/" />
     <xhtml:link rel="alternate" hreflang="en" href="https://deanlin.net/multicam-recorder/en/" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://deanlin.net/multicam-recorder/" />

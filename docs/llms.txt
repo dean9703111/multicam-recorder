@@ -28,6 +28,10 @@
 - [產品網站（繁體中文）](https://deanlin.net/multicam-recorder/): 介紹、使用情境、功能、開始使用、規格、常見問題
 - [Product site (English)](https://deanlin.net/multicam-recorder/en/): the same content in English
 
+## 影片（Video）
+
+- [為什麼做多機錄影？安裝、使用，和 AI 一起開發的過程（YouTube）](https://youtu.be/fHN0WMLYOL8): 作者說明為什麼做這個工具、怎麼安裝和使用，以及和 AI 一起開發的過程（中文）。The author explains why the tool was built, how to install and use it, and how it was built with AI (in Chinese).
+
 ## Docs
 
 - [README](https://github.com/dean9703111/multicam-recorder/blob/main/README.md): 完整的使用說明、開拍前準備清單、疑難排解（繁體中文，附英文摘要）

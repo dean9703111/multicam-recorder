@@ -227,6 +227,25 @@ figcaption { margin-top: 14px; font-size: 14px; color: var(--muted); text-align:
 .split.reverse { grid-template-columns: 1fr 1.05fr; }
 @media (max-width: 900px) { .split, .split.reverse { grid-template-columns: 1fr; gap: 28px; } }
 
+/* 介紹影片：先放封面，點了才換成 YouTube 的播放器，網頁不會因為它變慢 */
+.video { position: relative; margin-top: 40px; aspect-ratio: 16 / 9; border: 1px solid var(--line-hi); border-radius: 14px; overflow: hidden; background: #000; box-shadow: 0 40px 90px -40px #000; }
+.video iframe { display: block; width: 100%; height: 100%; border: 0; }
+.video-poster { position: absolute; inset: 0; isolation: isolate; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 24px; text-align: center; text-decoration: none; color: var(--text); }
+/* 封面的背景是模糊、壓暗的控制台截圖（首屏已經載入過，不會多下載） */
+.video-poster::before, .video-poster::after { content: ''; position: absolute; z-index: -1; pointer-events: none; }
+.video-poster::before { inset: -24px; background: url(../images/console.png) center / cover; filter: blur(10px) brightness(0.32); }
+:lang(en) .video-poster::before { background-image: url(../images/console-en.png); }
+.video-poster::after { inset: 0; background: radial-gradient(55% 65% at 50% 46%, rgba(255, 59, 59, 0.26), transparent 70%); }
+.video-poster:hover { color: var(--text); }
+.video-poster:focus-visible { outline-offset: -5px; border-radius: 13px; }
+.vp-play { display: grid; place-items: center; width: clamp(60px, 9vw, 96px); aspect-ratio: 1; margin-bottom: 16px; border-radius: 50%; background: #dc2626; color: #fff; box-shadow: 0 0 0 8px rgba(255, 59, 59, 0.18), 0 18px 40px -12px rgba(255, 59, 59, 0.8); transition: transform 0.2s; }
+.vp-play svg { width: 44%; margin-left: 8%; }
+.video-poster:hover .vp-play { transform: scale(1.06); }
+.vp-title { font: 700 clamp(24px, 4.6vw, 54px)/1.2 var(--label); letter-spacing: 0.01em; }
+.vp-sub { font-size: clamp(14px, 1.9vw, 21px); color: var(--soft); }
+.vp-meta { position: absolute; left: 22px; bottom: 16px; font: 500 13px var(--mono); letter-spacing: 0.08em; color: var(--muted); }
+@media (max-width: 480px) { .vp-sub, .vp-meta { display: none; } .vp-play { margin-bottom: 10px; } }
+
 /* 定義句：給搜尋引擎和 AI 摘要直接引用 */
 .definition { margin: 18px 0 0; padding: 22px 26px; border: 1px solid var(--line-hi); border-left: 3px solid var(--red); border-radius: 8px; background: rgba(18, 21, 25, 0.85); font-size: 18px; color: var(--soft); }
 .definition strong { color: var(--text); }
