@@ -88,6 +88,10 @@ const ZH: Record<string, Message> = {
   'device.notFound': '找不到這支手機',
   'device.removeWhileRecording': '這支手機正在錄影，停止後才能移除',
   'device.badZoom': '變焦倍率不正確',
+  'device.badControls': '曝光或白平衡設定不正確',
+  'device.controlsUnavailable': '手機相機尚未就緒，請確認 App 在前景',
+  'device.controlsUnsupported': '這支手機不支援此設定，請確認 App 已更新及相機能力',
+  'device.controlsLocked': '這段錄影已鎖定曝光與白平衡，請停止後再調整',
   'device.nameLength': '名稱要 1 到 40 個字',
 
   'pair.noIp': '找不到這台電腦的區域網路 IP，請確認電腦已連上網路',
@@ -232,6 +236,10 @@ const EN: Record<string, Message> = {
   'device.notFound': 'Phone not found.',
   'device.removeWhileRecording': 'This phone is recording. Stop it before removing it.',
   'device.badZoom': 'Invalid zoom ratio.',
+  'device.badControls': 'Invalid exposure or white balance settings.',
+  'device.controlsUnavailable': 'The phone camera is not ready. Keep the app in the foreground.',
+  'device.controlsUnsupported': 'This setting is unsupported. Check the app version and camera capabilities.',
+  'device.controlsLocked': 'Exposure and white balance are locked for this take. Stop recording to adjust them.',
   'device.nameLength': 'Names must be 1 to 40 characters.',
 
   'pair.noIp': "Can't find this computer's local network IP. Make sure it's connected to a network.",

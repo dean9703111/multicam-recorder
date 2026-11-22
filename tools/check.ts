@@ -16,7 +16,7 @@ const problems: string[] = [];
 
 // ---------- 1. 控制台的 JS 語法 ----------
 
-for (const file of ['server/public/app.js', 'server/public/i18n.js']) {
+for (const file of ['server/public/app.js', 'server/public/i18n.js', 'server/public/color-match.js']) {
   try {
     execFileSync(process.execPath, ['--check', path.join(ROOT, file)], { stdio: 'pipe' });
   } catch (e) {

@@ -192,14 +192,29 @@ async function main(): Promise<void> {
   step('擋下跨站請求、DNS rebinding、區網其他裝置的請求，控制台自己照常');
 
   // 靜態檔案都拿得到（控制台少一個檔案就整頁空白）
-  for (const file of ['/', '/app.js', '/i18n.js', '/style.css', '/vendor/preact-htm.js']) {
+  for (const file of ['/', '/app.js', '/i18n.js', '/color-match.js', '/style.css', '/vendor/preact-htm.js']) {
     assert((await fetch(BASE + file)).status === 200, `${file} 應該拿得到`);
   }
+
+  // A newly built local APK must not send the phone back to an older GitHub release.
+  const appDownload = await ok('GET', '/api/app-qr');
+  assert(appDownload.version === (await state()).latestAppVersion, '下載資訊應該明確標出預期的 App 版本');
+  assert(typeof appDownload.qr === 'string' && appDownload.qr.startsWith('data:image/png'), '更新 QR Code 應該可以顯示');
+  if (appDownload.local) {
+    const downloaded = await fetch(appDownload.url); // 手機使用的區網網址，不能被 localhost 限制擋掉
+    assert(downloaded.status === 200, '應該能從區網下載本機新版 APK');
+    assert(downloaded.headers.get('content-type') === 'application/vnd.android.package-archive', '下載應該是 Android APK');
+    const original = fs.readFileSync(path.join(ROOT, 'android/app/build/outputs/apk/release/app-release.apk'));
+    assert(Buffer.from(await downloaded.arrayBuffer()).equals(original), '下載到的應該和新編譯 APK 完全相同');
+    const pairingPage = await (await fetch((await ok('POST', '/api/pairing')).link)).text();
+    assert(pairingPage.includes(new URL(appDownload.url).pathname), '配對頁面也應該下載本機新版 APK');
+  }
+  step('更新 QR Code 回報版本，已有本機新版 release APK 時可從區網下載並核對內容');
 
   const phones = PHONES.map((p, i) =>
     start(
       `phone${i + 1}`,
-      ['tools/fake-phone.ts', '--model', p.model, '--orientation', p.orientation, '--max-resolution', p.maxResolution, '--server', BASE, '--encoder', 'libx264'],
+      ['tools/fake-phone.ts', '--model', p.model, '--orientation', p.orientation, '--max-resolution', p.maxResolution, '--server', BASE, '--encoder', 'libx264', ...(i === 1 ? ['--no-manual-wb'] : [])],
       { RECORDER_DATA_DIR: dataDir },
     ),
   );
@@ -242,6 +257,27 @@ async function main(): Promise<void> {
   await ok('POST', `/api/devices/${phone.id}/zoom`, { ratio: 1 });
   step('調整變焦倍率');
 
+  const cameraUrl = `/api/devices/${phone.id}/camera-controls`;
+  const manualControls = { exposureEv: 0.65, whiteBalance: 'manual', gains: [2.3, 1, 1.1, 1.8] };
+  await ok('POST', cameraUrl, manualControls);
+  await waitFor('手機回報曝光與白平衡', async () => {
+    const c = (await state()).devices.find((d: any) => d.id === phone.id)?.status.cameraControls;
+    return c?.whiteBalance === 'manual' && Math.abs(c.exposureEv - 2 / 3) < .001 && JSON.stringify(c.gains) === JSON.stringify(manualControls.gains);
+  });
+  for (const invalid of [null, {}, { ...manualControls, exposureEv: 9 }, { ...manualControls, gains: [1, 2] },
+    { ...manualControls, gains: [0, 1, 1, 2] }, { ...manualControls, gains: [2, 1, 1, 'x'] }, { ...manualControls, whiteBalance: 'bad' }]) {
+    assert((await api('POST', cameraUrl, invalid)).status === 400, '不合法的曝光或白平衡應該被擋下');
+  }
+  const limited = devices[1];
+  assert(!limited.camera.manualWhiteBalance, '第二台應該不支援手動白平衡');
+  assert((await api('POST', `/api/devices/${limited.id}/camera-controls`, manualControls)).status === 400, '不支援手動白平衡時應該擋下');
+  const automaticControls = { exposureEv: 0, whiteBalance: 'auto', gains: [2, 1, 1, 2] };
+  await ok('POST', cameraUrl, automaticControls);
+  await ok('POST', `/api/devices/${limited.id}/camera-controls`, { ...automaticControls, exposureEv: -1 });
+  await waitFor('不支援白平衡的手機仍可調曝光', async () => (await state()).devices.find((d: any) => d.id === limited.id)?.status.cameraControls?.exposureEv === -1);
+  await ok('POST', `/api/devices/${limited.id}/camera-controls`, automaticControls);
+  step('曝光依硬體步進回報、手動白平衡回報、不支援白平衡仍能調曝光，擋下非法設定');
+
   // 錄不到要求的解析度時，手機改用它能錄的最大的，開始錄影前就回報，控制台才能提醒
   await ok('POST', '/api/settings', { resolution: '2160p' });
   const expected = ['3840x2160', '1920x1080'];
@@ -277,6 +313,7 @@ async function main(): Promise<void> {
       },
       20_000,
     );
+    assert((await api('POST', cameraUrl, automaticControls)).status === 409, '錄影鎖定時不能調整曝光或白平衡');
     await sleep(seconds * 1000);
     await ok('POST', '/api/record/stop', {});
     const files = await waitFor(
@@ -291,6 +328,8 @@ async function main(): Promise<void> {
     );
     takes.push(files);
   }
+  await waitFor('停止錄影後解除相機調整鎖定', async () => (await state()).devices.every((d: any) => !d.status.controlsLocked));
+  await ok('POST', cameraUrl, automaticControls);
   for (const files of takes) {
     assert(new Set(files.map((f) => f.takeId)).size === 1, '同一次開始的影片應該屬於同一段');
     for (const [i, d] of devices.entries()) {

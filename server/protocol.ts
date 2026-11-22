@@ -32,6 +32,10 @@
 //   收到 welcome、config 時馬上回報一次，電腦開始錄影前就能提醒。
 // - 人像設定（facePriority、lockExposure）跟著錄影設定一起送。手機在 hello 的 camera 回報做得到哪些，做不到的就略過。
 //   完整的參考實作在 tools/fake-phone.ts。
+// - 相機調整：features 含 cameraControls，hello.camera 帶 exposureRange（EV）、exposureStep、manualWhiteBalance。
+//   收到 cameraControls 後依硬體步進套用曝光補償；手動白平衡使用 R/G_even/G_odd/B 線性增益。
+//   status.cameraControls 回報接受的值（自動 WB 時 gains 是實測值），controlsLocked 表示錄影期間鎖定不可改。
+//   設定保存在手機；本機 App 的修改也透過 status 同步，重連時電腦不覆蓋手機設定。
 
 export type Resolution = '2160p' | '1440p' | '1080p' | '720p';
 
@@ -57,6 +61,15 @@ export interface RecordingSpec {
 export interface CameraCapabilities {
   facePriority: boolean;
   lockExposure: boolean;
+  exposureRange?: [number, number]; // EV（曝光補償），不是快門或 ISO
+  exposureStep?: number;
+  manualWhiteBalance?: boolean;
+}
+
+export interface CameraControls {
+  exposureEv: number;
+  whiteBalance: 'auto' | 'manual';
+  gains: [number, number, number, number]; // Camera2 的 R、G_even、G_odd、B，1–8
 }
 
 // /api/pairing 回傳的配對資訊（模擬手機用）
@@ -78,6 +91,9 @@ export interface PairResponse {
 }
 
 export interface DeviceStatus {
+  cameraControls?: CameraControls; // 手機實際接受的設定；自動白平衡時 gains 是目前量測值
+  cameraControlsError?: 'locked' | 'notReady' | 'applyFailed' | null;
+  controlsLocked?: boolean; // 錄影鎖定時不能調整
   battery?: number; // 0–100
   charging?: boolean;
   temperatureC?: number;
@@ -143,6 +159,7 @@ export type ServerMessage =
   | { type: 'stop'; fileId: string }
   | { type: 'rename'; name: string }
   | { type: 'zoom'; ratio: number }
+  | ({ type: 'cameraControls' } & CameraControls)
   | { type: 'preview'; on: boolean } // 電腦上有人在看這支手機的即時畫面時才開
   | { type: 'error'; code: 'unpaired'; message: string };
 

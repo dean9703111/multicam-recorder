@@ -90,4 +90,16 @@
     <string name="orphans_saving">Saving…</string>
     <string name="orphans_saved">Saved to Movies/MultiCamRecorder</string>
     <string name="orphans_failed">%1$d videos couldn\'t be saved. Try again later</string>
+    <string name="controls_title">Exposure / WB</string>
+    <string name="controls_hint">Exposure compensation changes brightness. Switch to manual white balance to adjust red, green and blue gains. These controls take priority over face metering.</string>
+    <string name="controls_manual">Manual white balance</string>
+    <string name="controls_ev">Exposure: %1$+.2f EV</string>
+    <string name="controls_red">Red gain (warmer): %1$.2f</string>
+    <string name="controls_green">Green gain: %1$.2f</string>
+    <string name="controls_blue">Blue gain (cooler): %1$.2f</string>
+    <string name="controls_locked">Exposure and white balance are locked for this take. Stop recording to adjust them.</string>
+    <string name="controls_unsupported">This camera does not support manual white balance. Exposure compensation is still available.</string>
+    <string name="controls_reset">Reset to auto</string>
+    <string name="controls_failed">Could not apply camera settings: %1$s</string>
+    <string name="controls_wb_wait">Wait for the live image before enabling manual white balance.</string>
 </resources>

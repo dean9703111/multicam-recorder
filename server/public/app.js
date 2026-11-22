@@ -1,4 +1,5 @@
 import { html, render, useEffect, useLayoutEffect, useRef, useState } from '/vendor/preact-htm.js';
+import { samplePixels, difference, matchControls } from '/color-match.js';
 import { getLang, listJoin, resolveLang, setLang, tr } from '/i18n.js';
 
 // 介面文字都在 i18n.js；這裡的 tr(key) 依目前的語言取字
@@ -171,7 +172,7 @@ function onLevels(next) {
 // ---------- 即時畫面 ----------
 
 // 收到的 JPEG 直接換到 <img> 上，不經過 Preact，一秒好幾張也不會整頁重畫
-const liveViews = new Map(); // 手機 ID → { img, url, at, onFrame }
+const liveViews = new Map(); // 手機 ID → Set<{ img, url, at, onFrame }>，比對區與監看區共用串流
 let uiSocket = null;
 
 // 告訴伺服器目前畫面上要看哪幾台的即時畫面，沒在看的手機就不用傳
@@ -190,13 +191,14 @@ function onPreviewFrame(buffer) {
   const bytes = new Uint8Array(buffer);
   const id = new TextDecoder().decode(bytes.subarray(1, 1 + bytes[0]));
   const view = liveViews.get(id);
-  if (!view?.img) return;
-  const old = view.url;
-  view.url = URL.createObjectURL(new Blob([bytes.subarray(1 + bytes[0])], { type: 'image/jpeg' }));
-  view.img.src = view.url;
-  view.at = Date.now();
-  if (old) URL.revokeObjectURL(old);
-  view.onFrame();
+  if (!view) return;
+  for (const item of view) {
+    if (!item.img) continue;
+    const old = item.url;
+    item.url = URL.createObjectURL(new Blob([bytes.subarray(1 + bytes[0])], { type: 'image/jpeg' }));
+    item.img.src = item.url;
+    if (old) URL.revokeObjectURL(old);
+  }
 }
 
 // ---------- 資料 ----------
@@ -507,6 +509,7 @@ function App() {
     />
     </div>
 
+    <${CameraMatch} state=${state} run=${run} />
     <main class=${`bays ${compact ? 'compact' : ''} ${selection ? 'selecting' : ''} ${connected ? '' : 'stale'}`}>
       ${state.devices.length || removed.length
         ? [...state.devices, ...removed].map(
@@ -1229,6 +1232,7 @@ function Bay({ state, device, letter, t, compact, onStart, onStop, onRemove, onU
         notify=${notify}
       />`}
       <${ZoomControl} device=${device} run=${run} />
+      <${CameraControlPanel} device=${device} run=${run} />
 
       <ul class="clips">
         ${files.length
@@ -1258,13 +1262,17 @@ function LiveView({ device }) {
   const imgRef = useRef(null);
   const [fresh, setFresh] = useState(false);
   useEffect(() => {
-    const view = { img: imgRef.current, url: null, at: 0, onFrame: () => setFresh(true) };
-    liveViews.set(device.id, view);
+    const view = { img: imgRef.current, url: null, at: 0 };
+    view.img.onload = () => { view.at = Date.now(); setFresh(true); };
+    if (!liveViews.has(device.id)) liveViews.set(device.id, new Set());
+    liveViews.get(device.id).add(view);
     sendWatchList();
     const timer = setInterval(() => setFresh(Date.now() - view.at < 3000), 1000);
     return () => {
       clearInterval(timer);
-      if (liveViews.get(device.id) === view) liveViews.delete(device.id);
+      liveViews.get(device.id)?.delete(view);
+      if (!liveViews.get(device.id)?.size) liveViews.delete(device.id);
+      view.img.onload = null;
       if (view.url) URL.revokeObjectURL(view.url);
       sendWatchList();
     };
@@ -1446,6 +1454,185 @@ function TrimBar({ state, file, videoRef, onClose, onDone, notify }) {
       <button class="btn-primary btn-small" disabled=${busy || end - start < 1} onClick=${submit}>${busy ? tr('trim.busy') : tr('trim.submit')}</button>
     </div>
   </div>`;
+}
+
+const defaultControls = () => ({ exposureEv: 0, whiteBalance: 'auto', gains: [2, 1, 1, 2] });
+const controlsOf = (d) => d.status.cameraControls ?? defaultControls();
+const canControl = (d) => d.online && d.status.cameraReady && d.features.includes('cameraControls') && !d.status.controlsLocked;
+const calibrationBusy = new Set();
+
+function ControlSlider({ label, value, min, max, step, disabled, onChange }) {
+  const [draft, setDraft] = useState(null);
+  const shown = draft ?? value;
+  return html`<label class="camera-slider"><span>${label}</span><output>${Number(shown).toFixed(2)}</output>
+    <input type="range" min=${min} max=${max} step=${step} value=${shown} disabled=${disabled}
+      onInput=${(e) => setDraft(Number(e.currentTarget.value))}
+      onChange=${(e) => { const value = Number(e.currentTarget.value); setDraft(null); onChange(value); }}
+    /></label>`;
+}
+
+function CameraControlPanel({ device, run }) {
+  const supported = device.features.includes('cameraControls');
+  const unavailable = !device.online ? 'camera.offline' : !device.appVersion ? 'camera.connecting' : 'camera.update';
+  const c = controlsOf(device);
+  const cap = device.camera;
+  const disabled = !canControl(device) || calibrationBusy.has(device.id);
+  const send = (value) => run(() => post(`/api/devices/${device.id}/camera-controls`, value));
+  return html`<details class="camera-controls"><summary>${tr('camera.title')}
+    <span>${supported ? `${c.exposureEv >= 0 ? '+' : ''}${c.exposureEv.toFixed(2)} EV · ${tr(`camera.${c.whiteBalance}`)}` : tr(unavailable)}</span>
+    </summary>
+    ${!supported ? html`<p>${tr(unavailable)}</p>` : html`
+      <p>${tr(device.status.cameraControlsError ? `camera.error.${device.status.cameraControlsError}` : device.status.controlsLocked ? 'camera.locked' : 'camera.hint')}</p>
+      <${ControlSlider} label=${tr('camera.exposure')} value=${c.exposureEv} min=${cap?.exposureRange?.[0] ?? 0}
+        max=${cap?.exposureRange?.[1] ?? 0} step=${cap?.exposureStep ?? 1}
+        disabled=${disabled || !cap?.exposureRange || cap.exposureRange[0] === cap.exposureRange[1]}
+        onChange=${(exposureEv) => send({ ...c, exposureEv })} />
+      <label class="camera-mode">${tr('camera.wb')}
+        <select value=${c.whiteBalance} disabled=${disabled || !cap?.manualWhiteBalance}
+          onChange=${(e) => send({ ...c, whiteBalance: e.currentTarget.value })}>
+          <option value="auto">${tr('camera.auto')}</option><option value="manual">${tr('camera.manual')}</option>
+        </select>
+      </label>
+      ${cap?.manualWhiteBalance ? [0, 1, 3].map((index, i) => html`<${ControlSlider}
+        key=${index} label=${tr(['camera.red', 'camera.green', 'camera.blue'][i])} value=${c.gains[index]}
+        min="1" max="8" step="0.05" disabled=${disabled || c.whiteBalance !== 'manual'}
+        onChange=${(v) => { const gains = [...c.gains]; if (index === 1) gains[2] = Math.min(8, Math.max(1, gains[2] * v / gains[1])); gains[index] = v; send({ ...c, gains }); }}
+      />`) : html`<p>${tr('camera.noWb')}</p>`}
+      <button class="btn-ghost btn-small" disabled=${disabled} onClick=${() => send(defaultControls())}>${tr('camera.reset')}</button>
+    `}
+  </details>`;
+}
+
+function currentFrame(id, region, after = 0) {
+  const views = [...(liveViews.get(id) ?? [])];
+  const view = views.find((v) => v.at >= after && Date.now() - v.at < 2500 && v.img?.complete && v.img.naturalWidth);
+  if (!view) throw new Error(tr('match.noFrame'));
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 64;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const img = view.img;
+  ctx.drawImage(img, region.x * img.naturalWidth, region.y * img.naturalHeight,
+    region.size * img.naturalWidth, region.size * img.naturalHeight, 0, 0, 64, 64);
+  const sample = samplePixels(ctx.getImageData(0, 0, 64, 64).data);
+  if (!sample) throw new Error(tr('match.badSample'));
+  return sample;
+}
+
+function MatchPreview({ device, region, onRegion }) {
+  return html`<div class="match-preview"><strong>${device.name}</strong>
+    <label class="sample-size">${tr('match.sampleSize')}<select value=${region.size}
+      onChange=${(e) => { const size = Number(e.currentTarget.value); onRegion({ size,
+        x: Math.max(0, Math.min(1 - size, region.x + (region.size - size) / 2)),
+        y: Math.max(0, Math.min(1 - size, region.y + (region.size - size) / 2)) }); }}>
+      ${[0.1, 0.2, 0.3, 0.5].map((size) => html`<option value=${size}>${size * 100}%</option>`)}
+    </select></label>
+    <div class=${`monitor ${device.status.orientation === 'portrait' ? 'portrait' : ''}`}
+      role="button" tabIndex="0" aria-label=${tr('match.region')}
+      onKeyDown=${(e) => {
+        const delta = { ArrowLeft: [-0.05, 0], ArrowRight: [0.05, 0], ArrowUp: [0, -0.05], ArrowDown: [0, 0.05] }[e.key];
+        if (!delta) return; e.preventDefault();
+        onRegion({ ...region, x: Math.max(0, Math.min(1 - region.size, region.x + delta[0])), y: Math.max(0, Math.min(1 - region.size, region.y + delta[1])) });
+      }}
+      onClick=${(e) => { const box = e.currentTarget.getBoundingClientRect(); onRegion({ ...region,
+        x: Math.max(0, Math.min(1 - region.size, (e.clientX - box.left) / box.width - region.size / 2)),
+        y: Math.max(0, Math.min(1 - region.size, (e.clientY - box.top) / box.height - region.size / 2)) }); }}>
+      <${LiveView} device=${device} />
+      <div class="sample-region" style=${{ left: `${region.x * 100}%`, top: `${region.y * 100}%`, width: `${region.size * 100}%`, height: `${region.size * 100}%` }}></div>
+    </div></div>`;
+}
+
+function CameraMatch({ state }) {
+  const [open, setOpen] = useState(false);
+  const [referenceId, setReferenceId] = useState('');
+  const [targetId, setTargetId] = useState('');
+  const [regions, setRegions] = useState({});
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState('');
+  const [undo, setUndo] = useState(null);
+  const latest = useRef(state);
+  latest.current = state;
+  const cancelled = useRef(false);
+  useEffect(() => () => { cancelled.current = true; }, []);
+  const phones = state.devices.filter((d) => d.online && d.features.includes('preview'));
+  const reference = phones.find((d) => d.id === referenceId) ?? phones[0];
+  const targets = phones.filter((d) => d.id !== reference?.id);
+  const target = targets.find((d) => d.id === targetId) ?? targets[0];
+  const regionOf = (id) => regions[id] ?? { x: 0.35, y: 0.35, size: 0.3 };
+  const updateRegion = (id, region) => { if (!busy) { setRegions((all) => ({ ...all, [id]: region })); setResult(''); } };
+  const available = reference && target && canControl(target) && reference.status.cameraReady && !busy;
+  const freshDevice = (id) => latest.current.devices.find((d) => d.id === id);
+  const align = async () => {
+    setBusy(true); setResult('');
+    calibrationBusy.add(target.id);
+    calibrationBusy.add(reference.id);
+    try {
+      const original = structuredClone(controlsOf(freshDevice(target.id)));
+      // Read both samples before making any change; an invalid sample must never alter a phone.
+      const referenceSample = currentFrame(reference.id, regionOf(reference.id));
+      let targetSample = currentFrame(target.id, regionOf(target.id));
+      setUndo({ id: target.id, controls: original });
+      for (let i = 0; i < 4; i++) {
+        if (cancelled.current) return;
+        const d = freshDevice(target.id);
+        if (!d || !canControl(d) || !freshDevice(reference.id)?.online) throw new Error(tr('match.unavailable'));
+        const next = matchControls(referenceSample, targetSample, controlsOf(d), d.camera);
+        await post(`/api/devices/${d.id}/camera-controls`, next);
+        // Wait for the phone's acknowledgement, then for AE and the streamed image to settle.
+        const until = Date.now() + 4500;
+        let accepted = false;
+        while (Date.now() < until && !cancelled.current) {
+          await new Promise((resolve) => setTimeout(resolve, 150));
+          const actual = freshDevice(d.id)?.status.cameraControls;
+          if (actual && Math.abs(actual.exposureEv - next.exposureEv) < 0.01 && actual.whiteBalance === next.whiteBalance &&
+            (next.whiteBalance === 'auto' || actual.gains.every((g, n) => Math.abs(g - next.gains[n]) < 0.02))) { accepted = true; break; }
+        }
+        if (!accepted) throw new Error(tr('match.timeout'));
+        const appliedAt = Date.now();
+        await new Promise((resolve) => setTimeout(resolve, 1100));
+        if (cancelled.current) return;
+        const frameDeadline = Date.now() + 5000;
+        for (;;) {
+          if (cancelled.current) return;
+          try { targetSample = currentFrame(target.id, regionOf(target.id), appliedAt + 600); break; }
+          catch (e) { if (Date.now() >= frameDeadline) throw e; }
+          await new Promise((resolve) => setTimeout(resolve, 150));
+        }
+        const delta = difference(referenceSample, targetSample);
+        if (Math.abs(delta.ev) < Math.max(0.12, d.camera.exposureStep / 2) &&
+          (!d.camera.manualWhiteBalance || Math.max(Math.abs(delta.red), Math.abs(delta.blue)) < 0.08)) break;
+      }
+      const delta = difference(referenceSample, targetSample);
+      setResult(tr('match.result', { ev: delta.ev.toFixed(2), color: ((2 ** Math.max(Math.abs(delta.red), Math.abs(delta.blue)) - 1) * 100).toFixed(0) }));
+    } catch (e) { setResult(e.message); }
+    finally { calibrationBusy.delete(target.id); calibrationBusy.delete(reference.id); setBusy(false); }
+  };
+  const restore = async () => {
+    setBusy(true);
+    try { await post(`/api/devices/${undo.id}/camera-controls`, undo.controls); setUndo(null); setResult(tr('match.restored')); }
+    catch (e) { setResult(e.message); }
+    finally { setBusy(false); }
+  };
+  if (state.devices.length < 2) return null;
+  return html`<section class="camera-match"><button class="btn-ghost" aria-expanded=${open}
+      onClick=${() => setOpen(!open)} disabled=${busy}>${tr('match.title')}</button>
+    ${open && html`<p>${tr('match.hint')}</p>
+      <div class="match-selectors">
+        <label>${tr('match.reference')}<select value=${reference?.id ?? ''} disabled=${busy} onChange=${(e) => { setReferenceId(e.currentTarget.value); setResult(''); }}>
+          ${phones.map((d) => html`<option value=${d.id}>${d.name}</option>`)}</select></label>
+        <label>${tr('match.target')}<select value=${target?.id ?? ''} disabled=${busy} onChange=${(e) => { setTargetId(e.currentTarget.value); setResult(''); }}>
+          ${targets.map((d) => html`<option value=${d.id}>${d.name}</option>`)}</select></label>
+      </div>
+      ${reference && target ? html`<div class="match-previews">
+        <${MatchPreview} key=${reference.id} device=${reference} region=${regionOf(reference.id)} onRegion=${(r) => updateRegion(reference.id, r)} />
+        <${MatchPreview} key=${target.id} device=${target} region=${regionOf(target.id)} onRegion=${(r) => updateRegion(target.id, r)} />
+      </div>` : html`<p>${tr('match.unavailable')}</p>`}
+      <div class="match-actions"><button class="btn-ghost" disabled=${!available} onClick=${align}>${tr(busy ? 'match.busy' : 'match.apply')}</button>
+        ${undo && html`<button class="btn-ghost" disabled=${busy || !freshDevice(undo.id) || !canControl(freshDevice(undo.id))} onClick=${restore}>${tr('match.undo')}</button>`}
+        ${target && !target.camera?.manualWhiteBalance && html`<span>${tr('camera.noWb')}</span>`}
+      </div>
+      <p role="status">${result || tr('match.approximate')}</p>
+    `}
+  </section>`;
 }
 
 const roundZoom = (z) => Math.round(z * 10) / 10;
@@ -1860,15 +2047,18 @@ function PairModal({ state, onClose }) {
 // 手機的 App 太舊：用那支手機的相機掃 QR Code 下載最新版（GitHub Releases 上的 APK）
 function UpdateAppModal({ state, devices, onClose }) {
   const [qr, setQr] = useState(null);
+  const [download, setDownload] = useState(null);
   useEffect(() => {
     fetch('/api/app-qr')
       .then((r) => r.json())
-      .then((d) => setQr(d.qr), () => {});
+      .then((d) => { setQr(d.qr); setDownload(d); }, () => {});
   }, []);
   return html`<${Modal} title=${tr('update.title')} onClose=${onClose}>
     <div class="pair">
       <div class="qr-frame">${qr ? html`<img src=${qr} alt=${tr('update.qrAlt')} />` : html`<div class="qr-loading">${tr('pair.generating')}</div>`}</div>
       <p>${tr('update.body', { names: listJoin(devices.map((d) => d.name)), n: devices.length, latest: state.latestAppVersion })}</p>
+      ${download?.local && html`<p>${tr('update.local')}</p>`}
+      ${download && html`<a class="btn-ghost" href=${download.url}>${tr('update.download', { version: download.version })}</a>`}
     </div>
   <//>`;
 }

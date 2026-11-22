@@ -68,6 +68,13 @@
         android:textColor="#ECE8E1"
         android:textSize="14sp" />
 
+    <Button
+        android:id="@+id/camera_controls"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end|center_vertical"
+        android:text="@string/controls_title" />
+
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

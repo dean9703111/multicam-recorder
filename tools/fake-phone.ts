@@ -17,6 +17,7 @@ import WebSocket from 'ws';
 import {
   CHUNK_SIZE,
   type AudioSource,
+  type CameraControls,
   type DeviceMessage,
   type Orientation,
   type PairResponse,
@@ -40,6 +41,7 @@ const { values: args } = parseArgs({
     orientation: { type: 'string', default: 'landscape' },
     'max-resolution': { type: 'string', default: '2160p' },
     silent: { type: 'boolean', default: false },
+    'no-manual-wb': { type: 'boolean', default: false },
     hot: { type: 'boolean', default: false },
     'free-gb': { type: 'string', default: '180' }, // 回報的手機剩餘空間
     'offline-after': { type: 'string' },
@@ -134,9 +136,9 @@ function connect(): void {
   ws = socket;
   socket.on('open', () => {
     log('已連線');
-    const camera = { facePriority: true, lockExposure: true };
+    const camera = { facePriority: true, lockExposure: true, exposureRange: [-2, 2] as [number, number], exposureStep: 1 / 3, manualWhiteBalance: !args['no-manual-wb'] };
     socket.send(
-      JSON.stringify({ type: 'hello', model, appVersion: 'fake-1', features: ['preview', 'zoom', 'audio'], camera, lang: args.lang } satisfies DeviceMessage),
+      JSON.stringify({ type: 'hello', model, appVersion: 'fake-1', features: ['preview', 'zoom', 'audio', 'cameraControls'], camera, lang: args.lang } satisfies DeviceMessage),
     );
     for (const m of outbox.splice(0)) socket.send(JSON.stringify(m));
     bestRtt = Infinity;
@@ -173,9 +175,11 @@ function onMessage(m: ServerMessage): void {
       break;
     }
     case 'start':
+      controlsLocked = m.lockExposure;
       startRecording(m);
       break;
     case 'stop':
+      controlsLocked = false;
       stopRecording(m.fileId);
       break;
     case 'welcome':
@@ -186,6 +190,13 @@ function onMessage(m: ServerMessage): void {
       break;
     case 'rename':
       log(`電腦上的名稱：${m.name}`);
+      break;
+    case 'cameraControls':
+      if (!controlsLocked) {
+        controls = { exposureEv: Math.round(m.exposureEv * 3) / 3, whiteBalance: m.whiteBalance, gains: m.gains };
+        sendStatus();
+        if (preview) { setPreview(false); setPreview(true); }
+      }
       break;
     case 'zoom':
       setZoom(m.ratio);
@@ -216,6 +227,8 @@ function sendStatus(): void {
   const used = jobs.reduce((n, j) => n + sizeOf(j.file), 0);
   sendMsg({
     type: 'status',
+    cameraControls: controls,
+    controlsLocked,
     battery: Math.round(battery),
     charging: false,
     temperatureC: temperature,
@@ -311,7 +324,7 @@ function testPattern(width: number, height: number, fps: number, withAudio = tru
       '[bg][3:v]overlay=format=auto[dial];[dial][dot]overlay=format=auto[pic]',
       withAudio ? '[2:a]asplit=2[a][meter]' : '[2:a]anull[meter]',
       `[meter]showvolume=r=${fps}:w=320:h=6:b=0:t=0:v=0:f=0.8:p=0.18:c=0xe6ffffff[vu]`,
-      `[pic][vu]overlay=x=(W-w)/2:y=H/2+${R + 52}:format=auto,crop=iw/${zoom}:ih/${zoom},scale=${width}:${height}:flags=fast_bilinear,format=yuv420p[v]`,
+      `[pic][vu]overlay=x=(W-w)/2:y=H/2+${R + 52}:format=auto,crop=iw/${zoom}:ih/${zoom},scale=${width}:${height}:flags=fast_bilinear,format=gbrp,colorchannelmixer=rr=${2 ** controls.exposureEv * (controls.whiteBalance === 'manual' ? controls.gains[0] / 2 : 1)}:gg=${2 ** controls.exposureEv * (controls.whiteBalance === 'manual' ? (controls.gains[1] + controls.gains[2]) / 2 : 1)}:bb=${2 ** controls.exposureEv * (controls.whiteBalance === 'manual' ? controls.gains[3] / 2 : 1)},format=yuv420p[v]`,
     ].join(';'),
     ...['-map', '[v]', ...(withAudio ? ['-map', '[a]'] : [])],
   ];
@@ -320,6 +333,8 @@ function testPattern(width: number, height: number, fps: number, withAudio = tru
 // ---------- 變焦與即時畫面 ----------
 
 let zoom = 1;
+let controls: CameraControls = { exposureEv: 0, whiteBalance: 'auto', gains: [2, 1, 1, 2] };
+let controlsLocked = false;
 let preview: ChildProcess | undefined;
 
 function setZoom(ratio: number): void {
@@ -423,6 +438,7 @@ function stopRecording(fileId: string): void {
 function onRecordingEnded(r: Rec, code: number | null, stderr: string): void {
   r.announce?.(); // 還沒寫入就停了，也要先說開始過
   rec = undefined;
+  controlsLocked = false;
   sendStatus(); // 和真的 App 一樣，停止後馬上回報
   const job = jobs.find((j) => j.fileId === r.fileId);
   if (code !== 0 || !job) {

@@ -84,4 +84,16 @@
     <string name="orphans_saving">儲存中…</string>
     <string name="orphans_saved">已存到「影片／MultiCamRecorder」</string>
     <string name="orphans_failed">有 %1$d 支沒存成功，請稍後再試</string>
+    <string name="controls_title">曝光／白平衡</string>
+    <string name="controls_hint">曝光補償調整亮度。開啟手動白平衡後，可調整紅、綠、藍增益；這些設定優先於臉部測光。</string>
+    <string name="controls_manual">手動白平衡</string>
+    <string name="controls_ev">曝光補償：%1$+.2f EV</string>
+    <string name="controls_red">紅色增益（偏暖）：%1$.2f</string>
+    <string name="controls_green">綠色增益：%1$.2f</string>
+    <string name="controls_blue">藍色增益（偏冷）：%1$.2f</string>
+    <string name="controls_locked">這段錄影已鎖定曝光與白平衡，請停止後再調整。</string>
+    <string name="controls_unsupported">此相機不支援手動白平衡，仍可使用曝光補償。</string>
+    <string name="controls_reset">恢復自動</string>
+    <string name="controls_failed">無法套用相機設定：%1$s</string>
+    <string name="controls_wb_wait">請等候即時畫面出現後，再開啟手動白平衡。</string>
 </resources>

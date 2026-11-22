@@ -34,6 +34,10 @@ class Store(context: Context) {
         get() = prefs.getString("name", null)
         set(value) = prefs.edit().putString("name", value).apply()
 
+    var cameraControls: CameraControls
+        get() = runCatching { CameraControls.parse(JSONObject(prefs.getString("cameraControls", "{}")!!)) }.getOrNull() ?: CameraControls()
+        set(value) { prefs.edit().putString("cameraControls", value.json().toString()).apply() }
+
     // 已傳到電腦並驗證過的檔案路徑，「清除已傳完的影片」只會刪這些
     var transferred: Set<String>
         get() = prefs.getStringSet("transferred", emptySet())!!.toSet()

@@ -79,6 +79,8 @@
 **監看**
 
 - **即時畫面**：每秒約 5 張，用來確認構圖。按下開始錄影時，監看區一律切回即時畫面，隨時知道現在拍到什麼。
+- **曝光與白平衡**：每台監看區展開「曝光／白平衡」，可調曝光補償（EV）、切換自動或手動白平衡，並用紅、綠、藍增益微調偏色；手機 App 也有同樣的調整入口，設定會同步並保存在手機。可調範圍依相機而定，不支援手動白平衡時會提示；鎖定曝光的錄影期間不能修改。
+- **多機畫面對齊**：選定一台基準手機，讓其他手機逐台對齊。在兩個畫面選取同一張灰卡或同一物體，可調整取樣範圍，再按「依畫面對齊曝光／白平衡」；系統分析即時畫面的亮度與色彩比例、最多修正 4 次，基準手機的設定保持原樣，也能還原上次校正前的設定。不同機型的色彩處理仍有差異，適合先用灰卡校正後再恢復構圖。
 - **各別變焦**：常用倍率的按鈕加上滑桿，每台各自設定；有超廣角或望遠鏡頭的手機會自動換鏡頭。
 - **構圖輔助框**：在手機預覽、即時畫面和播放器上疊一個 9:16、4:5 或 1:1 的框，架機時就照最後要出的比例構圖。
 - **狀態一目瞭然**：每台的電量、溫度、剩餘空間、還能錄幾分鐘、傳輸速度。電腦的硬碟快滿、傳輸停住、手機斷線時都會直接提示。
@@ -626,6 +628,8 @@ App 會先把影片正常收尾再停止，已經錄到的部分會照常傳到�
 - **Synchronized start**: press `R` / `S` to start or stop every phone (up to 10) at the same moment. The computer syncs clocks and schedules a common start time, and the dashboard shows the measured start offset between phones.
 - **Portrait or landscape**: hold a phone sideways to record 16:9 or upright to record 9:16, so one phone can shoot the long-form video while another shoots the shorts in the same take. The app follows each phone's orientation and locks it while recording.
 - **Portrait settings**: face priority (on by default) makes focus, exposure and white balance follow faces, and exposure, white balance and focus can be locked for the whole take. Both run in the phone's camera pipeline, so resolution and bitrate stay the same. Background blur was tried and removed because only a few phones support it, with resolution limits; there are no filters on purpose either, so grade the clean footage in your editor.
+- **Exposure and white balance**: expand **Exposure / white balance** on a monitor to adjust EV compensation and automatic or manual white balance with red, green and blue gains. The app has the same controls; settings are synchronized and saved on the phone. Available controls depend on the camera, and locked takes cannot be adjusted.
+- **Match camera images**: choose a reference and target, select the same gray card or object in both previews, and match exposure and white balance from the sampled image. Up to four corrections are applied to each target, with an option to restore its previous settings. Match targets one at a time. Camera processing varies, so use a gray card before reframing and expect some remaining differences.
 - **Live view and per-phone zoom**: about 5 fps for framing; pressing record always switches every monitor back to the live view. Phones with ultra-wide or telephoto lenses switch lenses automatically.
 - **Instant playback**: footage is uploaded while recording; after you stop, only the tail is sent and the file is verified chunk by chunk with SHA-256 against the phone's original.
 - **Framing guides**: optional 9:16, 4:5 or 1:1 guides on the phone preview, the live view and the dashboard player; the full frame is always recorded.

@@ -7,6 +7,10 @@ import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
+import android.hardware.camera2.CaptureResult
+import android.hardware.camera2.TotalCaptureResult
+import android.hardware.camera2.params.RggbChannelVector
+import android.hardware.camera2.params.ColorSpaceTransform
 import android.hardware.camera2.params.OutputConfiguration
 import android.hardware.camera2.params.SessionConfiguration
 import android.media.AudioDeviceInfo
@@ -22,9 +26,11 @@ import android.util.Range
 import android.util.Size
 import android.view.Surface
 import android.view.SurfaceHolder
+import org.json.JSONArray
 import java.io.File
 import java.util.concurrent.Executor
 import kotlin.math.log10
+import kotlin.math.roundToInt
 
 // 後鏡頭的預覽和錄影（Camera2 + MediaRecorder）。
 // 錄影用的 surface 一開始就放進相機的 session，開始錄影只要切換 request，
@@ -39,6 +45,8 @@ import kotlin.math.log10
 // 對外的方法都可以從主執行緒呼叫，實際工作在 camera 執行緒做，結果回到主執行緒。
 class CameraRecorder(private val context: Context, private val listener: Listener) {
     interface Listener {
+        fun onControlsError(message: String)
+        fun onControlsChanged(controls: CameraControls)
         fun onReadyChanged(ready: Boolean)
         fun onMaxDurationReached()
         fun onMaxFileSizeReached() // 手機空間快滿了，或碰到這支手機單一影片的大小上限（不少手機是 4 GB）
@@ -77,6 +85,71 @@ class CameraRecorder(private val context: Context, private val listener: Listene
     @Volatile
     var zoom = 1f
         private set
+
+    private val exposureIndices = characteristics.get(CameraCharacteristics.CONTROL_AE_COMPENSATION_RANGE) ?: Range(0, 0)
+    val exposureStep = characteristics.get(CameraCharacteristics.CONTROL_AE_COMPENSATION_STEP)?.toDouble()?.takeIf { it > 0 } ?: 1.0
+    val exposureMin get() = exposureIndices.lower * exposureStep
+    val exposureMax get() = exposureIndices.upper * exposureStep
+    val manualWhiteBalanceSupported = characteristics.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES)
+        ?.contains(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_POST_PROCESSING) == true &&
+        characteristics.get(CameraCharacteristics.CONTROL_AWB_AVAILABLE_MODES)?.contains(CaptureRequest.CONTROL_AWB_MODE_OFF) == true
+
+    @Volatile var controls = CameraControls()
+        private set
+    @Volatile var controlsLocked = false
+        private set
+    @Volatile var controlsError: String? = null
+        private set
+    private val controlPrefs = context.getSharedPreferences("recorder", Context.MODE_PRIVATE)
+    private var autoTransform: ColorSpaceTransform? = runCatching {
+        controlPrefs.getString("cameraColorTransform", null)?.let { value ->
+            val a = JSONArray(value)
+            require(a.length() == 18)
+            ColorSpaceTransform(IntArray(18) { a.getInt(it) })
+        }
+    }.getOrNull()
+    private val captureResults = object : CameraCaptureSession.CaptureCallback() {
+        override fun onCaptureCompleted(s: CameraCaptureSession, request: CaptureRequest, result: TotalCaptureResult) {
+            if (s !== session || controls.whiteBalance != "auto" || request.get(CaptureRequest.CONTROL_AWB_MODE) == CaptureRequest.CONTROL_AWB_MODE_OFF) return
+            result.get(CaptureResult.COLOR_CORRECTION_TRANSFORM)?.let { autoTransform = it }
+            result.get(CaptureResult.COLOR_CORRECTION_GAINS)?.let {
+                val values = listOf(it.red, it.greenEven, it.greenOdd, it.blue)
+                if (values.all { g -> g.isFinite() && g in 1f..8f }) controls = controls.copy(gains = values)
+            }
+        }
+    }
+
+    fun setControls(value: CameraControls) = handler.post {
+        if (controlsLocked) {
+            controlsError = "locked"
+            main.post { listener.onControlsError(context.getString(R.string.controls_locked)) }
+            return@post
+        }
+        if (value.whiteBalance == "manual" && manualWhiteBalanceSupported && autoTransform == null) {
+            controlsError = "notReady"
+            main.post { listener.onControlsError(context.getString(R.string.controls_wb_wait)) }
+            return@post
+        }
+        val previous = controls
+        val index = (value.exposureEv / exposureStep).roundToInt().coerceIn(exposureIndices.lower, exposureIndices.upper)
+        controls = value.copy(exposureEv = index * exposureStep,
+            whiteBalance = if (manualWhiteBalanceSupported) value.whiteBalance else "auto")
+        try {
+            session?.setRepeatingRequest(request(record = recorder != null), captureResults, handler)
+            if (controls.whiteBalance == "manual") autoTransform?.let { matrix ->
+                val values = (0..8).flatMap { i -> matrix.getElement(i % 3, i / 3).let { listOf(it.numerator, it.denominator) } }
+                controlPrefs.edit().putString("cameraColorTransform", JSONArray(values).toString()).apply()
+            }
+            controlsError = null
+            val accepted = controls
+            main.post { listener.onControlsChanged(accepted) }
+        } catch (e: Exception) {
+            controls = previous
+            controlsError = "applyFailed"
+            runCatching { session?.setRepeatingRequest(request(record = recorder != null), captureResults, handler) }
+            main.post { listener.onControlsError(context.getString(R.string.controls_failed, e.message ?: "")) }
+        }
+    }
 
     // 預覽用不超過 1080p 的 16:9
     val previewSize: Size = streamMap.getOutputSizes(SurfaceHolder::class.java)
@@ -217,7 +290,7 @@ class CameraRecorder(private val context: Context, private val listener: Listene
     fun setZoom(ratio: Float) {
         zoom = ratio.coerceIn(zoomRange.lower, zoomRange.upper)
         handler.post {
-            if (session != null) runCatching { session?.setRepeatingRequest(request(record = recorder != null), null, handler) }
+            if (session != null) runCatching { session?.setRepeatingRequest(request(record = recorder != null), captureResults, handler) }
         }
     }
 
@@ -236,6 +309,7 @@ class CameraRecorder(private val context: Context, private val listener: Listene
             return@post
         }
         recorder = null
+        controlsLocked = false
         handler.removeCallbacks(levelPoll)
         val result = runCatching { r.stop() } // 錄太短（沒有任何畫面）時會失敗
         r.release()
@@ -243,7 +317,7 @@ class CameraRecorder(private val context: Context, private val listener: Listene
             focusLocked = false
             runCatching { session?.capture(request(record = false, afTrigger = CaptureRequest.CONTROL_AF_TRIGGER_CANCEL), null, handler) }
         }
-        runCatching { session?.setRepeatingRequest(request(record = false), null, handler) }
+        runCatching { session?.setRepeatingRequest(request(record = false), captureResults, handler) }
         if (wantedSize != sessionSize || wantedFacePriority != sessionFacePriority) createSession()
         main.post { done(result) }
     }
@@ -271,6 +345,7 @@ class CameraRecorder(private val context: Context, private val listener: Listene
             it.release()
         }
         recorder = null
+        controlsLocked = false
         session?.close()
         session = null
         device?.close()
@@ -323,7 +398,7 @@ class CameraRecorder(private val context: Context, private val listener: Listene
                 }
                 session = s
                 try {
-                    s.setRepeatingRequest(request(record = false), null, handler)
+                    s.setRepeatingRequest(request(record = false), captureResults, handler)
                 } catch (e: Exception) {
                     return // 相機剛好斷線或出錯，deviceCallback 會處理
                 }
@@ -359,14 +434,25 @@ class CameraRecorder(private val context: Context, private val listener: Listene
         builder.set(CaptureRequest.CONTROL_ZOOM_RATIO, zoom)
         if (continuousAf) builder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
         if (afTrigger != null) builder.set(CaptureRequest.CONTROL_AF_TRIGGER, afTrigger)
-        if (sessionFacePriority && facePrioritySupported) {
+        builder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
+        if (sessionFacePriority && facePrioritySupported && controls.whiteBalance == "auto" && controls.exposureEv == 0.0) {
             builder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_USE_SCENE_MODE)
             builder.set(CaptureRequest.CONTROL_SCENE_MODE, CaptureRequest.CONTROL_SCENE_MODE_FACE_PRIORITY)
         }
+        builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
+        builder.set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, (controls.exposureEv / exposureStep).roundToInt())
+        if (controls.whiteBalance == "manual" && manualWhiteBalanceSupported) {
+            builder.set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_OFF)
+            builder.set(CaptureRequest.COLOR_CORRECTION_MODE, CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX)
+            val g = controls.gains
+            builder.set(CaptureRequest.COLOR_CORRECTION_GAINS, RggbChannelVector(g[0], g[1], g[2], g[3]))
+            builder.set(CaptureRequest.COLOR_CORRECTION_TRANSFORM, autoTransform ?: ColorSpaceTransform(intArrayOf(
+                1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1)))
+        } else builder.set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_AUTO)
         // 開始錄影的那一刻鎖住，停止後的預覽恢復自動
         if (record && lockExposure && lockSupported) {
             builder.set(CaptureRequest.CONTROL_AE_LOCK, true)
-            builder.set(CaptureRequest.CONTROL_AWB_LOCK, true)
+            if (controls.whiteBalance == "auto") builder.set(CaptureRequest.CONTROL_AWB_LOCK, true)
         }
         return builder.build()
     }
@@ -447,9 +533,10 @@ class CameraRecorder(private val context: Context, private val listener: Listene
     private fun begin(r: MediaRecorder, done: (Result<Started>) -> Unit) {
         try {
             val s = session ?: throw StartFailure("cameraNotReady", "camera not ready")
-            s.setRepeatingRequest(request(record = true), null, handler)
+            s.setRepeatingRequest(request(record = true), captureResults, handler)
             r.start()
             recorder = r
+            controlsLocked = lockExposure
             prepared = null
             // 鎖定時連對焦一起鎖：訪談的人不會動，對焦就不會因為手勢或轉頭而忽遠忽近
             if (lockExposure && continuousAf) {
@@ -464,7 +551,7 @@ class CameraRecorder(private val context: Context, private val listener: Listene
         } catch (e: Exception) {
             prepared = null
             r.release()
-            runCatching { session?.setRepeatingRequest(request(record = false), null, handler) }
+            runCatching { session?.setRepeatingRequest(request(record = false), captureResults, handler) }
             main.post { done(Result.failure(e)) }
         }
     }

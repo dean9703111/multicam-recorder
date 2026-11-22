@@ -15,6 +15,20 @@
 - **手機 App**（`android/`）：Kotlin，Camera2＋MediaRecorder。錄影用的 surface 一開始就放進相機的 session，開始錄影只要切換 request，啟動延遲短而且穩定。
 - **通訊格式**：WebSocket 傳指令、狀態、對時和即時畫面；HTTP 分段上傳影片並驗證。完整格式在 [`server/protocol.ts`](../server/protocol.ts)，其他平台照著實作就能接上；[`tools/fake-phone.ts`](../tools/fake-phone.ts) 是參考實作。
 
+## 曝光、白平衡與畫面對齊
+
+- 網頁 POST `/api/devices/:id/camera-controls` 傳完整的 `CameraControls`，透過 WebSocket 發給手機；伺服器驗證數值、相機能力、連線與錄影鎖定。網頁只在手機回報後更新設定。
+- 曝光使用 Camera2 `CONTROL_AE_EXPOSURE_COMPENSATION`，按手機回報的 EV 範圍與步進量化，沒有改動 ISO 或快門。白平衡使用 AWB OFF＋`COLOR_CORRECTION_MODE_TRANSFORM_MATRIX`，保留自動白平衡量測的色彩矩陣，再套用四通道增益；手動白平衡需要 `MANUAL_POST_PROCESSING` 能力。手動設定優先於 FACE_PRIORITY 場景測光。參考 [Android CaptureRequest 文件](https://developer.android.com/reference/android/hardware/camera2/CaptureRequest#COLOR_CORRECTION_GAINS)。
+- 手機保存調整值及白平衡矩陣；本機 App 與遠端指令共用同一個相機入口。`status.cameraControls` 同步回網頁；自動白平衡時回報目前量測的增益，切換手動時沿用，重連不會由電腦覆蓋手機。
+- `server/public/color-match.js` 將取樣的 sRGB 轉成線性亮度、排除過暗及截白像素，以亮度比估算 EV、以 R/G 與 B/G 的比例差調整增益。校正最多 4 次，每次等手機回報及新畫面後再測量；到達能力上限時顯示剩餘差異。這是預覽取樣的近似校正，沒有色卡矩陣估算，也無法消除各機型色調曲線的差異。沒有足夠有效像素、斷線、過期畫面或逾時就停止；已修改的設定可用還原按鈕恢復。
+- `npm run test:camera` 驗證取樣、EV 計算、色彩修正方向與硬體限制。`npm run smoke-test` 另外驗證指令往返、量化回報、能力降級與錄影鎖定。`fake-phone --no-manual-wb` 可模擬不支援手動白平衡的手機；模擬畫面的色彩變化只用於流程測試，校正品質仍需實機灰卡驗證。
+
+## 尚未發布版本的 App 更新
+
+電腦會檢查 `android/app/build/outputs/apk/release/output-metadata.json`，只有套件 ID、release 類型及版本號都符合目前預期的 `app-release.apk` 才會加入下載。此時「更新手機 App」的 QR Code 與配對頁會改用電腦的區網下載網址，並顯示版本號，避免更新到 GitHub 仍在提供的舊版本。沒有符合版本的本機 release APK 時，仍使用 GitHub Releases。debug APK 不會用於這個更新流程。
+
+`npm run test:app-update` 檢查版本及 release 產物篩選；端對端測試會在本機 release APK 可用時比對區網下載的完整內容。編譯新版本後需重啟電腦端伺服器，手機安裝後重新開啟 App，才能確認新版功能清單。
+
 ## 自己編譯 App
 
 用 Homebrew 安裝 JDK 和 Android SDK，不需要裝整個 Android Studio：

@@ -44,6 +44,10 @@ import android.view.WindowManager
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.TextView
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.SeekBar
+import android.widget.Switch
 import android.widget.Toast
 import android.window.OnBackInvokedCallback
 import android.window.OnBackInvokedDispatcher
@@ -170,8 +174,12 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
         val capabilities = JSONObject()
             .put("facePriority", camera.facePrioritySupported)
             .put("lockExposure", camera.lockSupported)
+            .put("exposureRange", JSONArray().put(camera.exposureMin).put(camera.exposureMax))
+            .put("exposureStep", camera.exposureStep)
+            .put("manualWhiteBalance", camera.manualWhiteBalanceSupported)
         link = ServerLink(store, this, capabilities, ::languageTag)
 
+        camera.setControls(store.cameraControls)
         guideView = findViewById(R.id.guide)
         bindOverlay()
 
@@ -308,6 +316,7 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
                 msg.optJSONObject("spec")?.let(::applySpec)
                 if (msg.has("zoom")) setZoom(msg.getDouble("zoom"))
             }
+            "cameraControls" -> CameraControls.parse(msg)?.let { camera.setControls(it) }
             "config" -> applySpec(msg)
             "rename" -> store.name = msg.optString("name")
             "zoom" -> setZoom(msg.getDouble("ratio"))
@@ -324,6 +333,92 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
         camera.setZoom(ratio.toFloat())
         sendStatus()
         render()
+    }
+
+    override fun onControlsError(message: String) {
+        toast(message)
+        sendStatus() // 設定失敗不會中斷原本的錄影
+    }
+
+    override fun onControlsChanged(controls: CameraControls) {
+        store.cameraControls = controls
+        sendStatus()
+    }
+
+    private var refreshCameraControls: (() -> Unit)? = null
+
+    private fun showCameraControls() {
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(32, 16, 32, 16)
+        }
+        val info = TextView(this).apply { setText(R.string.controls_hint) }
+        box.addView(info)
+        fun slider(label: Int, min: Double, max: Double, step: Double, get: () -> Double, set: (Double) -> Unit): () -> Unit {
+            val text = TextView(this)
+            val bar = SeekBar(this).apply { this.max = ((max - min) / step).roundToInt().coerceAtLeast(0) }
+            box.addView(text)
+            box.addView(bar)
+            var updating = false
+            var dragging = false
+            val refresh = {
+                updating = true
+                if (!dragging) {
+                    text.text = getString(label, get())
+                    bar.progress = ((get() - min) / step).roundToInt()
+                }
+                bar.isEnabled = cameraReady && !camera.controlsLocked && max > min &&
+                    (label == R.string.controls_ev || (camera.manualWhiteBalanceSupported && camera.controls.whiteBalance == "manual"))
+                updating = false
+            }
+            bar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(b: SeekBar, progress: Int, fromUser: Boolean) {
+                    if (fromUser && !updating) text.text = getString(label, min + progress * step)
+                }
+                override fun onStartTrackingTouch(b: SeekBar) { dragging = true }
+                override fun onStopTrackingTouch(b: SeekBar) { dragging = false; set(min + b.progress * step) }
+            })
+            refresh()
+            return refresh
+        }
+        val refreshers = mutableListOf<() -> Unit>()
+        refreshers.add(slider(R.string.controls_ev, camera.exposureMin, camera.exposureMax, camera.exposureStep,
+            { camera.controls.exposureEv }, { camera.setControls(camera.controls.copy(exposureEv = it)) }))
+        val manual = Switch(this).apply { setText(R.string.controls_manual) }
+        box.addView(manual)
+        for ((label, index) in listOf(R.string.controls_red to 0, R.string.controls_green to 1, R.string.controls_blue to 3)) {
+            refreshers.add(slider(label, 1.0, 8.0, 0.05, { camera.controls.gains[index].toDouble() }, { value ->
+                val gains = camera.controls.gains.toMutableList()
+                if (index == 1) { gains[2] = (gains[2] * value / gains[1]).toFloat().coerceIn(1f, 8f) }
+                gains[index] = value.toFloat()
+                camera.setControls(camera.controls.copy(gains = gains))
+            }))
+        }
+        var refreshing = false
+        val refresh = {
+            refreshing = true
+            manual.isChecked = camera.controls.whiteBalance == "manual"
+            manual.isEnabled = cameraReady && camera.manualWhiteBalanceSupported && !camera.controlsLocked
+            info.setText(when {
+                camera.controlsLocked -> R.string.controls_locked
+                !camera.manualWhiteBalanceSupported -> R.string.controls_unsupported
+                else -> R.string.controls_hint
+            })
+            refreshers.forEach { it() }
+            refreshing = false
+        }
+        manual.setOnCheckedChangeListener { _, checked ->
+            if (!refreshing) camera.setControls(camera.controls.copy(whiteBalance = if (checked) "manual" else "auto"))
+        }
+        refreshCameraControls = refresh
+        refresh()
+        val dialog = AlertDialog.Builder(this).setTitle(R.string.controls_title)
+            .setView(ScrollView(this).apply { addView(box) })
+            .setPositiveButton(android.R.string.ok, null)
+            .setNeutralButton(R.string.controls_reset) { _, _ -> camera.setControls(CameraControls()) }
+            .create()
+        dialog.setOnDismissListener { refreshCameraControls = null }
+        dialog.show()
     }
 
     // ---------- 即時畫面 ----------
@@ -484,6 +579,7 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
 
     override fun onReadyChanged(ready: Boolean) {
         cameraReady = ready
+        refreshCameraControls?.invoke()
         sendStatus()
         render()
     }
@@ -603,6 +699,7 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
     }
 
     private fun sendStatus() {
+        refreshCameraControls?.invoke()
         val battery = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         val level = battery?.let {
             it.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) * 100 / it.getIntExtra(BatteryManager.EXTRA_SCALE, 100).coerceAtLeast(1)
@@ -617,6 +714,9 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
                 .put("temperatureC", temperature)
                 .put("freeBytes", StatFs(moviesDir.path).availableBytes)
                 .put("cameraReady", cameraReady)
+                .put("cameraControls", camera.controls.json())
+                .put("controlsLocked", camera.controlsLocked)
+                .put("cameraControlsError", camera.controlsError ?: JSONObject.NULL)
                 .put("recordingFileId", recording?.fileId ?: JSONObject.NULL)
                 .put("audioSource", micDevice()?.let(camera::audioSource) ?: "builtin")
                 .put("audioName", micDevice()?.takeIf { camera.audioSource(it) != "builtin" }?.productName?.toString() ?: JSONObject.NULL)
@@ -656,6 +756,7 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
             setOnClickListener { toggleDim() }
             setText(if (dimmed) R.string.undim else R.string.dim)
         }
+        findViewById<Button>(R.id.camera_controls).setOnClickListener { showCameraControls() }
         cleanButton = findViewById<Button>(R.id.clean).apply { setOnClickListener { confirmClean() } }
         uploadView.setOnClickListener { if (orphanFiles().isNotEmpty()) confirmSaveOrphans() }
         // 權限被拒絕過，系統就不會再問，只能到 App 的設定頁打開

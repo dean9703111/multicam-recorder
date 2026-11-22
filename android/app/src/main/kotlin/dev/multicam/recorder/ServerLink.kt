@@ -82,7 +82,7 @@ class ServerLink(private val store: Store, private val listener: Listener, priva
         connected = true
         socket.send(
             JSONObject().put("type", "hello").put("model", Build.MODEL).put("appVersion", APP_VERSION)
-                .put("features", JSONArray(listOf("preview", "zoom", "audio"))).put("camera", camera).put("lang", language()).toString(),
+                .put("features", JSONArray(listOf("preview", "zoom", "audio", "cameraControls"))).put("camera", camera).put("lang", language()).toString(),
         )
         while (outbox.isNotEmpty()) socket.send(outbox.removeFirst())
         bestRtt = Long.MAX_VALUE

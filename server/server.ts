@@ -8,11 +8,13 @@ import type { Duplex } from 'node:stream';
 import QRCode from 'qrcode';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { logEvent } from './events.ts';
+import { localReleaseApk } from './app-download.ts';
 import { fromDashboard, HttpError, isLoopback, readJson, sendFile, sendJson } from './http.ts';
 import { currentLang, joinList, LANG_SETTINGS, m, parseLang, PHONE_ERRORS, setDefaultLang, systemLang, withLang, type Lang, type LangSetting } from './i18n.ts';
 import { ffmpegInstallCommand, moveToTrash, openTrash, openUrl, powershellArgs, psQuote, toolDirs } from './platform.ts';
 import type {
   CameraCapabilities,
+  CameraControls,
   DeviceMessage,
   DeviceStatus,
   FinishRequest,
@@ -46,7 +48,7 @@ import { finalPath, finish, partPath, receivedBytes, verify, writeChunk } from '
 const PORT = Number(process.env.PORT ?? 8787);
 const VERSION: string = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, '../package.json'), 'utf8')).version;
 // 最新版的手機 App。比這個舊的，控制台會提醒更新（發新版 APK 時要一起改，tools/check-release.ts 會檢查）
-const LATEST_APP_VERSION = '0.6.1';
+const LATEST_APP_VERSION = '0.6.2';
 // 單段上限由使用者在錄影規格裡設定（db.settings.maxMinutes）；測試時可以用環境變數縮短
 const MAX_SEC_OVERRIDE = process.env.RECORDER_MAX_SEC ? Number(process.env.RECORDER_MAX_SEC) : undefined;
 const maxDurationSec = (): number => MAX_SEC_OVERRIDE ?? db.settings.maxMinutes * 60;
@@ -72,6 +74,7 @@ const VENDOR_FILE = path.join(NODE_MODULES, 'htm/preact/standalone.module.js');
 const STATIC: Record<string, string> = {
   'index.html': 'text/html; charset=utf-8',
   'app.js': 'text/javascript; charset=utf-8',
+  'color-match.js': 'text/javascript; charset=utf-8',
   'i18n.js': 'text/javascript; charset=utf-8',
   'style.css': 'text/css; charset=utf-8',
 };
@@ -154,12 +157,29 @@ const isNumber = (x: unknown): x is number => typeof x === 'number' && Number.is
 // 手機回報的相機能力；格式不對的項目當成做不到
 function cameraOf(c: Partial<CameraCapabilities> | undefined): CameraCapabilities | null {
   if (!c || typeof c !== 'object') return null;
-  return { facePriority: c.facePriority === true, lockExposure: c.lockExposure === true };
+  const range = c.exposureRange;
+  const exposureRange: [number, number] | undefined = Array.isArray(range) && range.length === 2 && range.every(isNumber) &&
+    range[0] <= 0 && range[1] >= 0 && range[0] >= -24 && range[1] <= 24 ? [range[0], range[1]] : undefined;
+  return { facePriority: c.facePriority === true, lockExposure: c.lockExposure === true,
+    exposureRange, exposureStep: isNumber(c.exposureStep) && c.exposureStep > 0 ? c.exposureStep : undefined,
+    manualWhiteBalance: c.manualWhiteBalance === true };
+}
+
+function controlsOf(value: unknown): CameraControls | undefined {
+  if (!value || typeof value !== 'object') return;
+  const c = value as CameraControls;
+  if (!isNumber(c.exposureEv) || Math.abs(c.exposureEv) > 24 || !['auto', 'manual'].includes(c.whiteBalance) ||
+    !Array.isArray(c.gains) || c.gains.length !== 4 || !c.gains.every((n) => isNumber(n) && n >= 1 && n <= 8)) return;
+  return { exposureEv: c.exposureEv, whiteBalance: c.whiteBalance, gains: [...c.gains] };
 }
 
 // 手機回報的狀態：只取認得、型別也對的欄位，格式不對的手機不會把控制台弄壞
 function statusOf(m: Record<string, unknown>): DeviceStatus {
   const s: DeviceStatus = {};
+  const controls = controlsOf(m.cameraControls);
+  if (controls) s.cameraControls = controls;
+  if (m.cameraControlsError === null || m.cameraControlsError === 'locked' || m.cameraControlsError === 'notReady' || m.cameraControlsError === 'applyFailed') s.cameraControlsError = m.cameraControlsError;
+  if (typeof m.controlsLocked === 'boolean') s.controlsLocked = m.controlsLocked;
   if (isNumber(m.battery)) s.battery = m.battery;
   if (typeof m.charging === 'boolean') s.charging = m.charging;
   if (isNumber(m.temperatureC)) s.temperatureC = m.temperatureC;
@@ -590,6 +610,14 @@ async function createPairing(renew: boolean): Promise<{ qr: string; link: string
   return { qr, link, payload, expiresAt: pairing.expiresAt };
 }
 
+// A locally compiled release can be downloaded over Wi-Fi before it is published to GitHub.
+const RELEASE_APK_DIR = path.join(import.meta.dirname, '../android/app/build/outputs/apk/release');
+const APP_APK_PATH = `/app/MultiCamRecorder-${LATEST_APP_VERSION}.apk`;
+function appDownloadUrl(host?: string): string {
+  const address = host ?? (lanAddress() ? `${lanAddress()}:${PORT}` : undefined);
+  return address && localReleaseApk(RELEASE_APK_DIR, LATEST_APP_VERSION) ? `http://${address}${APP_APK_PATH}` : APP_DOWNLOAD_URL;
+}
+
 const escapeHtml = (s: string): string =>
   s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
@@ -598,9 +626,10 @@ const escapeHtml = (s: string): string =>
 function pairPage(req: IncomingMessage, res: ServerResponse, code: string | null): void {
   const valid = !!pairing && code === pairing.token && Date.now() < pairing.expiresAt;
   const host = /^[\w.-]+(:\d+)?$/.test(req.headers.host ?? '') ? req.headers.host : `${lanAddress()}:${PORT}`;
+  const downloadUrl = appDownloadUrl(host);
   const intent =
     `intent://pair?server=${encodeURIComponent(`http://${host}`)}&code=${encodeURIComponent(code ?? '')}` +
-    `#Intent;scheme=multicam;package=dev.multicam.recorder;S.browser_fallback_url=${encodeURIComponent(APP_DOWNLOAD_URL)};end`;
+    `#Intent;scheme=multicam;package=dev.multicam.recorder;S.browser_fallback_url=${encodeURIComponent(downloadUrl)};end`;
   const ios = /iPhone|iPad|iPod/.test(req.headers['user-agent'] ?? '');
   let body: string;
   if (ios) {
@@ -612,7 +641,7 @@ function pairPage(req: IncomingMessage, res: ServerResponse, code: string | null
        <a class="btn" href="${escapeHtml(intent)}">${m('pairPage.button')}</a>
        <h2>${m('pairPage.noApp')}</h2>
        <ol>
-         <li>${m('pairPage.step1', { url: APP_DOWNLOAD_URL })}</li>
+         <li>${m('pairPage.step1', { url: downloadUrl })}</li>
          <li>${m('pairPage.step2')}</li>
        </ol>
        <p class="note">${m('pairPage.verify', { fp: APP_CERT_SHA256 })}</p>
@@ -1098,6 +1127,12 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const method = req.method ?? 'GET';
 
   // 手機用的 API：區網可以連，靠配對碼和 token 驗證
+  if (method === 'GET' && p === APP_APK_PATH) {
+    const apk = localReleaseApk(RELEASE_APK_DIR, LATEST_APP_VERSION);
+    if (!apk) throw new HttpError(404, m('http.fileNotFound'));
+    res.setHeader('Content-Disposition', `attachment; filename="MultiCamRecorder-${LATEST_APP_VERSION}.apk"`);
+    return sendFile(req, res, apk, 'application/vnd.android.package-archive');
+  }
   if (method === 'GET' && p === '/pair') return pairPage(req, res, url.searchParams.get('code'));
   if (method === 'POST' && p === '/api/pair') return pair(req, res);
   let match = /^\/api\/upload\/([\w-]+)(\/finish|\/verify)?$/.exec(p);
@@ -1118,7 +1153,10 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
     match = /^\/fonts\/((barlow-condensed|barlow|martian-mono)-latin-\d{3}-normal\.woff2)$/.exec(p);
     if (match) return sendFile(req, res, path.join(NODE_MODULES, '@fontsource', match[2], 'files', match[1]), 'font/woff2');
     if (p === '/api/state') return sendJson(res, 200, snapshot());
-    if (p === '/api/app-qr') return sendJson(res, 200, { url: APP_DOWNLOAD_URL, qr: await QRCode.toDataURL(APP_DOWNLOAD_URL, { margin: 1, width: 360 }) });
+    if (p === '/api/app-qr') {
+      const url = appDownloadUrl();
+      return sendJson(res, 200, { url, version: LATEST_APP_VERSION, local: url !== APP_DOWNLOAD_URL, qr: await QRCode.toDataURL(url, { margin: 1, width: 360 }) });
+    }
     match = /^\/media\/([\w-]+)$/.exec(p);
     if (match) {
       const f = db.files.find((x) => x.id === match![1]);
@@ -1250,6 +1288,22 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
       logEvent('phone.removed', { name: d.name });
       changed();
       return sendJson(res, 200, { ok: true });
+    }
+    match = /^\/api\/devices\/([\w-]+)\/camera-controls$/.exec(p);
+    if (match) {
+      const d = db.devices.find((x) => x.id === match![1]);
+      if (!d) throw new HttpError(404, m('device.notFound'));
+      const l = live.get(d.id);
+      if (!l || l.status.cameraReady !== true) throw new HttpError(409, m('device.controlsUnavailable'));
+      if (!l.features.includes('cameraControls')) throw new HttpError(409, m('device.controlsUnsupported'));
+      if (l.status.controlsLocked || activeFile(d.id)?.spec.lockExposure) throw new HttpError(409, m('device.controlsLocked'));
+      const controls = controlsOf(await readJson(req));
+      if (!controls) throw new HttpError(400, m('device.badControls'));
+      const range = l.camera?.exposureRange;
+      if (!range || !l.camera?.exposureStep || controls.exposureEv < range[0] || controls.exposureEv > range[1] ||
+        (controls.whiteBalance === 'manual' && !l.camera?.manualWhiteBalance)) throw new HttpError(400, m('device.controlsUnsupported'));
+      send(d.id, { type: 'cameraControls', ...controls });
+      return sendJson(res, 200, { ok: true }); // 只有手機回報後才更新畫面，避免把送出誤當成套用成功
     }
     match = /^\/api\/devices\/([\w-]+)\/zoom$/.exec(p);
     if (match) {
