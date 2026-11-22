@@ -238,7 +238,7 @@ npm start
 - **錄影中的警示**：每台都有音量表；超過 10 秒沒有聲音、爆音、外接麥克風鬆脫改用手機內建麥克風，或手機太熱時，控制台上方會跳出警示，捲動時也看得到。
 
 > [!IMPORTANT]
-> 錄影時 App 要一直開在前景，螢幕不能關，因為 Android 不允許背景 App 使用相機。錄影中按返回鍵不會離開 App；建議開啟手機的「固定應用程式」（在設定裡搜尋「固定」），連切換 App 的手勢也擋得住。長時間錄影可以按 App 上的「調暗螢幕」省電、降溫。
+> 錄影時 App 要一直開在前景，螢幕不能關，因為 Android 不允許背景 App 使用相機。錄影中按返回鍵不會離開 App；建議開啟手機的「固定應用程式」（在設定裡搜尋「固定」），連切換 App 的手勢也擋得住。長時間錄影可以按 App 上的「省電」省電、降溫。
 
 ![錄影規格選單：解析度（4K、2K、1080p、720p）、單段上限（輸入 10～90 分鐘，旁邊寫每台要多少空間）、構圖輔助框，最下面是人像設定的兩個開關；頂列的按鈕寫著 4K、30 分鐘和「臉部優先」；橫拿那台的即時畫面上疊著 9:16 的框，直拿那台本來就是 9:16](docs/images/spec-guide.png)
 
@@ -250,11 +250,11 @@ npm start
 2. **錄影計時**：最後 3 分鐘會變成琥珀色，並顯示剩餘時間。
 3. **收音來源、變焦**：接上外接麥克風後，請確認這裡顯示「外接 USB」或「耳機孔外接」。下面一行是目前的變焦倍率。
 4. **傳輸狀態**：「邊錄邊傳中」「還有 1 支在收尾」，或「影片都已傳到電腦」。
-5. **調暗螢幕**：長時間錄影時省電、降溫。
-6. **掃描、清除已傳完的影片**：錄影中會停用，避免誤觸而中斷錄影。還沒配對時，掃描按鈕會變成紅色。
+5. **右下工具列**：「調整」可改曝光與白平衡；「省電」調暗螢幕，再按「恢復」還原亮度。
+6. **配對、清理**：「配對」掃描電腦的 QR Code，「清理」只刪除已傳完並驗證的影片，旁邊顯示可清理數量。錄影中會停用這兩個工具；未配對時會強調配對按鈕。
 7. **構圖輔助框**：在電腦上選了 9:16、4:5 或 1:1 時，會疊在預覽上。
 
-手機直拿時，App 的畫面也會轉成直的，內容一樣，只是排列不同：名稱和收音在上面，計時在下一行，上傳狀態和三個按鈕在最下面。直拿時寬度比較窄，「清除已傳完的影片」會簡寫成「清除已傳完」，按下去一樣會先列出要刪的影片讓你確認。
+手機直拿時，App 的畫面也會轉成直的：名稱和收音在上面，計時在下一行，上傳狀態在工具列上方。0.6.3 起，直拿與橫拿都使用同一組「調整、省電、配對、清理」圖示工具列，固定在右下角；清理前仍會列出影片讓你確認。
 
 <p align="center">
   <img src="docs/images/phone-app-portrait.png" width="480" alt="手機 App 直拿時的畫面：名稱和收音在上面、錄影計時在下一行、三個按鈕在最下面排成一列，錄影中方向鎖住">
@@ -283,7 +283,7 @@ npm start
 - 傳輸中的檔案副檔名是 `.part`，驗證通過後才改成 `.mp4`。
 - 清單上會顯示同一次錄影的各台開始時間差幾毫秒，剪輯時可以參考；要精準對齊，建議用剪輯軟體依音訊自動同步。
 - 在 Finder 或檔案總管裡刪掉影片或專案資料夾，清單上也會跟著拿掉。外接硬碟沒接上時紀錄會先保留，接回來就恢復。
-- 手機上的原檔不會自動刪除。確認電腦上的檔案沒問題後，可以在 App 按「清除已傳完的影片」，它只會刪掉已經傳到電腦並驗證過的檔案。
+- 手機上的原檔不會自動刪除。確認電腦上的檔案沒問題後，可以在 App 按「清理」，它只會刪掉已經傳到電腦並驗證過的檔案。
 
 ### 更新到新版
 
@@ -304,7 +304,7 @@ npm start
 正式開拍前花一分鐘檢查，最常見的意外都能先避開：
 
 - [ ] **手機空間夠**：「錄影規格」的單段上限旁邊會寫每支手機要空出多少（4K 每 30 分鐘約 9 GB）。不夠的話，按 `R` 時也會先提醒是哪一台。
-- [ ] **手機接上充電**，長時間錄影可以按 App 上的「調暗螢幕」省電、降溫。
+- [ ] **手機接上充電**，長時間錄影可以按 App 上的「省電」省電、降溫。
 - [ ] **手機開啟「固定應用程式」和勿擾模式**：來電或不小心切到別的 App，那一台都會提早停止。
 - [ ] **電腦接上電源，不要闔上螢幕**：闔上會讓電腦睡著，錄影控制和傳輸都會停下來。
 - [ ] **執行 `npm start` 的終端機開著**，控制台上每一台都看得到即時畫面。
@@ -516,7 +516,7 @@ App 上的「連不到電腦」後面會寫它正在連的位址。電腦換過�
 <details>
 <summary>手機空間不夠？</summary>
 
-按 `R` 時，空間不夠錄完一段的手機會先列出來，告訴你大概能錄多久。可以在那支手機上按「清除已傳完的影片」（只刪已經傳到電腦並驗證過的），或在「錄影規格」改用低一點的解析度、短一點的單段上限。錄到一半空間滿了，App 會正常收尾，已經錄到的部分照常傳到電腦。
+按 `R` 時，空間不夠錄完一段的手機會先列出來，告訴你大概能錄多久。可以在那支手機上按「清理」（只刪已經傳到電腦並驗證過的），或在「錄影規格」改用低一點的解析度、短一點的單段上限。錄到一半空間滿了，App 會正常收尾，已經錄到的部分照常傳到電腦。
 </details>
 
 <details>
@@ -693,7 +693,7 @@ The computer side is installed with a few commands in a terminal: **just copy an
 ### Before you shoot
 
 - [ ] **Enough free space on each phone**: the take length under **Recording settings** shows how much a full take needs (4K takes about 9 GB per 30 minutes), and pressing `R` warns you about any phone that's short.
-- [ ] **Phones charging**; for long takes, tap **Dim screen** in the app.
+- [ ] **Phones charging**; for long takes, tap **Dim** in the app.
 - [ ] **App pinning and Do Not Disturb on**: a call or switching apps stops that phone early.
 - [ ] **Computer plugged in with the lid open**: a sleeping computer stops control and uploads.
 - [ ] **The terminal running `npm start` is open** and every phone shows a live view.
@@ -709,7 +709,7 @@ When something goes wrong, the dashboard and the app say what happened and what 
 - **Install warnings**: allow your browser or Files app to install unknown apps, and let Google Play Protect scan the app if it asks. A build you compiled yourself (debug) must be uninstalled before installing the release, and **uninstalling deletes the videos stored in the app**.
 - **Footage is still on the phone**: it uploads automatically when the phone reconnects. If the app says some videos didn't reach the computer, tap that line and choose **Save to Movies**; they're saved to `Movies/MultiCamRecorder` and survive uninstalling the app.
 - **A phone stopped after about 13 minutes of 4K**: many phones cap a single video at 4 GB. Use 2K or 1080p for longer takes; the dashboard warns you before the next take.
-- **Not enough space on a phone**: the dashboard asks before starting. Tap **Clear uploaded videos** on the phone (it only deletes verified uploads), or pick a lower resolution or a shorter take length.
+- **Not enough space on a phone**: the dashboard asks before starting. Tap **Clear** on the phone (it only deletes verified uploads), or pick a lower resolution or a shorter take length.
 - **The app was interrupted** (sent to the background or by a call): it finishes the file properly and what it recorded still uploads; turn on app pinning and Do Not Disturb next time.
 
 ### Is the app safe?

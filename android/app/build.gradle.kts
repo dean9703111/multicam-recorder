@@ -18,8 +18,8 @@ android {
         applicationId = "dev.multicam.recorder"
         minSdk = 31 // Android 12
         targetSdk = 36
-        versionCode = 11
-        versionName = "0.6.2"
+        versionCode = 12
+        versionName = "0.6.3"
     }
 
     signingConfigs {

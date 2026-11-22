@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Both orientations share the same controls, spacing and accessibility labels. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/camera_toolbar"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:background="@drawable/camera_toolbar_background"
+    android:elevation="8dp"
+    android:orientation="horizontal"
+    android:padding="6dp">
+
+    <Button
+        android:id="@+id/camera_controls"
+        style="@style/Button.CameraTool"
+        android:contentDescription="@string/controls_title"
+        android:drawableTop="@drawable/ic_camera_adjust"
+        android:text="@string/toolbar_adjust"
+        android:tooltipText="@string/controls_title" />
+
+    <Button
+        android:id="@+id/dim"
+        style="@style/Button.CameraTool"
+        android:contentDescription="@string/dim"
+        android:drawableTop="@drawable/ic_camera_dim"
+        android:text="@string/toolbar_dim"
+        android:tooltipText="@string/dim" />
+
+    <Button
+        android:id="@+id/scan"
+        style="@style/Button.CameraTool"
+        android:contentDescription="@string/scan"
+        android:drawableTop="@drawable/ic_camera_pair"
+        android:text="@string/toolbar_pair"
+        android:tooltipText="@string/scan" />
+
+    <Button
+        android:id="@+id/clean"
+        style="@style/Button.CameraTool"
+        android:contentDescription="@string/clean"
+        android:drawableTop="@drawable/ic_camera_clean"
+        android:text="@string/toolbar_clean"
+        android:tooltipText="@string/clean" />
+</LinearLayout>

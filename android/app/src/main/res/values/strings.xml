@@ -102,4 +102,10 @@
     <string name="controls_reset">Reset to auto</string>
     <string name="controls_failed">Could not apply camera settings: %1$s</string>
     <string name="controls_wb_wait">Wait for the live image before enabling manual white balance.</string>
+    <string name="toolbar_adjust">Adjust</string>
+    <string name="toolbar_dim">Dim</string>
+    <string name="toolbar_undim">Restore</string>
+    <string name="toolbar_pair">Pair</string>
+    <string name="toolbar_clean">Clear</string>
+    <string name="toolbar_clean_count">Clear %s</string>
 </resources>

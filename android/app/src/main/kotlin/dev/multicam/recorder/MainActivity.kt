@@ -9,11 +9,9 @@ import android.content.IntentFilter
 import android.content.pm.ActivityInfo
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
-import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Matrix
-import android.graphics.drawable.Drawable
 import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
@@ -94,8 +92,6 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
     private lateinit var uploadView: TextView
     private lateinit var guideView: GuideOverlay
     private lateinit var scanButton: Button
-    private var scanBackground: Drawable? = null // 按鈕原本的樣子
-    private var scanHighlight: Drawable? = null // 還沒配對時用的紅色版本（另外複製一份，原本的才不會被染色）
     private lateinit var dimButton: Button
     private lateinit var cleanButton: Button
 
@@ -750,13 +746,13 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
         micView = findViewById(R.id.mic)
         uploadView = findViewById(R.id.upload)
         scanButton = findViewById<Button>(R.id.scan).apply { setOnClickListener { scan() } }
-        scanBackground = scanButton.background
-        scanHighlight = scanBackground?.constantState?.newDrawable(resources, theme)?.mutate()?.apply { setTintList(RED_TINT) }
         dimButton = findViewById<Button>(R.id.dim).apply {
             setOnClickListener { toggleDim() }
-            setText(if (dimmed) R.string.undim else R.string.dim)
         }
-        findViewById<Button>(R.id.camera_controls).setOnClickListener { showCameraControls() }
+        findViewById<Button>(R.id.camera_controls).apply {
+            isActivated = true
+            setOnClickListener { showCameraControls() }
+        }
         cleanButton = findViewById<Button>(R.id.clean).apply { setOnClickListener { confirmClean() } }
         uploadView.setOnClickListener { if (orphanFiles().isNotEmpty()) confirmSaveOrphans() }
         // 權限被拒絕過，系統就不會再問，只能到 App 的設定頁打開
@@ -797,9 +793,8 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
                 else -> MUTED
             },
         )
-        // 還沒配對時，把掃描按鈕標成紅色，告訴使用者下一步
-        val background = if (unpaired) scanHighlight ?: scanBackground else scanBackground
-        if (scanButton.background !== background) scanButton.background = background
+        // 未配對時只強調配對工具，不再把整顆系統按鈕染成紅色。
+        scanButton.isActivated = unpaired
         val zoomable = camera.zoomRange.upper > camera.zoomRange.lower
         micView.text = getString(R.string.mic_line, micLabel()) +
             if (zoomable) "\n" + getString(R.string.zoom_line, "%.1f".format(camera.zoom)) else ""
@@ -828,7 +823,10 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
         // 錄影中不能掃描或清檔案：掃描會切到別的畫面，錄影就會中斷
         scanButton.isEnabled = rec == null
         val cleanable = store.transferred.count { File(it).exists() }
-        cleanButton.text = if (cleanable > 0) getString(R.string.clean_count, cleanable) else getString(R.string.clean)
+        cleanButton.text = if (cleanable > 0) getString(R.string.toolbar_clean_count, if (cleanable > 99) "99+" else cleanable.toString()) else getString(R.string.toolbar_clean)
+        cleanButton.contentDescription = if (cleanable > 0) getString(R.string.clean_count, cleanable) else getString(R.string.clean)
+        cleanButton.tooltipText = cleanButton.contentDescription
+        updateDimButton()
         cleanButton.isEnabled = rec == null && cleanable > 0
     }
 
@@ -837,7 +835,20 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
         window.attributes = window.attributes.apply {
             screenBrightness = if (dimmed) 0.02f else WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
         }
-        dimButton.setText(if (dimmed) R.string.undim else R.string.dim)
+        updateDimButton()
+    }
+
+    private fun updateDimButton() {
+        dimButton.isSelected = dimmed
+        dimButton.setText(if (dimmed) R.string.toolbar_undim else R.string.toolbar_dim)
+        dimButton.contentDescription = getString(if (dimmed) R.string.undim else R.string.dim)
+        dimButton.tooltipText = dimButton.contentDescription
+        val icon = if (dimmed) R.drawable.ic_camera_bright else R.drawable.ic_camera_dim
+        // Only replace the drawable on a state change, not on every status refresh.
+        if (dimButton.tag != icon) {
+            dimButton.setCompoundDrawablesWithIntrinsicBounds(0, icon, 0, 0)
+            dimButton.tag = icon
+        }
     }
 
     private fun confirmClean() {
@@ -945,7 +956,6 @@ class MainActivity : Activity(), ServerLink.Listener, CameraRecorder.Listener {
         private const val RED = 0xFFFF3B3B.toInt()
         private const val AMBER = 0xFFFFB000.toInt()
         private const val PREVIEW_INTERVAL_MS = 200L // 每秒 5 張
-        private val RED_TINT = ColorStateList.valueOf(RED)
 
         private fun sizeOf(resolution: String) = when (resolution) {
             "2160p" -> Size(3840, 2160)

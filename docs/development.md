@@ -186,6 +186,7 @@ android/app/src/main/
   kotlin/.../AspectFrameLayout.kt  讓預覽維持錄影的長寬比
   kotlin/.../MainActivity.kt       畫面與整體流程、跟著手機轉向、擷取即時畫面、對話框
   res/layout/overlay.xml           橫拿時的狀態列；直拿的在 layout-port/
+  res/layout/camera_toolbar.xml    直拿／橫拿共用的右下工具列，圖示與背景在 drawable/
   res/values/strings.xml           App 的文字（英文）；繁體中文在 values-b+zh+Hant/，直拿時的短字在 values-port/、values-b+zh+Hant-port/
 tools/
   fake-phone.ts            模擬手機，也是通訊格式的參考實作

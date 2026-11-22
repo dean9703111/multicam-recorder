@@ -96,4 +96,10 @@
     <string name="controls_reset">恢復自動</string>
     <string name="controls_failed">無法套用相機設定：%1$s</string>
     <string name="controls_wb_wait">請等候即時畫面出現後，再開啟手動白平衡。</string>
+    <string name="toolbar_adjust">調整</string>
+    <string name="toolbar_dim">省電</string>
+    <string name="toolbar_undim">恢復</string>
+    <string name="toolbar_pair">配對</string>
+    <string name="toolbar_clean">清理</string>
+    <string name="toolbar_clean_count">清理 %s</string>
 </resources>
